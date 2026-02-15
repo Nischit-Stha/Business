@@ -721,3 +721,76 @@ function renderAdminRequests() {
         </div>
     `).join('');
 }
+
+function renderServiceLogs() {
+    const container = document.getElementById('service-logs');
+    if (!container) return;
+
+    const pickups = JSON.parse(localStorage.getItem('starr365-pickups') || '[]');
+    const dropoffs = JSON.parse(localStorage.getItem('starr365-dropoffs') || '[]');
+    const swaps = JSON.parse(localStorage.getItem('starr365-swaps') || '[]');
+
+    const logs = [
+        ...pickups.map(item => ({ type: 'Pickup', data: item })),
+        ...dropoffs.map(item => ({ type: 'Drop-off', data: item })),
+        ...swaps.map(item => ({ type: 'Swap', data: item }))
+    ].sort((a, b) => new Date(b.data.timestamp) - new Date(a.data.timestamp));
+
+    if (logs.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #999;">No service logs yet</p>';
+        return;
+    }
+
+    container.innerHTML = logs.map(entry => {
+        const time = entry.data.timestamp ? new Date(entry.data.timestamp).toLocaleString() : 'N/A';
+        const refId = entry.data.serviceRefId || 'N/A';
+
+        if (entry.type === 'Pickup') {
+            return `
+                <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px;">
+                    <h4>🔑 Pickup</h4>
+                    <p><strong>Ref ID:</strong> ${refId}</p>
+                    <p><strong>Customer:</strong> ${entry.data.name}</p>
+                    <p><strong>Vehicle:</strong> ${entry.data.vehicle}</p>
+                    <p><strong>Mileage:</strong> ${entry.data.mileage} km</p>
+                    <p><strong>Fuel:</strong> ${entry.data.fuel}</p>
+                    <p><strong>Condition:</strong> ${entry.data.condition}</p>
+                    <p><strong>Time:</strong> ${time}</p>
+                </div>
+            `;
+        }
+
+        if (entry.type === 'Drop-off') {
+            return `
+                <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px;">
+                    <h4>🗝️ Drop-off</h4>
+                    <p><strong>Ref ID:</strong> ${refId}</p>
+                    <p><strong>Customer:</strong> ${entry.data.name}</p>
+                    <p><strong>Vehicle:</strong> ${entry.data.vehicle}</p>
+                    <p><strong>Rego:</strong> ${entry.data.rego || 'N/A'}</p>
+                    <p><strong>Mileage:</strong> ${entry.data.mileage} km</p>
+                    <p><strong>Fuel:</strong> ${entry.data.fuel}</p>
+                    <p><strong>Condition:</strong> ${entry.data.condition}</p>
+                    <p><strong>Notes:</strong> ${entry.data.notes || 'None'}</p>
+                    <p><strong>Time:</strong> ${time}</p>
+                </div>
+            `;
+        }
+
+        return `
+            <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px;">
+                <h4>🔄 Swap</h4>
+                <p><strong>Ref ID:</strong> ${refId}</p>
+                <p><strong>Customer:</strong> ${entry.data.name}</p>
+                <p><strong>Current Vehicle:</strong> ${entry.data.currentVehicle}</p>
+                <p><strong>Current Mileage:</strong> ${entry.data.currentMileage} km</p>
+                <p><strong>Current Fuel:</strong> ${entry.data.currentFuel}</p>
+                <p><strong>Condition:</strong> ${entry.data.currentCondition}</p>
+                <p><strong>New Vehicle:</strong> ${entry.data.newVehicle}</p>
+                <p><strong>Reason:</strong> ${entry.data.reason}</p>
+                <p><strong>Notes:</strong> ${entry.data.notes || 'None'}</p>
+                <p><strong>Time:</strong> ${time}</p>
+            </div>
+        `;
+    }).join('');
+}

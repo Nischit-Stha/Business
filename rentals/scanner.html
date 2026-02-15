@@ -330,10 +330,22 @@
                 <strong>📋 Pickup Process:</strong> Please verify the vehicle condition and provide your booking confirmation. We'll document the initial vehicle state.
             </div>
 
+            <div class="info-box" id="pickup-available-box">
+                <strong>✅ Available Cars First:</strong>
+                <div id="pickup-available-cars" style="margin-top: 10px; font-size: 0.95em; color: #444;">Loading available cars...</div>
+            </div>
+
             <form id="pickup-form" onsubmit="submitPickup(event)">
                 <div class="form-group">
-                    <label>Booking ID *</label>
-                    <input type="text" id="pickup-booking-id" placeholder="e.g., BK-2026-001" required>
+                    <label>Service Reference ID (Auto)</label>
+                    <input type="text" id="pickup-ref-id" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label>Select Available Car *</label>
+                    <select id="pickup-vehicle-select" required>
+                        <option value="">Choose a vehicle...</option>
+                    </select>
                 </div>
 
                 <div class="form-group">
@@ -343,7 +355,7 @@
 
                 <div class="form-group">
                     <label>Vehicle Details *</label>
-                    <input type="text" id="pickup-vehicle" placeholder="Car make, model, license plate" required>
+                    <input type="text" id="pickup-vehicle" placeholder="Car make, model, license plate" readonly required>
                 </div>
 
                 <div class="form-group">
@@ -400,8 +412,15 @@
 
             <form id="dropoff-form" onsubmit="submitDropoff(event)">
                 <div class="form-group">
-                    <label>Booking ID *</label>
-                    <input type="text" id="dropoff-booking-id" placeholder="e.g., BK-2026-001" required>
+                    <label>Service Reference ID (Auto)</label>
+                    <input type="text" id="dropoff-ref-id" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label>Select Vehicle *</label>
+                    <select id="dropoff-vehicle-select" required>
+                        <option value="">Choose a vehicle...</option>
+                    </select>
                 </div>
 
                 <div class="form-group">
@@ -411,7 +430,12 @@
 
                 <div class="form-group">
                     <label>Vehicle Details *</label>
-                    <input type="text" id="dropoff-vehicle" placeholder="Car make, model, license plate" required>
+                    <input type="text" id="dropoff-vehicle" placeholder="Car make, model" readonly required>
+                </div>
+
+                <div class="form-group">
+                    <label>Rego (License Plate) *</label>
+                    <input type="text" id="dropoff-rego" placeholder="e.g., ABC123" required>
                 </div>
 
                 <div class="form-group">
@@ -473,8 +497,8 @@
 
             <form id="swap-form" onsubmit="submitSwap(event)">
                 <div class="form-group">
-                    <label>Booking ID *</label>
-                    <input type="text" id="swap-booking-id" placeholder="e.g., BK-2026-001" required>
+                    <label>Service Reference ID (Auto)</label>
+                    <input type="text" id="swap-ref-id" readonly>
                 </div>
 
                 <div class="form-group">
@@ -551,6 +575,98 @@
     <script>
         function openModal(modalId) {
             document.getElementById(modalId).classList.add('show');
+
+            if (modalId === 'pickup-modal') {
+                setServiceRef('pickup-ref-id', 'PU');
+                populatePickupAvailable();
+            }
+
+            if (modalId === 'dropoff-modal') {
+                setServiceRef('dropoff-ref-id', 'DO');
+                populateDropoffFleet();
+            }
+
+            if (modalId === 'swap-modal') {
+                setServiceRef('swap-ref-id', 'SW');
+            }
+        }
+
+        function setServiceRef(inputId, prefix) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            const timestamp = new Date();
+            const datePart = timestamp.toISOString().slice(0, 10).replace(/-/g, '');
+            const randomPart = Math.floor(1000 + Math.random() * 9000);
+            input.value = `${prefix}-${datePart}-${randomPart}`;
+        }
+
+        function getAvailableCars() {
+            const fleet = JSON.parse(localStorage.getItem('starr365-fleet') || '[]');
+            return fleet.filter(car => car.status === 'available');
+        }
+
+        function getAllFleetCars() {
+            return JSON.parse(localStorage.getItem('starr365-fleet') || '[]');
+        }
+
+        function populatePickupAvailable() {
+            const available = getAvailableCars();
+            const list = document.getElementById('pickup-available-cars');
+            const select = document.getElementById('pickup-vehicle-select');
+            const vehicleInput = document.getElementById('pickup-vehicle');
+
+            if (!list || !select || !vehicleInput) return;
+
+            if (available.length === 0) {
+                list.textContent = 'No cars available right now. Please contact Starr365.';
+                select.innerHTML = '<option value="">No cars available</option>';
+                vehicleInput.value = '';
+                return;
+            }
+
+            list.innerHTML = available.map(car => {
+                const rego = car.license ? ` • Rego: ${car.license}` : '';
+                return `<div>🚗 ${car.name} (${car.model})${rego}</div>`;
+            }).join('');
+
+            select.innerHTML = '<option value="">Choose a vehicle...</option>' +
+                available.map(car => {
+                    const rego = car.license ? ` • ${car.license}` : '';
+                    return `<option value="${car.id}">${car.name} (${car.model})${rego}</option>`;
+                }).join('');
+
+            select.onchange = () => {
+                const chosen = available.find(car => String(car.id) === select.value);
+                vehicleInput.value = chosen ? `${chosen.name} ${chosen.model} (${chosen.license || 'Rego N/A'})` : '';
+            };
+        }
+
+        function populateDropoffFleet() {
+            const fleet = getAllFleetCars();
+            const select = document.getElementById('dropoff-vehicle-select');
+            const vehicleInput = document.getElementById('dropoff-vehicle');
+            const regoInput = document.getElementById('dropoff-rego');
+
+            if (!select || !vehicleInput || !regoInput) return;
+
+            if (fleet.length === 0) {
+                select.innerHTML = '<option value="">No vehicles found</option>';
+                vehicleInput.value = '';
+                regoInput.value = '';
+                return;
+            }
+
+            select.innerHTML = '<option value="">Choose a vehicle...</option>' +
+                fleet.map(car => {
+                    const rego = car.license ? ` • ${car.license}` : '';
+                    return `<option value="${car.id}">${car.name} (${car.model})${rego}</option>`;
+                }).join('');
+
+            select.onchange = () => {
+                const chosen = fleet.find(car => String(car.id) === select.value);
+                vehicleInput.value = chosen ? `${chosen.name} ${chosen.model}` : '';
+                regoInput.value = chosen ? (chosen.license || '') : '';
+            };
         }
 
         function closeModal(modalId) {
@@ -561,7 +677,7 @@
             e.preventDefault();
             const data = {
                 type: 'pickup',
-                bookingId: document.getElementById('pickup-booking-id').value,
+                serviceRefId: document.getElementById('pickup-ref-id').value,
                 name: document.getElementById('pickup-name').value,
                 vehicle: document.getElementById('pickup-vehicle').value,
                 mileage: document.getElementById('pickup-mileage').value,
@@ -587,9 +703,10 @@
             e.preventDefault();
             const data = {
                 type: 'dropoff',
-                bookingId: document.getElementById('dropoff-booking-id').value,
+                serviceRefId: document.getElementById('dropoff-ref-id').value,
                 name: document.getElementById('dropoff-name').value,
                 vehicle: document.getElementById('dropoff-vehicle').value,
+                rego: document.getElementById('dropoff-rego').value,
                 mileage: document.getElementById('dropoff-mileage').value,
                 fuel: document.getElementById('dropoff-fuel').value,
                 condition: document.getElementById('dropoff-condition').value,
@@ -614,7 +731,7 @@
             e.preventDefault();
             const data = {
                 type: 'swap',
-                bookingId: document.getElementById('swap-booking-id').value,
+            serviceRefId: document.getElementById('swap-ref-id').value,
                 name: document.getElementById('swap-name').value,
                 currentVehicle: document.getElementById('swap-current-vehicle').value,
                 currentMileage: document.getElementById('swap-current-mileage').value,

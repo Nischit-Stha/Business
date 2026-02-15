@@ -21,6 +21,7 @@
             <nav class="nav">
                 <a href="#dashboard" class="nav-link active admin-only" data-tab="dashboard" style="display:none;">Dashboard</a>
                 <a href="#requests" class="nav-link admin-only" data-tab="requests" style="display:none;">Requests</a>
+                <a href="#service-logs" class="nav-link admin-only" data-tab="service-logs" style="display:none;">Service Logs</a>
                 <a href="#bookings" class="nav-link admin-only" data-tab="bookings" style="display:none;">Bookings</a>
                 <a href="#fleet" class="nav-link admin-only" data-tab="fleet" style="display:none;">Fleet</a>
                 <a href="#reports" class="nav-link admin-only" data-tab="reports" style="display:none;">Reports</a>
@@ -170,6 +171,17 @@
                 </div>
                 <div id="admin-requests">
                     <!-- Requests will be injected here -->
+                </div>
+            </section>
+
+            <!-- ADMIN VIEW: Service Logs -->
+            <section class="admin-only" id="service-logs-section" style="display:none;">
+                <div class="section-header">
+                    <h2>Service Logs</h2>
+                    <p style="color: #666; margin-top: 5px;">Pickup, drop-off, and swap records from the service portal</p>
+                </div>
+                <div id="service-logs">
+                    <!-- Service logs will be injected here -->
                 </div>
             </section>
 
@@ -363,6 +375,7 @@
             displayAvailableCars();
             toggleAdminMode();
             renderAdminRequests();
+            renderServiceLogs();
             
             // Set up filter buttons
             document.querySelectorAll('.filter-btn').forEach(btn => {
@@ -401,6 +414,9 @@
                     } else if (tab === 'requests') {
                         document.getElementById('requests-section').style.display = 'block';
                         renderAdminRequests();
+                    } else if (tab === 'service-logs') {
+                        document.getElementById('service-logs-section').style.display = 'block';
+                        renderServiceLogs();
                     } else {
                         document.getElementById('dashboard-section').style.display = 'block';
                     }
