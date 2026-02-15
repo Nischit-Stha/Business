@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veera Food Corner - Indian, Pizza, Pasta &amp; Grill</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body data-default-category="indian">
+
+    <!-- ===== HEADER / HERO ===== -->
+    <header class="hero">
+        <div class="hero-overlay"></div>
+        <div class="hero-content">
+            <h1>Welcome to <span class="brand">Veera Food Corner</span></h1>
+            <p class="tagline">Indian &bull; Pizza &amp; Pasta &bull; Grill</p>
+            <a href="#menu" class="btn-hero">View Our Menu</a>
+        </div>
+    </header>
+
+    <!-- ===== LOCATION BAR (always visible) ===== -->
+    <div class="location-bar" id="location-bar">
+        <div class="location-inner">
+            <span class="loc-icon">&#128205;</span>
+            <span class="loc-text">330 Hume Hwy, Craigieburn VIC 3064 &nbsp;|&nbsp; Open: 11 AM – 11 PM</span>
+            <a href="tel:+61123456789" class="call-btn-small">&#9742; Call Now</a>
+        </div>
+    </div>
+
+    <nav class="menu-nav">
+        <div class="menu-nav-inner">
+            <a href="index.html" class="active">Indian Menu</a>
+            <a href="pizza-pasta-grill.html">Pizza, Pasta &amp; Grill</a>
+            <a href="kebabs.html">Kebabs</a>
+        </div>
+    </nav>
+
+    <!-- ===== MENU SECTION ===== -->
+    <section class="menu-section" id="menu">
+        <h2 class="section-title">Indian Menu</h2>
+        <p class="section-sub">From street-food favorites to royal curries and tandoor grills</p>
+        <p class="menu-note">Need Pizza, Pasta &amp; Grill or Kebabs? Use the menu bar above to switch pages.</p>
+
+        <!-- Menu Cards Container -->
+        <div class="menu-layout">
+            <div class="menu-grid" id="menu-grid">
+                <!-- Cards injected by JS -->
+            </div>
+            <aside class="cart-panel" id="cart-panel">
+                <div class="cart-header">
+                    <div>
+                        <p class="cart-title">Your Order</p>
+                        <p class="cart-count" id="cart-count">0 items</p>
+                    </div>
+                    <button class="cart-clear" id="cart-clear" type="button">Clear</button>
+                </div>
+                <ul class="cart-items" id="cart-items"></ul>
+                <div class="cart-total">
+                    <span>Total</span>
+                    <span id="cart-total-amount">Call to order</span>
+                </div>
+                <button class="cart-checkout" id="cart-checkout" type="button">Call to Order</button>
+                <p class="cart-note">Add your favorite dishes and tap "Call to Order" when you're ready. We'll confirm everything over the phone.</p>
+            </aside>
+        </div>
+    </section>
+
+    <!-- ===== ORDER / CALL SECTION ===== -->
+    <section class="order-section" id="order">
+        <div class="order-card">
+            <h2>Ready to Order?</h2>
+            <p>Call us directly and we'll have your food ready!</p>
+            <a href="tel:+61123456789" class="call-btn-big">
+                &#9742;&nbsp; Call +61 123 456 789
+            </a>
+            <p class="order-note">Or visit us at our location below</p>
+        </div>
+    </section>
+
+    <!-- ===== MAP / LOCATION SECTION ===== -->
+    <section class="map-section" id="location">
+        <h2 class="section-title">Find Us Here</h2>
+        <div class="map-container">
+            <!-- Veera Food Corner - Cranbourne VIC, Australia -->
+            <iframe
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3145.3866849916567!2d144.94499!3d-37.6139095!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x6ad6531466da29b5%3A0xc02b1fd8b6c01df6!2sThe%20Veera's%20Food%20Corner!5e0!3m2!1sen!2sus!4v1700000000000"
+                width="100%" height="400" style="border:0;" allowfullscreen="" loading="lazy">
+            </iframe>
+        </div>
+        <div class="address-block">
+            <p><strong>Address:</strong> 330 Hume Hwy, Craigieburn VIC 3064</p>
+            <p><strong>Phone:</strong> <a href="tel:+61123456789">+61 123 456 789</a></p>
+            <p><strong>Hours:</strong> 11:00 AM – 11:00 PM (Every Day)</p>
+        </div>
+    </section>
+
+    <!-- ===== SHARE / QR SECTION ===== -->
+    <section class="qr-section" id="share">
+        <h2 class="section-title">Share This Menu</h2>
+        <p>Scan the QR code or copy the link to share with anyone!</p>
+        <div class="qr-container">
+            <div id="qr-code"></div>
+            <div class="share-link-box">
+                <input type="text" id="share-link" readonly>
+                <button id="copy-link-btn" onclick="copyLink()">Copy Link</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== FOOTER ===== -->
+    <footer class="footer">
+        <p>&copy; 2026 Veera Food Corner. All rights reserved.</p>
+    </footer>
+
+    <!-- QR Code Library (lightweight) -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

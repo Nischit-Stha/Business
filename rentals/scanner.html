@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Starr365 - Vehicle Check-in/out</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .scanner-container {
+            max-width: 500px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .scanner-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .scanner-header h1 {
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+        .action-type {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .action-btn {
+            flex: 1;
+            padding: 1rem;
+            border: 2px solid var(--gray-300);
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .action-btn.active {
+            border-color: var(--primary);
+            background: var(--primary);
+            color: white;
+        }
+        .photo-upload {
+            border: 2px dashed var(--gray-300);
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            margin: 1rem 0;
+            cursor: pointer;
+        }
+        .photo-upload:hover {
+            border-color: var(--primary);
+            background: var(--gray-50);
+        }
+        .photo-preview {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .photo-preview img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+        .meter-input {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        .success-message {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="scanner-container">
+        <div class="scanner-header">
+            <h1>⭐ Starr365</h1>
+            <p>Vehicle Check-in/Check-out</p>
+        </div>
+
+        <div class="action-type">
+            <button class="action-btn active" id="pickup-btn" onclick="setAction('pickup')">
+                📍 Pickup
+            </button>
+            <button class="action-btn" id="dropoff-btn" onclick="setAction('dropoff')">
+                📍 Dropoff
+            </button>
+        </div>
+
+        <form id="inspection-form">
+            <h3 id="form-title">Pickup Inspection</h3>
+            
+            <div class="meter-input">
+                <div class="form-group">
+                    <label>Odometer Reading (km)</label>
+                    <input type="number" id="mileage" required placeholder="45000">
+                </div>
+                
+                <div class="form-group">
+                    <label>Fuel Level</label>
+                    <select id="fuel" required>
+                        <option value="">Select fuel level...</option>
+                        <option value="Full">Full</option>
+                        <option value="3/4">3/4</option>
+                        <option value="1/2">1/2</option>
+                        <option value="1/4">1/4</option>
+                        <option value="Empty">Empty</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="photo-upload" onclick="document.getElementById('photo-input').click()">
+                <div>📸</div>
+                <p>Tap to take photos</p>
+                <small>Front, Back, Interior, Fuel Gauge</small>
+            </div>
+            <input type="file" id="photo-input" accept="image/*" capture="environment" multiple style="display: none;" onchange="handlePhotos(event)">
+            
+            <div class="photo-preview" id="photo-preview"></div>
+
+            <div class="form-group">
+                <label>Additional Notes</label>
+                <textarea id="notes" rows="3" placeholder="Any damage or issues to report..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>GPS Location</label>
+                <input type="text" id="location" readonly placeholder="Getting location...">
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+                Submit Inspection
+            </button>
+        </form>
+
+        <div id="success-msg" class="success-message" style="display: none;">
+            ✅ Inspection submitted successfully!
+        </div>
+    </div>
+
+    <script>
+        let currentAction = 'pickup';
+        let photos = [];
+        let gpsLocation = null;
+
+        // Get GPS location
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(position => {
+                gpsLocation = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude
+                };
+                document.getElementById('location').value = 
+                    `${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}`;
+            });
+        }
+
+        function setAction(action) {
+            currentAction = action;
+            document.getElementById('pickup-btn').classList.toggle('active', action === 'pickup');
+            document.getElementById('dropoff-btn').classList.toggle('active', action === 'dropoff');
+            document.getElementById('form-title').textContent = 
+                action === 'pickup' ? 'Pickup Inspection' : 'Dropoff Inspection';
+        }
+
+        function handlePhotos(event) {
+            const files = Array.from(event.target.files);
+            const preview = document.getElementById('photo-preview');
+            
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    photos.push({
+                        data: e.target.result,
+                        timestamp: new Date().toISOString()
+                    });
+                    
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    preview.appendChild(img);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        document.getElementById('inspection-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const inspection = {
+                action: currentAction,
+                mileage: document.getElementById('mileage').value,
+                fuel: document.getElementById('fuel').value,
+                notes: document.getElementById('notes').value,
+                location: gpsLocation,
+                photos: photos,
+                timestamp: new Date().toISOString()
+            };
+            
+            // Save to localStorage (in real app, send to server)
+            const inspections = JSON.parse(localStorage.getItem('starr365-inspections') || '[]');
+            inspections.push(inspection);
+            localStorage.setItem('starr365-inspections', JSON.stringify(inspections));
+            
+            // Show success
+            document.getElementById('success-msg').style.display = 'block';
+            document.getElementById('inspection-form').style.display = 'none';
+            
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        });
+    </script>
+</body>
+</html>
