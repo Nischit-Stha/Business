@@ -1013,6 +1013,12 @@ function formatCurrency(amount, symbol = '₹') {
     return `${symbol}${amount.toFixed(2)}`;
 }
 
+function getMenuImage(item) {
+    const parts = [item.name, item.desc, item.category].filter(Boolean);
+    const query = encodeURIComponent(parts.join(' '));
+    return `https://source.unsplash.com/600x400/?${query}`;
+}
+
 
 function renderMenu(category) {
     if (!menuGrid || !menuData[category]) return;
@@ -1134,17 +1140,18 @@ function renderCart() {
         empty.textContent = 'Your cart is empty. Tap "Add to Cart" to begin.';
         cartItemsList.appendChild(empty);
     } else {
-        cartItems.forEach(item => {
+        items.forEach(item => {
             const li = document.createElement('li');
             li.className = 'cart-item';
             li.innerHTML = `
                 <div>
                     <h4>${item.name}</h4>
                     <small>${item.priceLabel}</small>
+            const imageUrl = getMenuImage(item);
                 </div>
                 <div class="cart-item-meta">
                     <strong>x${item.qty}</strong><br>
-                    <span>${item.unitPrice ? formatCurrency(item.unitPrice * item.qty, item.currency) : 'Call us'}</span>
+                <img class="menu-card-img" src="${imageUrl}" alt="${item.name}" loading="lazy" onerror="this.src='https://via.placeholder.com/600x400?text=${encodeURIComponent(item.name)}'">
                     <button class="cart-item-remove" data-name="${escapeAttribute(item.name)}" type="button">Remove</button>
                 </div>
             `;
