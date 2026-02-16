@@ -1,10 +1,3 @@
-// ===== ADMIN PIN LOCK =====
-const ADMIN_PIN = '1234'; // Change this PIN!
-let adminUnlocked = false;
-let adminAttempts = 0;
-const MAX_PIN_ATTEMPTS = 3;
-let pinLockTime = null;
-
 // ===== DATA STORAGE =====
 let fleet = [
     {
@@ -13,7 +6,6 @@ let fleet = [
         model: "2023",
         status: "available",
         rate: 80,
-        rto: 25,
         mileage: 45000,
         fuel: "Full",
         license: "ABC123"
@@ -24,7 +16,6 @@ let fleet = [
         model: "2022",
         status: "rented",
         rate: 70,
-        rto: 20,
         mileage: 32000,
         fuel: "3/4",
         license: "XYZ789"
@@ -35,14 +26,11 @@ let fleet = [
         model: "2024",
         status: "available",
         rate: 90,
-        rto: 30,
         mileage: 12000,
         fuel: "Full",
         license: "DEF456"
     }
 ];
-
-let rentalRequests = [];
 
 let rentals = [
     {
@@ -59,9 +47,8 @@ let rentals = [
 
 // Load from localStorage if available
 function loadData() {
-    const savedFleet = localStorage.getItem('starr365-fleet');
-    const savedRentals = localStorage.getItem('starr365-rentals');
-    const savedRequests = localStorage.getItem('starr365-requests');
+    const savedFleet = localStorage.getItem('fleet-data');
+    const savedRentals = localStorage.getItem('rentals-data');
     
     if (savedFleet) fleet = JSON.parse(savedFleet);
     if (savedRentals) {
@@ -73,21 +60,11 @@ function loadData() {
             returnDate: new Date(r.returnDate)
         }));
     }
-    if (savedRequests) {
-        rentalRequests = JSON.parse(savedRequests);
-        rentalRequests = rentalRequests.map(req => ({
-            ...req,
-            requestDate: new Date(req.requestDate),
-            preferredPickupDate: new Date(req.preferredPickupDate),
-            approvedPickupDate: req.approvedPickupDate ? new Date(req.approvedPickupDate) : null
-        }));
-    }
 }
 
 function saveData() {
-    localStorage.setItem('starr365-fleet', JSON.stringify(fleet));
-    localStorage.setItem('starr365-rentals', JSON.stringify(rentals));
-    localStorage.setItem('starr365-requests', JSON.stringify(rentalRequests));
+    localStorage.setItem('fleet-data', JSON.stringify(fleet));
+    localStorage.setItem('rentals-data', JSON.stringify(rentals));
 }
 
 // ===== INITIALIZE =====
@@ -241,8 +218,7 @@ function handleAddCar(e) {
     
     const carName = document.getElementById('car-name')?.value || prompt('Car Name:');
     const carModel = document.getElementById('car-model')?.value || prompt('Car Model (year):');
-    const rate = parseFloat(document.getElementById('car-rate')?.value || prompt('Daily Rate ($):'));
-    const rto = parseFloat(document.getElementById('car-rto')?.value || prompt('RTO Fee ($):'));
+    const rate = parseInt(document.getElementById('car-rate')?.value || prompt('Daily Rate ($):'));
     const mileage = parseInt(document.getElementById('car-mileage')?.value || prompt('Current Mileage:'));
     const fuel = document.getElementById('car-fuel')?.value || 'Full';
     const license = document.getElementById('car-license')?.value || prompt('License Plate:');
@@ -260,7 +236,6 @@ function handleAddCar(e) {
         model: carModel,
         status: 'available',
         rate: rate,
-        rto: rto || 0,
         mileage: mileage,
         fuel: fuel,
         license: license,
@@ -273,17 +248,14 @@ function handleAddCar(e) {
     updateStats();
     renderFleet();
     populateCarSelect();
-    populateRequestCarSelect();
-    displayAvailableCars();
     
-    closeModal('car-modal');
+    closeModal('add-car-modal');
     if (document.getElementById('add-car-form')) {
         document.getElementById('add-car-form').reset();
     }
     
     alert(`✅ Car added successfully!\nID: ${newCar.id}`);
 }
-
 
 function showInspection() {
     alert('Inspection tool - opens at /scanner.html for photo documentation and QR scanning');
@@ -309,7 +281,7 @@ function exportData() {
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `starr365-export-${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `rental-export-${new Date().toISOString().split('T')[0]}.json`;
     link.click();
     URL.revokeObjectURL(url);
     
@@ -375,7 +347,7 @@ ${fleet.sort((a, b) => b.rate - a.rate).slice(0, 3).map(c =>
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `starr365-report-${today.toISOString().split('T')[0]}.txt`;
+        link.download = `rental-report-${today.toISOString().split('T')[0]}.txt`;
         link.click();
         URL.revokeObjectURL(url);
     }
@@ -441,7 +413,7 @@ function populateCarSelect() {
     
     select.innerHTML = '<option value="">Choose a car...</option>' +
         availableCars.map(car => 
-            `<option value="${car.id}">${car.name} - ${car.model} ($${car.rate}/day + $${car.rto} RTO)</option>`
+            `<option value="${car.id}">${car.name} - ${car.model} ($${car.rate}/day)</option>`
         ).join('');
 }
 
@@ -536,261 +508,3 @@ function showRentalDetails(rentalId) {
 setInterval(() => {
     renderRentals();
 }, 60000);
-
-// ===== PIN LOCK FUNCTIONS =====
-function checkPinLockStatus() {
-    if (pinLockTime && Date.now() - pinLockTime < 300000) { // 5 minute lockout
-        const remainingTime = Math.ceil((300000 - (Date.now() - pinLockTime)) / 1000);
-        return { locked: true, message: `Too many attempts. Try again in ${remainingTime}s` };
-    }
-    pinLockTime = null;
-    return { locked: false };
-}
-
-function verifyAdminPin(pin) {
-    const lockStatus = checkPinLockStatus();
-    if (lockStatus.locked) {
-        alert(lockStatus.message);
-        return false;
-    }
-    
-    if (pin === ADMIN_PIN) {
-        adminUnlocked = true;
-        adminAttempts = 0;
-        pinLockTime = null;
-        localStorage.setItem('starr365-admin-unlocked', 'true');
-        toggleAdminMode();
-        closeModal('pin-modal');
-        return true;
-    } else {
-        adminAttempts++;
-        if (adminAttempts >= MAX_PIN_ATTEMPTS) {
-            pinLockTime = Date.now();
-            alert('Too many incorrect attempts. Admin locked for 5 minutes.');
-            return false;
-        }
-        alert(`Wrong PIN. ${MAX_PIN_ATTEMPTS - adminAttempts} attempts remaining.`);
-        return false;
-    }
-}
-
-function toggleAdminMode() {
-    const adminSections = document.querySelectorAll('.admin-only');
-    const customerSections = document.querySelectorAll('.customer-only');
-    
-    if (adminUnlocked) {
-        adminSections.forEach(el => el.style.display = 'block');
-        customerSections.forEach(el => el.style.display = 'none');
-    } else {
-        adminSections.forEach(el => el.style.display = 'none');
-        customerSections.forEach(el => el.style.display = 'block');
-    }
-}
-
-function logoutAdmin() {
-    adminUnlocked = false;
-    adminAttempts = 0;
-    localStorage.removeItem('starr365-admin-unlocked');
-    toggleAdminMode();
-    alert('Admin mode logged out');
-}
-
-// ===== RENTAL REQUEST FUNCTIONS =====
-function submitRentalRequest(e) {
-    e.preventDefault();
-    
-    const name = document.getElementById('req-name').value;
-    const phone = document.getElementById('req-phone').value;
-    const email = document.getElementById('req-email').value;
-    const carId = parseInt(document.getElementById('req-car-select').value);
-    const pickupDate = new Date(document.getElementById('req-pickup-date').value);
-    const notes = document.getElementById('req-notes').value;
-    
-    const car = fleet.find(c => c.id === carId);
-    if (!car || car.status !== 'available') {
-        alert('Selected car is no longer available');
-        return;
-    }
-    
-    const request = {
-        id: Date.now(),
-        name,
-        phone,
-        email,
-        carId,
-        carName: car.name,
-        requestDate: new Date(),
-        preferredPickupDate: pickupDate,
-        notes,
-        status: 'pending',
-        approvedPickupDate: null
-    };
-    
-    rentalRequests.push(request);
-    saveData();
-    
-    alert(`Request submitted successfully!\n\nWe will review your request and contact you at ${phone} to confirm your pickup time.`);
-    document.getElementById('request-form').reset();
-    closeModal('request-modal');
-    loadData();
-}
-
-function approveRequest(requestId) {
-    const request = rentalRequests.find(r => r.id === requestId);
-    if (!request) return;
-    
-    const timeStr = prompt('Approve this request. Enter pickup time (HH:MM):', '10:00');
-    if (!timeStr) return;
-    
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
-        alert('Invalid time format. Use HH:MM');
-        return;
-    }
-    
-    const approvedDate = new Date(request.preferredPickupDate);
-    approvedDate.setHours(hours, minutes, 0, 0);
-    
-    request.status = 'approved';
-    request.approvedPickupDate = approvedDate;
-    
-    const car = fleet.find(c => c.id === request.carId);
-    car.status = 'rented';
-    
-    const rental = {
-        id: Date.now(),
-        customer: request.name,
-        phone: request.phone,
-        email: request.email,
-        car: car.name,
-        carId: car.id,
-        pickupDate: approvedDate,
-        returnDate: new Date(approvedDate.getTime() + 3 * 24 * 60 * 60 * 1000), // Default 3 days
-        status: 'approved',
-        requestId: requestId,
-        rentalRate: car.rate,
-        rto: car.rto
-    };
-    
-    rentals.push(rental);
-    saveData();
-    
-    alert(`Request approved!\n\nCustomer will pick up ${car.name} on ${approvedDate.toLocaleString()}`);
-    renderAdminRequests();
-    updateStats();
-    renderFleet();
-}
-
-function denyRequest(requestId) {
-    const request = rentalRequests.find(r => r.id === requestId);
-    if (!request) return;
-    
-    const reason = prompt('Reason for denial:', '');
-    
-    request.status = 'denied';
-    request.denialReason = reason;
-    saveData();
-    
-    alert(`Request denied. Customer will not be contacted.`);
-    renderAdminRequests();
-}
-
-function renderAdminRequests() {
-    const container = document.getElementById('admin-requests');
-    if (!container) return;
-    
-    const pendingRequests = rentalRequests.filter(r => r.status === 'pending');
-    
-    if (pendingRequests.length === 0) {
-        container.innerHTML = '<p style="text-align: center; color: #999;">No pending requests</p>';
-        return;
-    }
-    
-    container.innerHTML = pendingRequests.map(req => `
-        <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px;">
-            <h4>${req.name}</h4>
-            <p><strong>Car:</strong> ${req.carName}</p>
-            <p><strong>Phone:</strong> ${req.phone}</p>
-            <p><strong>Email:</strong> ${req.email}</p>
-            <p><strong>Preferred Pickup:</strong> ${req.preferredPickupDate.toLocaleString()}</p>
-            <p><strong>Notes:</strong> ${req.notes || 'None'}</p>
-            <div style="margin-top: 10px;">
-                <button class="btn btn-primary" onclick="approveRequest(${req.id})" style="margin-right: 5px;">✓ Approve</button>
-                <button class="btn btn-danger" onclick="denyRequest(${req.id})">✗ Deny</button>
-            </div>
-        </div>
-    `).join('');
-}
-
-function renderServiceLogs() {
-    const container = document.getElementById('service-logs');
-    if (!container) return;
-
-    const pickups = JSON.parse(localStorage.getItem('starr365-pickups') || '[]');
-    const dropoffs = JSON.parse(localStorage.getItem('starr365-dropoffs') || '[]');
-    const swaps = JSON.parse(localStorage.getItem('starr365-swaps') || '[]');
-
-    const logs = [
-        ...pickups.map(item => ({ type: 'Pickup', data: item })),
-        ...dropoffs.map(item => ({ type: 'Drop-off', data: item })),
-        ...swaps.map(item => ({ type: 'Swap', data: item }))
-    ].sort((a, b) => new Date(b.data.timestamp) - new Date(a.data.timestamp));
-
-    if (logs.length === 0) {
-        container.innerHTML = '<p style="text-align: center; color: #999;">No service logs yet</p>';
-        return;
-    }
-
-    container.innerHTML = logs.map(entry => {
-        const time = entry.data.timestamp ? new Date(entry.data.timestamp).toLocaleString() : 'N/A';
-        const refId = entry.data.serviceRefId || 'N/A';
-
-        if (entry.type === 'Pickup') {
-            return `
-                <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px;">
-                    <h4>🔑 Pickup</h4>
-                    <p><strong>Ref ID:</strong> ${refId}</p>
-                    <p><strong>Customer:</strong> ${entry.data.name}</p>
-                    <p><strong>Vehicle:</strong> ${entry.data.vehicle}</p>
-                    <p><strong>Mileage:</strong> ${entry.data.mileage} km</p>
-                    <p><strong>Fuel:</strong> ${entry.data.fuel}</p>
-                    <p><strong>Condition:</strong> ${entry.data.condition}</p>
-                    <p><strong>Time:</strong> ${time}</p>
-                </div>
-            `;
-        }
-
-        if (entry.type === 'Drop-off') {
-            return `
-                <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px;">
-                    <h4>🗝️ Drop-off</h4>
-                    <p><strong>Ref ID:</strong> ${refId}</p>
-                    <p><strong>Customer:</strong> ${entry.data.name}</p>
-                    <p><strong>Vehicle:</strong> ${entry.data.vehicle}</p>
-                    <p><strong>Rego:</strong> ${entry.data.rego || 'N/A'}</p>
-                    <p><strong>Mileage:</strong> ${entry.data.mileage} km</p>
-                    <p><strong>Fuel:</strong> ${entry.data.fuel}</p>
-                    <p><strong>Condition:</strong> ${entry.data.condition}</p>
-                    <p><strong>Notes:</strong> ${entry.data.notes || 'None'}</p>
-                    <p><strong>Time:</strong> ${time}</p>
-                </div>
-            `;
-        }
-
-        return `
-            <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px;">
-                <h4>🔄 Swap</h4>
-                <p><strong>Ref ID:</strong> ${refId}</p>
-                <p><strong>Customer:</strong> ${entry.data.name}</p>
-                <p><strong>Current Vehicle:</strong> ${entry.data.currentVehicle}</p>
-                <p><strong>Current Mileage:</strong> ${entry.data.currentMileage} km</p>
-                <p><strong>Current Fuel:</strong> ${entry.data.currentFuel}</p>
-                <p><strong>Condition:</strong> ${entry.data.currentCondition}</p>
-                <p><strong>New Vehicle:</strong> ${entry.data.newVehicle}</p>
-                <p><strong>Reason:</strong> ${entry.data.reason}</p>
-                <p><strong>Notes:</strong> ${entry.data.notes || 'None'}</p>
-                <p><strong>Time:</strong> ${time}</p>
-            </div>
-        `;
-    }).join('');
-}

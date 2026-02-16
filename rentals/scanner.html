@@ -3,767 +3,284 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Starr365 - Car Service Portal</title>
+    <title>Service Portal</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
         body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
-            font-family: 'Inter', sans-serif;
+            padding: 1rem;
         }
-
+        
         .service-container {
-            max-width: 900px;
+            max-width: 500px;
             width: 100%;
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 24px;
+            padding: 2.5rem 2rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.5s ease-out;
         }
-
-        .service-header {
-            text-align: center;
-            color: white;
-            margin-bottom: 50px;
-        }
-
-        .service-header h1 {
-            font-size: 2.5em;
-            margin: 0 0 10px 0;
-            font-family: 'Poppins', sans-serif;
-        }
-
-        .service-header p {
-            font-size: 1.1em;
-            opacity: 0.95;
-            margin: 0;
-        }
-
-        .options-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 30px;
-            margin-bottom: 40px;
-        }
-
-        .option-card {
-            background: white;
-            border-radius: 15px;
-            padding: 30px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            text-align: center;
-            border: 3px solid transparent;
-        }
-
-        .option-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
-            border-color: #667eea;
-        }
-
-        .option-icon {
-            font-size: 4em;
-            margin-bottom: 15px;
-        }
-
-        .option-card h2 {
-            font-size: 1.8em;
-            color: #333;
-            margin: 0 0 10px 0;
-            font-family: 'Poppins', sans-serif;
-        }
-
-        .option-card p {
-            color: #666;
-            font-size: 0.95em;
-            line-height: 1.6;
-            margin: 0;
-        }
-
-        .professional-message {
-            background: rgba(255,255,255,0.15);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 15px;
-            padding: 30px;
-            color: white;
-            text-align: center;
-            font-size: 1.1em;
-            line-height: 1.8;
-        }
-
-        .professional-message p {
-            margin: 10px 0;
-        }
-
-        /* Modal Styles */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-        }
-
-        .modal.show {
-            display: flex;
-        }
-
-        .modal-content {
-            background: white;
-            border-radius: 15px;
-            padding: 40px;
-            max-width: 600px;
-            width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
-            animation: slideUp 0.3s ease;
-        }
-
+        
         @keyframes slideUp {
             from {
-                transform: translateY(50px);
                 opacity: 0;
+                transform: translateY(30px);
             }
             to {
-                transform: translateY(0);
                 opacity: 1;
+                transform: translateY(0);
             }
         }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #f0f0f0;
-            padding-bottom: 15px;
-        }
-
-        .modal-header h2 {
-            margin: 0;
-            font-family: 'Poppins', sans-serif;
-            color: #333;
-        }
-
-        .close-btn {
-            background: none;
-            border: none;
-            font-size: 28px;
-            cursor: pointer;
-            color: #666;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: #333;
-            font-weight: 500;
-        }
-
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 1em;
-            font-family: 'Inter', sans-serif;
-        }
-
-        .form-group textarea {
-            resize: vertical;
-            min-height: 100px;
-        }
-
-        .form-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 30px;
-        }
-
-        .btn {
-            flex: 1;
-            padding: 12px 20px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1em;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn-secondary {
-            background: #f0f0f0;
-            color: #333;
-        }
-
-        .btn-secondary:hover {
-            background: #e0e0e0;
-        }
-
-        .info-box {
-            background: #f9f9f9;
-            border-left: 4px solid #667eea;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 0.95em;
-            color: #555;
-        }
-
-        .success-message {
-            display: none;
-            background: #4CAF50;
-            color: white;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
+        
+        .header {
             text-align: center;
+            margin-bottom: 2.5rem;
         }
-
-        .success-message.show {
-            display: block;
+        
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 0.75rem 1.5rem;
+            border-radius: 50px;
+            margin-bottom: 1rem;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
         }
-
-        @media (max-width: 600px) {
-            .service-header h1 {
-                font-size: 1.8em;
+        
+        .logo h1 {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.5rem;
+            color: white;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        
+        .badge {
+            background: rgba(255, 255, 255, 0.3);
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            color: white;
+            font-weight: 600;
+        }
+        
+        .tagline {
+            color: #64748b;
+            font-size: 0.95rem;
+            margin-top: 0.5rem;
+        }
+        
+        .service-options {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .service-card {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .service-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+        
+        .service-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(102, 126, 234, 0.2);
+        }
+        
+        .service-card:hover::before {
+            transform: scaleX(1);
+        }
+        
+        .service-card:active {
+            transform: translateY(0);
+        }
+        
+        .service-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .service-icon {
+            font-size: 2rem;
+            width: 3.5rem;
+            height: 3.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #f0f4ff 0%, #e9ecff 100%);
+            border-radius: 12px;
+            flex-shrink: 0;
+        }
+        
+        .service-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 0.25rem;
+        }
+        
+        .service-description {
+            color: #64748b;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        
+        .arrow {
+            margin-left: auto;
+            color: #94a3b8;
+            font-size: 1.25rem;
+            transition: transform 0.3s ease;
+        }
+        
+        .service-card:hover .arrow {
+            transform: translateX(4px);
+            color: #667eea;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .footer-text {
+            color: #94a3b8;
+            font-size: 0.85rem;
+        }
+        
+        .help-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            margin-top: 0.5rem;
+            display: inline-block;
+            transition: color 0.2s;
+        }
+        
+        .help-link:hover {
+            color: #764ba2;
+        }
+        
+        @media (max-width: 480px) {
+            .service-container {
+                padding: 2rem 1.5rem;
             }
-
-            .options-grid {
-                grid-template-columns: 1fr;
-                gap: 20px;
+            
+            .service-card {
+                padding: 1.25rem;
             }
-
-            .option-card {
-                padding: 20px;
+            
+            .service-icon {
+                width: 3rem;
+                height: 3rem;
+                font-size: 1.75rem;
             }
-
-            .option-icon {
-                font-size: 3em;
+            
+            .service-title {
+                font-size: 1.1rem;
             }
         }
     </style>
 </head>
 <body>
     <div class="service-container">
-        <!-- Header -->
-        <div class="service-header">
-            <h1>⭐ Starr365</h1>
-            <p>Professional Car Rental Services</p>
+        <div class="header">
+            <div class="logo">
+                <h1>⭐ Car Rental</h1>
+                <span class="badge">SERVICE</span>
+            </div>
+            <p class="tagline">Select your service type to continue</p>
         </div>
-
-        <!-- Service Options -->
-        <div class="options-grid">
-            <!-- PICKUP Option -->
-            <div class="option-card" onclick="openModal('pickup-modal')">
-                <div class="option-icon">🔑</div>
-                <h2>Pickup</h2>
-                <p>Collect your rental car and complete the inspection</p>
+        
+        <div class="service-options">
+            <div class="service-card" onclick="selectService('pickup')">
+                <div class="service-header">
+                    <div class="service-icon">🚗</div>
+                    <div style="flex: 1;">
+                        <h3 class="service-title">Vehicle Pickup</h3>
+                    </div>
+                    <span class="arrow">→</span>
+                </div>
+                <p class="service-description">
+                    Starting your rental? Complete the pickup inspection and get your keys. We'll verify the vehicle condition and provide you with all necessary documentation.
+                </p>
             </div>
-
-            <!-- DROP-OFF Option -->
-            <div class="option-card" onclick="openModal('dropoff-modal')">
-                <div class="option-icon">🗝️</div>
-                <h2>Drop-off</h2>
-                <p>Return your rental car and settle any charges</p>
+            
+            <div class="service-card" onclick="selectService('dropoff')">
+                <div class="service-header">
+                    <div class="service-icon">🅿️</div>
+                    <div style="flex: 1;">
+                        <h3 class="service-title">Vehicle Drop-off</h3>
+                    </div>
+                    <span class="arrow">→</span>
+                </div>
+                <p class="service-description">
+                    Returning your rental? Submit your drop-off inspection with mileage, fuel level, and vehicle photos. Our team will process your return within minutes.
+                </p>
             </div>
-
-            <!-- SWAP Option -->
-            <div class="option-card" onclick="openModal('swap-modal')">
-                <div class="option-icon">🔄</div>
-                <h2>Swap</h2>
-                <p>Exchange your current vehicle for a different car</p>
+            
+            <div class="service-card" onclick="selectService('swap')">
+                <div class="service-header">
+                    <div class="service-icon">🔄</div>
+                    <div style="flex: 1;">
+                        <h3 class="service-title">Vehicle Swap</h3>
+                    </div>
+                    <span class="arrow">→</span>
+                </div>
+                <p class="service-description">
+                    Need to exchange vehicles? Complete both drop-off and pickup in one seamless transaction. Perfect for upgrades or vehicle changes during your rental period.
+                </p>
             </div>
         </div>
-
-        <!-- Professional Message -->
-        <div class="professional-message">
-            <p><strong>📞 Need Assistance?</strong></p>
-            <p>Our team is ready to help you through every step of your rental experience. Please select an option above to get started, or contact us directly for any questions.</p>
-            <p style="margin-top: 20px; font-size: 0.9em; opacity: 0.9;">
-                <strong>Starr365 Rental Services</strong><br>
-                Available 24/7 | Professional Fleet Management<br>
-                We ensure your satisfaction at every interaction.
-            </p>
-        </div>
-    </div>
-
-    <!-- ============ PICKUP MODAL ============ -->
-    <div class="modal" id="pickup-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>🔑 Pickup Inspection</h2>
-                <button class="close-btn" onclick="closeModal('pickup-modal')">&times;</button>
-            </div>
-
-            <div class="success-message" id="pickup-success">
-                ✅ Pickup recorded successfully! Drive safe!
-            </div>
-
-            <div class="info-box">
-                <strong>📋 Pickup Process:</strong> Please verify the vehicle condition and provide your booking confirmation. We'll document the initial vehicle state.
-            </div>
-
-            <div class="info-box" id="pickup-available-box">
-                <strong>✅ Available Cars First:</strong>
-                <div id="pickup-available-cars" style="margin-top: 10px; font-size: 0.95em; color: #444;">Loading available cars...</div>
-            </div>
-
-            <form id="pickup-form" onsubmit="submitPickup(event)">
-                <div class="form-group">
-                    <label>Service Reference ID (Auto)</label>
-                    <input type="text" id="pickup-ref-id" readonly>
-                </div>
-
-                <div class="form-group">
-                    <label>Select Available Car *</label>
-                    <select id="pickup-vehicle-select" required>
-                        <option value="">Choose a vehicle...</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Customer Name *</label>
-                    <input type="text" id="pickup-name" placeholder="Your full name" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Vehicle Details *</label>
-                    <input type="text" id="pickup-vehicle" placeholder="Car make, model, license plate" readonly required>
-                </div>
-
-                <div class="form-group">
-                    <label>Current Mileage (km) *</label>
-                    <input type="number" id="pickup-mileage" placeholder="0" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Fuel Level *</label>
-                    <select id="pickup-fuel" required>
-                        <option value="">Select fuel level...</option>
-                        <option value="empty">Empty</option>
-                        <option value="quarter">1/4 Tank</option>
-                        <option value="half">1/2 Tank</option>
-                        <option value="threequarter">3/4 Tank</option>
-                        <option value="full">Full Tank</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Vehicle Condition (notes) *</label>
-                    <textarea id="pickup-condition" placeholder="Document any existing damage, scratches, dents, etc." required></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label>Photos</label>
-                    <input type="file" id="pickup-photos" accept="image/*" multiple>
-                    <small style="color: #999;">Optional: Take photos of the vehicle exterior</small>
-                </div>
-
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('pickup-modal')">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Complete Pickup</button>
-                </div>
-            </form>
+        
+        <div class="footer">
+            <p class="footer-text">Professional Fleet Management</p>
+            <a href="#" class="help-link">Need help? Contact support →</a>
         </div>
     </div>
-
-    <!-- ============ DROP-OFF MODAL ============ -->
-    <div class="modal" id="dropoff-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>🗝️ Drop-off & Settlement</h2>
-                <button class="close-btn" onclick="closeModal('dropoff-modal')">&times;</button>
-            </div>
-
-            <div class="success-message" id="dropoff-success">
-                ✅ Drop-off recorded! Thank you for renting with us.
-            </div>
-
-            <div class="info-box">
-                <strong>💰 Return Process:</strong> We'll inspect the vehicle, calculate any additional charges, and process your return. Fuel surcharges and damage fees will be assessed if applicable.
-            </div>
-
-            <form id="dropoff-form" onsubmit="submitDropoff(event)">
-                <div class="form-group">
-                    <label>Service Reference ID (Auto)</label>
-                    <input type="text" id="dropoff-ref-id" readonly>
-                </div>
-
-                <div class="form-group">
-                    <label>Select Vehicle *</label>
-                    <select id="dropoff-vehicle-select" required>
-                        <option value="">Choose a vehicle...</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Customer Name *</label>
-                    <input type="text" id="dropoff-name" placeholder="Your full name" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Vehicle Details *</label>
-                    <input type="text" id="dropoff-vehicle" placeholder="Car make, model" readonly required>
-                </div>
-
-                <div class="form-group">
-                    <label>Rego (License Plate) *</label>
-                    <input type="text" id="dropoff-rego" placeholder="e.g., ABC123" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Final Mileage (km) *</label>
-                    <input type="number" id="dropoff-mileage" placeholder="0" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Fuel Level on Return *</label>
-                    <select id="dropoff-fuel" required>
-                        <option value="">Select fuel level...</option>
-                        <option value="empty">Empty</option>
-                        <option value="quarter">1/4 Tank</option>
-                        <option value="half">1/2 Tank</option>
-                        <option value="threequarter">3/4 Tank</option>
-                        <option value="full">Full Tank</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Vehicle Condition on Return *</label>
-                    <textarea id="dropoff-condition" placeholder="Document any new damage, scratches, or issues. Leave empty if no damage." required></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label>Additional Notes</label>
-                    <textarea id="dropoff-notes" placeholder="Any other comments or requests..."></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label>Photos</label>
-                    <input type="file" id="dropoff-photos" accept="image/*" multiple>
-                    <small style="color: #999;">Optional: Photos of vehicle at return</small>
-                </div>
-
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('dropoff-modal')">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Complete Drop-off</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- ============ SWAP MODAL ============ -->
-    <div class="modal" id="swap-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>🔄 Vehicle Swap</h2>
-                <button class="close-btn" onclick="closeModal('swap-modal')">&times;</button>
-            </div>
-
-            <div class="success-message" id="swap-success">
-                ✅ Swap completed! Your new vehicle is ready!
-            </div>
-
-            <div class="info-box">
-                <strong>🔄 Swap Process:</strong> Exchange your current vehicle for another from our fleet. We'll conduct quick inspections of both vehicles. Any mileage differences will be adjusted to your rental agreement.
-            </div>
-
-            <form id="swap-form" onsubmit="submitSwap(event)">
-                <div class="form-group">
-                    <label>Service Reference ID (Auto)</label>
-                    <input type="text" id="swap-ref-id" readonly>
-                </div>
-
-                <div class="form-group">
-                    <label>Customer Name *</label>
-                    <input type="text" id="swap-name" placeholder="Your full name" required>
-                </div>
-
-                <!-- Current Vehicle Section -->
-                <div style="border: 2px solid #667eea; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                    <h3 style="margin-top: 0; color: #667eea;">Current Vehicle Return</h3>
-                    
-                    <div class="form-group">
-                        <label>Current Vehicle Details *</label>
-                        <input type="text" id="swap-current-vehicle" placeholder="Car make, model, license plate" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Current Mileage (km) *</label>
-                        <input type="number" id="swap-current-mileage" placeholder="0" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Current Fuel Level *</label>
-                        <select id="swap-current-fuel" required>
-                            <option value="">Select fuel level...</option>
-                            <option value="empty">Empty</option>
-                            <option value="quarter">1/4 Tank</option>
-                            <option value="half">1/2 Tank</option>
-                            <option value="threequarter">3/4 Tank</option>
-                            <option value="full">Full Tank</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Condition Notes *</label>
-                        <textarea id="swap-current-condition" placeholder="Any damage or issues with current vehicle" required></textarea>
-                    </div>
-                </div>
-
-                <!-- New Vehicle Section -->
-                <div style="border: 2px solid #764ba2; padding: 15px; border-radius: 8px;">
-                    <h3 style="margin-top: 0; color: #764ba2;">New Vehicle Selection</h3>
-                    
-                    <div class="form-group">
-                        <label>New Vehicle Details *</label>
-                        <input type="text" id="swap-new-vehicle" placeholder="Car make, model, license plate" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Reason for Swap *</label>
-                        <select id="swap-reason" required>
-                            <option value="">Select reason...</option>
-                            <option value="mechanical">Mechanical Issue</option>
-                            <option value="size">Need Different Size</option>
-                            <option value="upgrade">Upgrade Request</option>
-                            <option value="other">Other Reason</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Additional Notes</label>
-                        <textarea id="swap-notes" placeholder="Any special requirements for the new vehicle..."></textarea>
-                    </div>
-                </div>
-
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('swap-modal')">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Confirm Swap</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
+    
     <script>
-        function openModal(modalId) {
-            document.getElementById(modalId).classList.add('show');
-
-            if (modalId === 'pickup-modal') {
-                setServiceRef('pickup-ref-id', 'PU');
-                populatePickupAvailable();
-            }
-
-            if (modalId === 'dropoff-modal') {
-                setServiceRef('dropoff-ref-id', 'DO');
-                populateDropoffFleet();
-            }
-
-            if (modalId === 'swap-modal') {
-                setServiceRef('swap-ref-id', 'SW');
-            }
-        }
-
-        function setServiceRef(inputId, prefix) {
-            const input = document.getElementById(inputId);
-            if (!input) return;
-            const timestamp = new Date();
-            const datePart = timestamp.toISOString().slice(0, 10).replace(/-/g, '');
-            const randomPart = Math.floor(1000 + Math.random() * 9000);
-            input.value = `${prefix}-${datePart}-${randomPart}`;
-        }
-
-        function getAvailableCars() {
-            const fleet = JSON.parse(localStorage.getItem('starr365-fleet') || '[]');
-            return fleet.filter(car => car.status === 'available');
-        }
-
-        function getAllFleetCars() {
-            return JSON.parse(localStorage.getItem('starr365-fleet') || '[]');
-        }
-
-        function populatePickupAvailable() {
-            const available = getAvailableCars();
-            const list = document.getElementById('pickup-available-cars');
-            const select = document.getElementById('pickup-vehicle-select');
-            const vehicleInput = document.getElementById('pickup-vehicle');
-
-            if (!list || !select || !vehicleInput) return;
-
-            if (available.length === 0) {
-                list.textContent = 'No cars available right now. Please contact Starr365.';
-                select.innerHTML = '<option value="">No cars available</option>';
-                vehicleInput.value = '';
-                return;
-            }
-
-            list.innerHTML = available.map(car => {
-                const rego = car.license ? ` • Rego: ${car.license}` : '';
-                return `<div>🚗 ${car.name} (${car.model})${rego}</div>`;
-            }).join('');
-
-            select.innerHTML = '<option value="">Choose a vehicle...</option>' +
-                available.map(car => {
-                    const rego = car.license ? ` • ${car.license}` : '';
-                    return `<option value="${car.id}">${car.name} (${car.model})${rego}</option>`;
-                }).join('');
-
-            select.onchange = () => {
-                const chosen = available.find(car => String(car.id) === select.value);
-                vehicleInput.value = chosen ? `${chosen.name} ${chosen.model} (${chosen.license || 'Rego N/A'})` : '';
-            };
-        }
-
-        function populateDropoffFleet() {
-            const fleet = getAllFleetCars();
-            const select = document.getElementById('dropoff-vehicle-select');
-            const vehicleInput = document.getElementById('dropoff-vehicle');
-            const regoInput = document.getElementById('dropoff-rego');
-
-            if (!select || !vehicleInput || !regoInput) return;
-
-            if (fleet.length === 0) {
-                select.innerHTML = '<option value="">No vehicles found</option>';
-                vehicleInput.value = '';
-                regoInput.value = '';
-                return;
-            }
-
-            select.innerHTML = '<option value="">Choose a vehicle...</option>' +
-                fleet.map(car => {
-                    const rego = car.license ? ` • ${car.license}` : '';
-                    return `<option value="${car.id}">${car.name} (${car.model})${rego}</option>`;
-                }).join('');
-
-            select.onchange = () => {
-                const chosen = fleet.find(car => String(car.id) === select.value);
-                vehicleInput.value = chosen ? `${chosen.name} ${chosen.model}` : '';
-                regoInput.value = chosen ? (chosen.license || '') : '';
-            };
-        }
-
-        function closeModal(modalId) {
-            document.getElementById(modalId).classList.remove('show');
-        }
-
-        function submitPickup(e) {
-            e.preventDefault();
-            const data = {
-                type: 'pickup',
-                serviceRefId: document.getElementById('pickup-ref-id').value,
-                name: document.getElementById('pickup-name').value,
-                vehicle: document.getElementById('pickup-vehicle').value,
-                mileage: document.getElementById('pickup-mileage').value,
-                fuel: document.getElementById('pickup-fuel').value,
-                condition: document.getElementById('pickup-condition').value,
-                timestamp: new Date().toISOString()
-            };
+        function selectService(type) {
+            // Store selection
+            sessionStorage.setItem('serviceType', type);
             
-            let pickups = JSON.parse(localStorage.getItem('starr365-pickups') || '[]');
-            pickups.push(data);
-            localStorage.setItem('starr365-pickups', JSON.stringify(pickups));
-            
-            document.getElementById('pickup-success').classList.add('show');
-            document.getElementById('pickup-form').reset();
-            
-            setTimeout(() => {
-                closeModal('pickup-modal');
-                document.getElementById('pickup-success').classList.remove('show');
-            }, 2000);
-        }
-
-        function submitDropoff(e) {
-            e.preventDefault();
-            const data = {
-                type: 'dropoff',
-                serviceRefId: document.getElementById('dropoff-ref-id').value,
-                name: document.getElementById('dropoff-name').value,
-                vehicle: document.getElementById('dropoff-vehicle').value,
-                rego: document.getElementById('dropoff-rego').value,
-                mileage: document.getElementById('dropoff-mileage').value,
-                fuel: document.getElementById('dropoff-fuel').value,
-                condition: document.getElementById('dropoff-condition').value,
-                notes: document.getElementById('dropoff-notes').value,
-                timestamp: new Date().toISOString()
-            };
-            
-            let dropoffs = JSON.parse(localStorage.getItem('starr365-dropoffs') || '[]');
-            dropoffs.push(data);
-            localStorage.setItem('starr365-dropoffs', JSON.stringify(dropoffs));
-            
-            document.getElementById('dropoff-success').classList.add('show');
-            document.getElementById('dropoff-form').reset();
-            
-            setTimeout(() => {
-                closeModal('dropoff-modal');
-                document.getElementById('dropoff-success').classList.remove('show');
-            }, 2000);
-        }
-
-        function submitSwap(e) {
-            e.preventDefault();
-            const data = {
-                type: 'swap',
-            serviceRefId: document.getElementById('swap-ref-id').value,
-                name: document.getElementById('swap-name').value,
-                currentVehicle: document.getElementById('swap-current-vehicle').value,
-                currentMileage: document.getElementById('swap-current-mileage').value,
-                currentFuel: document.getElementById('swap-current-fuel').value,
-                currentCondition: document.getElementById('swap-current-condition').value,
-                newVehicle: document.getElementById('swap-new-vehicle').value,
-                reason: document.getElementById('swap-reason').value,
-                notes: document.getElementById('swap-notes').value,
-                timestamp: new Date().toISOString()
-            };
-            
-            let swaps = JSON.parse(localStorage.getItem('starr365-swaps') || '[]');
-            swaps.push(data);
-            localStorage.setItem('starr365-swaps', JSON.stringify(swaps));
-            
-            document.getElementById('swap-success').classList.add('show');
-            document.getElementById('swap-form').reset();
-            
-            setTimeout(() => {
-                closeModal('swap-modal');
-                document.getElementById('swap-success').classList.remove('show');
-            }, 2000);
-        }
-
-        // Close modal when clicking outside
-        window.onclick = function(event) {
-            const modals = document.querySelectorAll('.modal.show');
-            modals.forEach(modal => {
-                if (event.target === modal) {
-                    modal.classList.remove('show');
-                }
-            });
+            // Redirect to service page (we'll create this next)
+            window.location.href = `service.html?type=${type}`;
         }
     </script>
 </body>
