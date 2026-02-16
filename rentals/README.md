@@ -1,4 +1,4 @@
-# Starr365 Car Rental Management System
+# Veera Rentals Veera Rentals Management System
 
 ## 🚗 Features
 
@@ -63,7 +63,7 @@
 ### Going Live
 Upload all files to your hosting:
 ```
-/starr365/
+/veera-rentals/
   ├── index.html      (Admin dashboard)
   ├── scanner.html    (Customer QR scanner)
   ├── style.css       (Styles)
@@ -151,5 +151,5 @@ Upload all files to your hosting:
 
 ---
 
-**Built for Starr365 Car Rentals**
+**Built for Veera Rentals Veera Rentalss**
 *Automating inspections, tracking, and customer experience*
