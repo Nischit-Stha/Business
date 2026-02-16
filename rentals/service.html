@@ -79,6 +79,10 @@
             border-color: #ffd700;
         }
         
+        input:read-only {
+            background: #f7fafc;
+        }
+        
         textarea {
             resize: vertical;
             min-height: 80px;
@@ -178,6 +182,31 @@
             font-size: 0.9rem;
             line-height: 1.5;
         }
+        
+        .customer-info-box {
+            background: #f0f9ff;
+            border: 2px solid #0ea5e9;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            display: none;
+        }
+        
+        .customer-info-box.show {
+            display: block;
+        }
+        
+        .customer-info-box h4 {
+            color: #0c4a6e;
+            margin-bottom: 0.5rem;
+            font-size: 0.95rem;
+        }
+        
+        .customer-info-box p {
+            color: #075985;
+            font-size: 0.9rem;
+            margin: 0.25rem 0;
+        }
     </style>
 </head>
 <body>
@@ -192,18 +221,35 @@
         </div>
         
         <form id="service-form">
-            <!-- Customer Details -->
-            <div class="form-group">
-                <label>Customer Name</label>
-                <input type="text" id="customer-name" required placeholder="Enter full name">
+            <!-- For DROP-OFF: Enter Rego First -->
+            <div class="form-group" id="rego-lookup-group" style="display: none;">
+                <label>Vehicle Registration Number</label>
+                <input type="text" id="rego-input" placeholder="Enter rego (e.g., ABC123)" style="text-transform: uppercase;">
+                <button type="button" class="btn btn-primary" style="margin-top: 0.5rem;" onclick="lookupRego()">Find Vehicle</button>
             </div>
             
-            <div class="form-group">
-                <label>Contact Number</label>
-                <input type="tel" id="customer-phone" required placeholder="0466877527">
+            <!-- Customer Info Display (auto-filled for drop-off) -->
+            <div class="customer-info-box" id="customer-info-display">
+                <h4>✓ Rental Found</h4>
+                <p><strong>Customer:</strong> <span id="display-customer-name"></span></p>
+                <p><strong>Phone:</strong> <span id="display-customer-phone"></span></p>
+                <p><strong>Vehicle:</strong> <span id="display-vehicle-info"></span></p>
             </div>
             
-            <!-- Vehicle Selection (for pickup) or Rego (for dropoff) -->
+            <!-- Customer Details (for pickup) -->
+            <div id="customer-input-fields">
+                <div class="form-group">
+                    <label>Customer Name</label>
+                    <input type="text" id="customer-name" required placeholder="Enter full name">
+                </div>
+                
+                <div class="form-group">
+                    <label>Contact Number</label>
+                    <input type="tel" id="customer-phone" required placeholder="0466877527">
+                </div>
+            </div>
+            
+            <!-- Vehicle Selection (for pickup only) -->
             <div class="form-group" id="vehicle-selection">
                 <label id="vehicle-label">Select Vehicle</label>
                 <select id="vehicle-select" required>
@@ -274,6 +320,7 @@
         let serviceType = 'pickup';
         let photos = [];
         let gpsLocation = null;
+        let currentRental = null;
         
         // Get service type from URL
         const params = new URLSearchParams(window.location.search);
@@ -297,28 +344,80 @@
             const badge = document.getElementById('service-badge');
             const infoText = document.getElementById('info-text');
             const vehicleLabel = document.getElementById('vehicle-label');
+            const regoLookup = document.getElementById('rego-lookup-group');
+            const customerInputs = document.getElementById('customer-input-fields');
+            const vehicleSelection = document.getElementById('vehicle-selection');
             
             if (serviceType === 'pickup') {
                 title.textContent = 'Vehicle Pickup';
                 badge.textContent = 'PICKUP';
                 infoText.textContent = 'Starting your rental? Complete the pickup inspection and get your keys.';
                 vehicleLabel.textContent = 'Select Vehicle';
+                regoLookup.style.display = 'none';
+                customerInputs.style.display = 'block';
+                vehicleSelection.style.display = 'block';
                 loadAvailableVehicles();
             } else if (serviceType === 'dropoff') {
                 title.textContent = 'Vehicle Drop-off';
                 badge.textContent = 'DROP-OFF';
-                infoText.textContent = 'Returning your rental? Submit your drop-off inspection with vehicle details.';
-                vehicleLabel.textContent = 'Vehicle Registration';
-                loadRentedVehicles();
+                infoText.textContent = 'Enter your vehicle registration number to begin drop-off process.';
+                regoLookup.style.display = 'block';
+                customerInputs.style.display = 'none';
+                vehicleSelection.style.display = 'none';
+                document.getElementById('customer-name').required = false;
+                document.getElementById('customer-phone').required = false;
+                document.getElementById('vehicle-select').required = false;
             } else if (serviceType === 'swap') {
                 title.textContent = 'Vehicle Swap';
                 badge.textContent = 'SWAP';
-                infoText.textContent = 'Exchanging vehicles? Complete both drop-off and pickup in one transaction.';
-                vehicleLabel.textContent = 'Current Vehicle';
-                loadRentedVehicles();
+                infoText.textContent = 'Enter current vehicle rego to begin swap process.';
+                regoLookup.style.display = 'block';
+                customerInputs.style.display = 'none';
+                vehicleSelection.style.display = 'none';
             }
             
             generateServiceRef();
+        }
+        
+        // Lookup rego for drop-off
+        function lookupRego() {
+            const rego = document.getElementById('rego-input').value.trim().toUpperCase();
+            
+            if (!rego) {
+                alert('Please enter a registration number');
+                return;
+            }
+            
+            // Search in active pickups/rentals
+            const pickups = JSON.parse(localStorage.getItem('veera-rentals-pickups') || '[]');
+            const rentals = JSON.parse(localStorage.getItem('rentals-data') || '[]');
+            
+            // Find rental by rego
+            let foundRental = pickups.find(p => p.vehicle && p.vehicle.rego && p.vehicle.rego.toUpperCase() === rego);
+            
+            if (!foundRental) {
+                foundRental = rentals.find(r => r.vehicle && r.vehicle.rego && r.vehicle.rego.toUpperCase() === rego);
+            }
+            
+            if (foundRental) {
+                currentRental = foundRental;
+                
+                // Display customer info (non-sensitive)
+                document.getElementById('display-customer-name').textContent = foundRental.customerName || foundRental.customer || 'N/A';
+                document.getElementById('display-customer-phone').textContent = foundRental.customerPhone || foundRental.phone || 'N/A';
+                document.getElementById('display-vehicle-info').textContent = 
+                    `${foundRental.vehicle.make} ${foundRental.vehicle.model} (${foundRental.vehicle.rego})`;
+                
+                // Show customer info box
+                document.getElementById('customer-info-display').classList.add('show');
+                
+                // Hide rego lookup, enable form
+                document.getElementById('rego-lookup-group').style.display = 'none';
+                
+                alert(`✓ Rental found for ${foundRental.customerName || 'customer'}. Please complete the drop-off form.`);
+            } else {
+                alert('No active rental found for this registration number. Please check and try again.');
+            }
         }
         
         // Generate service reference ID
@@ -342,26 +441,6 @@
             } else {
                 select.innerHTML = '<option value="">Choose vehicle...</option>';
                 available.forEach(vehicle => {
-                    const option = document.createElement('option');
-                    option.value = JSON.stringify(vehicle);
-                    option.textContent = `${vehicle.make} ${vehicle.model} - ${vehicle.rego}`;
-                    select.appendChild(option);
-                });
-            }
-        }
-        
-        // Load rented vehicles
-        function loadRentedVehicles() {
-            const fleet = JSON.parse(localStorage.getItem('fleet-data') || '[]');
-            const select = document.getElementById('vehicle-select');
-            
-            const rented = fleet.filter(v => v.status === 'rented');
-            
-            if (rented.length === 0) {
-                select.innerHTML = '<option value="">No rented vehicles</option>';
-            } else {
-                select.innerHTML = '<option value="">Choose vehicle...</option>';
-                rented.forEach(vehicle => {
                     const option = document.createElement('option');
                     option.value = JSON.stringify(vehicle);
                     option.textContent = `${vehicle.make} ${vehicle.model} - ${vehicle.rego}`;
@@ -395,19 +474,33 @@
         document.getElementById('service-form').addEventListener('submit', function(e) {
             e.preventDefault();
             
-            const vehicleData = document.getElementById('vehicle-select').value;
-            if (!vehicleData) {
-                alert('Please select a vehicle');
-                return;
-            }
+            let vehicle, customerName, customerPhone;
             
-            const vehicle = JSON.parse(vehicleData);
+            if (serviceType === 'pickup') {
+                const vehicleData = document.getElementById('vehicle-select').value;
+                if (!vehicleData) {
+                    alert('Please select a vehicle');
+                    return;
+                }
+                vehicle = JSON.parse(vehicleData);
+                customerName = document.getElementById('customer-name').value;
+                customerPhone = document.getElementById('customer-phone').value;
+            } else {
+                // Drop-off or swap
+                if (!currentRental) {
+                    alert('Please lookup vehicle registration first');
+                    return;
+                }
+                vehicle = currentRental.vehicle;
+                customerName = currentRental.customerName || currentRental.customer;
+                customerPhone = currentRental.customerPhone || currentRental.phone;
+            }
             
             const serviceData = {
                 type: serviceType,
                 serviceRef: document.getElementById('service-ref').value,
-                customerName: document.getElementById('customer-name').value,
-                customerPhone: document.getElementById('customer-phone').value,
+                customerName: customerName,
+                customerPhone: customerPhone,
                 vehicle: vehicle,
                 mileage: document.getElementById('mileage').value,
                 fuel: document.getElementById('fuel').value,
