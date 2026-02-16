@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veera Rentals - Admin Panel</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f5f7fa; }
+        .header { background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); color: white; padding: 1rem 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .container { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
+        .logo-section { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+        .logo { font-size: 2rem; }
+        .logo-section h1 { font-family: 'Poppins', sans-serif; font-size: 1.75rem; color: #ffd700; }
+        .nav { display: flex; gap: 0.5rem; margin-top: 1rem; }
+        .nav-link { padding: 0.75rem 1.5rem; background: rgba(255,255,255,0.1); color: white; text-decoration: none; border-radius: 8px; font-weight: 500; transition: all 0.3s; }
+        .nav-link:hover { background: rgba(255,215,0,0.2); }
+        .nav-link.active { background: #ffd700; color: #1a1a1a; }
+        .main { padding: 2rem 0; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .section-title { font-family: 'Poppins', sans-serif; font-size: 1.75rem; margin-bottom: 1.5rem; color: #1a1a1a; }
+        .empty-state { text-align: center; padding: 3rem; color: #666; background: white; border-radius: 12px; }
+        .bookings-grid, .inventory-list, .invoices-list { display: grid; gap: 1rem; }
+        .booking-card, .vehicle-card, .invoice-card { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .booking-header { display: flex; justify-content: space-between; margin-bottom: 1rem; }
+        .booking-type-badge { background: #ffd700; color: #1a1a1a; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.85rem; font-weight: 600; }
+        .booking-ref { color: #666; font-size: 0.9rem; }
+        .booking-details p { margin: 0.5rem 0; color: #333; }
+        .inventory-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .inv-stat { background: white; padding: 1.5rem; border-radius: 12px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .inv-stat h3 { font-size: 2rem; color: #1a1a1a; }
+        .inv-stat.available h3 { color: #10b981; }
+        .inv-stat.rented h3 { color: #ef4444; }
+        .inv-stat.maintenance h3 { color: #f59e0b; }
+        .vehicle-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .status-badge { padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.85rem; font-weight: 600; }
+        .status-badge.available { background: #d1fae5; color: #065f46; }
+        .status-badge.rented { background: #fee2e2; color: #991b1b; }
+        .status-badge.maintenance { background: #fef3c7; color: #92400e; }
+        .vehicle-details p { margin: 0.5rem 0; color: #666; }
+        .invoice-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+        .invoice-stats { display: flex; gap: 2rem; }
+        .stat-box { text-align: center; }
+        .stat-box h4 { font-size: 1.5rem; color: #1a1a1a; }
+        .invoice-row { display: flex; justify-content: space-between; align-items: center; }
+        .invoice-amount h3 { color: #10b981; }
+        .invoice-actions { margin-top: 1rem; display: flex; gap: 0.5rem; }
+        .btn { padding: 0.75rem 1.5rem; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+        .btn-primary { background: #ffd700; color: #1a1a1a; }
+        .btn-primary:hover { background: #ffed4e; transform: translateY(-2px); }
+        .btn-secondary { background: #e2e8f0; color: #1a1a1a; }
+        .btn-small { padding: 0.5rem 1rem; font-size: 0.9rem; }
+        .btn-danger { background: #ef4444; color: white; }
+        .reports-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .report-card { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .report-stats p { margin: 0.75rem 0; color: #333; }
+        .export-section { text-align: center; }
+        .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; padding: 2rem; border-radius: 16px; max-width: 500px; width: 90%; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+        .close-btn { background: none; border: none; font-size: 2rem; cursor: pointer; color: #666; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
+        .form-group input, .form-group select { width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="logo-section">
+                <div class="logo">🚗</div>
+                <div>
+                    <h1>Veera Rentals Admin</h1>
+                    <p style="color: #ffd700; font-size: 0.9rem;">Professional Fleet Management</p>
+                </div>
+            </div>
+            <nav class="nav">
+                <a href="#dashboard" class="nav-link active" data-tab="dashboard">Dashboard</a>
+                <a href="#bookings" class="nav-link" data-tab="bookings">Bookings</a>
+                <a href="#inventory" class="nav-link" data-tab="inventory">Inventory</a>
+                <a href="#invoices" class="nav-link" data-tab="invoices">Invoices</a>
+                <a href="#reports" class="nav-link" data-tab="reports">Reports</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            <!-- Dashboard Section -->
+            <section id="dashboard-section" class="tab-content active">
+                <h2 class="section-title">Dashboard</h2>
+                <p>Welcome to Veera Rentals Admin Panel. Select a section from the navigation above.</p>
+            </section>
+
+            <!-- Bookings Section -->
+            <section id="bookings-section" class="tab-content">
+                <h2 class="section-title">All Bookings</h2>
+                <div id="bookings-grid" class="bookings-grid"></div>
+            </section>
+
+            <!-- Inventory Section -->
+            <section id="inventory-section" class="tab-content">
+                <h2 class="section-title">Fleet Inventory</h2>
+                <div id="inventory-grid"></div>
+            </section>
+
+            <!-- Invoices Section -->
+            <section id="invoices-section" class="tab-content">
+                <h2 class="section-title">Invoices & Payments</h2>
+                <div id="invoices-grid"></div>
+            </section>
+
+            <!-- Reports Section -->
+            <section id="reports-section" class="tab-content">
+                <h2 class="section-title">Reports & Analytics</h2>
+                <div id="reports-content"></div>
+            </section>
+        </div>
+    </main>
+
+    <script src="admin-enhanced.js"></script>
+</body>
+</html>
