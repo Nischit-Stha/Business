@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veera Rentals - Service Form</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            min-height: 100vh;
+            padding: 2rem 1rem;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 2px solid #ffd700;
+        }
+        
+        .header h1 {
+            font-family: 'Poppins', sans-serif;
+            color: #1a1a1a;
+            font-size: 1.75rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .service-type {
+            display: inline-block;
+            background: #ffd700;
+            color: #1a1a1a;
+            padding: 0.5rem 1.5rem;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #1a1a1a;
+            font-size: 0.95rem;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: 'Inter', sans-serif;
+            transition: border-color 0.2s;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #ffd700;
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .photo-upload {
+            border: 2px dashed #e2e8f0;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .photo-upload:hover {
+            border-color: #ffd700;
+            background: #fffef0;
+        }
+        
+        .photo-upload-icon {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .photo-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .photo-preview img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 1rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Poppins', sans-serif;
+        }
+        
+        .btn-primary {
+            background: #ffd700;
+            color: #1a1a1a;
+        }
+        
+        .btn-primary:hover {
+            background: #ffed4e;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 215, 0, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #1a1a1a;
+            margin-top: 1rem;
+        }
+        
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+        
+        .success-message {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 1.5rem;
+            border-radius: 8px;
+            text-align: center;
+            margin-top: 1rem;
+            display: none;
+        }
+        
+        .success-message.show {
+            display: block;
+        }
+        
+        .info-box {
+            background: #fffef0;
+            border-left: 4px solid #ffd700;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            border-radius: 4px;
+        }
+        
+        .info-box p {
+            color: #666;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 id="service-title">Vehicle Service</h1>
+            <span class="service-type" id="service-badge">PICKUP</span>
+        </div>
+        
+        <div class="info-box" id="info-box">
+            <p id="info-text">Complete the inspection form and upload photos of the vehicle.</p>
+        </div>
+        
+        <form id="service-form">
+            <!-- Customer Details -->
+            <div class="form-group">
+                <label>Customer Name</label>
+                <input type="text" id="customer-name" required placeholder="Enter full name">
+            </div>
+            
+            <div class="form-group">
+                <label>Contact Number</label>
+                <input type="tel" id="customer-phone" required placeholder="0466877527">
+            </div>
+            
+            <!-- Vehicle Selection (for pickup) or Rego (for dropoff) -->
+            <div class="form-group" id="vehicle-selection">
+                <label id="vehicle-label">Select Vehicle</label>
+                <select id="vehicle-select" required>
+                    <option value="">Choose vehicle...</option>
+                </select>
+            </div>
+            
+            <!-- Odometer Reading -->
+            <div class="form-group">
+                <label>Odometer Reading (km)</label>
+                <input type="number" id="mileage" required placeholder="45000">
+            </div>
+            
+            <!-- Fuel Level -->
+            <div class="form-group">
+                <label>Fuel Level</label>
+                <select id="fuel" required>
+                    <option value="">Select fuel level...</option>
+                    <option value="Full">Full</option>
+                    <option value="3/4">3/4</option>
+                    <option value="1/2">1/2</option>
+                    <option value="1/4">1/4</option>
+                    <option value="Empty">Empty</option>
+                </select>
+            </div>
+            
+            <!-- Photo Upload -->
+            <div class="form-group">
+                <label>Vehicle Photos</label>
+                <div class="photo-upload" onclick="document.getElementById('photo-input').click()">
+                    <div class="photo-upload-icon">📸</div>
+                    <p><strong>Tap to take photos</strong></p>
+                    <small>Front, Back, Interior, Fuel Gauge</small>
+                </div>
+                <input type="file" id="photo-input" accept="image/*" capture="environment" multiple style="display: none;">
+                <div class="photo-preview" id="photo-preview"></div>
+            </div>
+            
+            <!-- Notes -->
+            <div class="form-group">
+                <label>Additional Notes</label>
+                <textarea id="notes" placeholder="Any damage or issues to report..."></textarea>
+            </div>
+            
+            <!-- GPS Location (auto-filled) -->
+            <div class="form-group">
+                <label>GPS Location</label>
+                <input type="text" id="location" readonly placeholder="Getting location...">
+            </div>
+            
+            <!-- Service Reference ID (auto-generated) -->
+            <div class="form-group">
+                <label>Service Reference ID</label>
+                <input type="text" id="service-ref" readonly style="background: #f7fafc; font-weight: 600;">
+            </div>
+            
+            <button type="submit" class="btn btn-primary">Submit Service</button>
+            <button type="button" class="btn btn-secondary" onclick="window.location.href='scanner.html'">Cancel</button>
+        </form>
+        
+        <div id="success-msg" class="success-message">
+            <h3>✅ Service Submitted Successfully!</h3>
+            <p>Your service reference: <strong id="ref-display"></strong></p>
+        </div>
+    </div>
+    
+    <script>
+        let serviceType = 'pickup';
+        let photos = [];
+        let gpsLocation = null;
+        
+        // Get service type from URL
+        const params = new URLSearchParams(window.location.search);
+        serviceType = params.get('type') || 'pickup';
+        
+        // Get GPS location
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(position => {
+                gpsLocation = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude
+                };
+                document.getElementById('location').value = 
+                    `${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}`;
+            });
+        }
+        
+        // Initialize page based on service type
+        function initializePage() {
+            const title = document.getElementById('service-title');
+            const badge = document.getElementById('service-badge');
+            const infoText = document.getElementById('info-text');
+            const vehicleLabel = document.getElementById('vehicle-label');
+            
+            if (serviceType === 'pickup') {
+                title.textContent = 'Vehicle Pickup';
+                badge.textContent = 'PICKUP';
+                infoText.textContent = 'Starting your rental? Complete the pickup inspection and get your keys.';
+                vehicleLabel.textContent = 'Select Vehicle';
+                loadAvailableVehicles();
+            } else if (serviceType === 'dropoff') {
+                title.textContent = 'Vehicle Drop-off';
+                badge.textContent = 'DROP-OFF';
+                infoText.textContent = 'Returning your rental? Submit your drop-off inspection with vehicle details.';
+                vehicleLabel.textContent = 'Vehicle Registration';
+                loadRentedVehicles();
+            } else if (serviceType === 'swap') {
+                title.textContent = 'Vehicle Swap';
+                badge.textContent = 'SWAP';
+                infoText.textContent = 'Exchanging vehicles? Complete both drop-off and pickup in one transaction.';
+                vehicleLabel.textContent = 'Current Vehicle';
+                loadRentedVehicles();
+            }
+            
+            generateServiceRef();
+        }
+        
+        // Generate service reference ID
+        function generateServiceRef() {
+            const prefix = serviceType === 'pickup' ? 'PU' : serviceType === 'dropoff' ? 'DO' : 'SW';
+            const date = new Date().toISOString().split('T')[0].replace(/-/g, '');
+            const random = Math.floor(1000 + Math.random() * 9000);
+            const ref = `${prefix}-${date}-${random}`;
+            document.getElementById('service-ref').value = ref;
+        }
+        
+        // Load available vehicles from fleet
+        function loadAvailableVehicles() {
+            const fleet = JSON.parse(localStorage.getItem('fleet-data') || '[]');
+            const select = document.getElementById('vehicle-select');
+            
+            const available = fleet.filter(v => v.status === 'available');
+            
+            if (available.length === 0) {
+                select.innerHTML = '<option value="">No vehicles available</option>';
+            } else {
+                select.innerHTML = '<option value="">Choose vehicle...</option>';
+                available.forEach(vehicle => {
+                    const option = document.createElement('option');
+                    option.value = JSON.stringify(vehicle);
+                    option.textContent = `${vehicle.make} ${vehicle.model} - ${vehicle.rego}`;
+                    select.appendChild(option);
+                });
+            }
+        }
+        
+        // Load rented vehicles
+        function loadRentedVehicles() {
+            const fleet = JSON.parse(localStorage.getItem('fleet-data') || '[]');
+            const select = document.getElementById('vehicle-select');
+            
+            const rented = fleet.filter(v => v.status === 'rented');
+            
+            if (rented.length === 0) {
+                select.innerHTML = '<option value="">No rented vehicles</option>';
+            } else {
+                select.innerHTML = '<option value="">Choose vehicle...</option>';
+                rented.forEach(vehicle => {
+                    const option = document.createElement('option');
+                    option.value = JSON.stringify(vehicle);
+                    option.textContent = `${vehicle.make} ${vehicle.model} - ${vehicle.rego}`;
+                    select.appendChild(option);
+                });
+            }
+        }
+        
+        // Handle photo upload
+        document.getElementById('photo-input').addEventListener('change', function(e) {
+            const files = Array.from(e.target.files);
+            const preview = document.getElementById('photo-preview');
+            
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    photos.push({
+                        data: e.target.result,
+                        timestamp: new Date().toISOString()
+                    });
+                    
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    preview.appendChild(img);
+                };
+                reader.readAsDataURL(file);
+            });
+        });
+        
+        // Handle form submission
+        document.getElementById('service-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const vehicleData = document.getElementById('vehicle-select').value;
+            if (!vehicleData) {
+                alert('Please select a vehicle');
+                return;
+            }
+            
+            const vehicle = JSON.parse(vehicleData);
+            
+            const serviceData = {
+                type: serviceType,
+                serviceRef: document.getElementById('service-ref').value,
+                customerName: document.getElementById('customer-name').value,
+                customerPhone: document.getElementById('customer-phone').value,
+                vehicle: vehicle,
+                mileage: document.getElementById('mileage').value,
+                fuel: document.getElementById('fuel').value,
+                notes: document.getElementById('notes').value,
+                location: gpsLocation,
+                photos: photos,
+                timestamp: new Date().toISOString()
+            };
+            
+            // Save to localStorage
+            const storageKey = `veera-rentals-${serviceType}s`;
+            const records = JSON.parse(localStorage.getItem(storageKey) || '[]');
+            records.push(serviceData);
+            localStorage.setItem(storageKey, JSON.stringify(records));
+            
+            // Show success message
+            document.getElementById('ref-display').textContent = serviceData.serviceRef;
+            document.getElementById('success-msg').classList.add('show');
+            document.getElementById('service-form').style.display = 'none';
+            
+            // Redirect after 3 seconds
+            setTimeout(() => {
+                window.location.href = 'scanner.html';
+            }, 3000);
+        });
+        
+        // Initialize on page load
+        initializePage();
+    </script>
+</body>
+</html>
