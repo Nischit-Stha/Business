@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veera Rentals Management System</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="logo-section">
+                <div class="logo">⭐</div>
+                <div>
+                    <h1>Veera Rentals</h1>
+                    <p class="tagline">Professional Veera Rentals Management</p>
+                </div>
+            </div>
+            <nav class="nav">
+                <a href="#dashboard" class="nav-link active" data-tab="dashboard">Dashboard</a>
+                <a href="#bookings" class="nav-link" data-tab="bookings">Bookings</a>
+                <a href="#fleet" class="nav-link" data-tab="fleet">Fleet</a>
+                <a href="#reports" class="nav-link" data-tab="reports">Reports</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+        <div class="container">
+            <!-- Stats Overview -->
+            <section class="stats-grid">
+                <div class="stat-card available">
+                    <div class="stat-icon">🟢</div>
+                    <div class="stat-content">
+                        <h3 id="available-count">0</h3>
+                        <p>Available</p>
+                    </div>
+                </div>
+                <div class="stat-card rented">
+                    <div class="stat-icon">🔴</div>
+                    <div class="stat-content">
+                        <h3 id="rented-count">0</h3>
+                        <p>Currently Rented</p>
+                    </div>
+                </div>
+                <div class="stat-card maintenance">
+                    <div class="stat-icon">🔧</div>
+                    <div class="stat-content">
+                        <h3 id="maintenance-count">0</h3>
+                        <p>Maintenance</p>
+                    </div>
+                </div>
+                <div class="stat-card revenue">
+                    <div class="stat-icon">💰</div>
+                    <div class="stat-content">
+                        <h3 id="revenue-count">$0</h3>
+                        <p>Daily Revenue</p>
+                    </div>
+                </div>
+                <div class="stat-card utilization">
+                    <div class="stat-icon">📈</div>
+                    <div class="stat-content">
+                        <h3 id="utilization-count">0%</h3>
+                        <p>Fleet Utilization</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Quick Actions -->
+            <section class="quick-actions">
+                <div class="section-header">
+                    <h2>Quick Actions</h2>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn btn-primary" onclick="showModal('booking-modal')">
+                        📅 New Booking
+                    </button>
+                    <button class="btn btn-secondary" onclick="showModal('car-modal')">
+                        🚗 Add Vehicle
+                    </button>
+                    <button class="btn btn-secondary" onclick="exportData()">
+                        📥 Export Data
+                    </button>
+                    <button class="btn btn-secondary" onclick="showDailyReport()">
+                        📊 Daily Report
+                    </button>
+                </div>
+            </section>
+
+            <!-- Fleet Overview -->
+            <section class="fleet-section">
+                <div class="section-header">
+                    <h2>Fleet Overview</h2>
+                    <div class="filters">
+                        <button class="filter-btn active" data-filter="all">All</button>
+                        <button class="filter-btn" data-filter="available">Available</button>
+                        <button class="filter-btn" data-filter="rented">Rented</button>
+                        <button class="filter-btn" data-filter="maintenance">Maintenance</button>
+                    </div>
+                </div>
+                <div class="fleet-grid" id="fleet-grid">
+                    <!-- Fleet cards will be injected here -->
+                </div>
+            </section>
+
+            <!-- Active Rentals -->
+            <section class="rentals-section">
+                <div class="section-header">
+                    <h2>Active Rentals</h2>
+                    <span class="badge" id="active-rental-count">0</span>
+                </div>
+                <div class="rentals-list" id="rentals-list">
+                    <!-- Rental cards will be injected here -->
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- New Booking Modal -->
+    <div class="modal" id="booking-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create New Booking</h2>
+                <button class="close-btn" onclick="closeModal('booking-modal')">&times;</button>
+            </div>
+            <form id="booking-form" class="form">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Customer Name *</label>
+                        <input type="text" id="customer-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Phone Number *</label>
+                        <input type="tel" id="customer-phone" required>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Email Address *</label>
+                        <input type="email" id="customer-email" required>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Select Vehicle *</label>
+                        <select id="car-select" required>
+                            <option value="">Choose a vehicle...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Pickup Date & Time *</label>
+                        <input type="datetime-local" id="pickup-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Return Date & Time *</label>
+                        <input type="datetime-local" id="return-date" required>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Additional Notes</label>
+                        <textarea id="booking-notes" rows="3" placeholder="Any special requirements..."></textarea>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('booking-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Booking & Generate QR</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Vehicle Modal -->
+    <div class="modal" id="car-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Vehicle</h2>
+                <button class="close-btn" onclick="closeModal('car-modal')">&times;</button>
+            </div>
+            <form id="car-form" class="form">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Vehicle Name *</label>
+                        <input type="text" id="car-name" placeholder="e.g., Toyota Camry" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Model Year *</label>
+                        <input type="number" id="car-model" min="2010" max="2030" required>
+                    </div>
+                    <div class="form-group">
+                        <label>License Plate *</label>
+                        <input type="text" id="car-license" placeholder="e.g., ABC123" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Daily Rate ($) *</label>
+                        <input type="number" id="car-rate" min="0" step="0.01" required>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Color</label>
+                        <input type="text" id="car-color" placeholder="e.g., Black">
+                    </div>
+                    <div class="form-group full-width">
+                        <label>VIN / Chassis Number</label>
+                        <input type="text" id="car-vin" placeholder="Vehicle Identification Number">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('car-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Vehicle</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Car Modal -->
+    <div class="modal" id="add-car-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Vehicle</h2>
+                <button class="close-btn" onclick="closeModal('add-car-modal')">&times;</button>
+            </div>
+            <form id="add-car-form" onsubmit="handleAddCar(event)">
+                <div class="form-group">
+                    <label>Vehicle Name *</label>
+                    <input type="text" id="car-name" placeholder="e.g., Toyota Camry" required>
+                </div>
+                <div class="form-group">
+                    <label>Model Year *</label>
+                    <input type="text" id="car-model" placeholder="e.g., 2024" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Daily Rate ($) *</label>
+                        <input type="number" id="car-rate" placeholder="80" min="10" required>
+                    </div>
+                    <div class="form-group">
+                        <label>License Plate *</label>
+                        <input type="text" id="car-license" placeholder="ABC123" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Current Mileage (km)</label>
+                        <input type="number" id="car-mileage" placeholder="45000" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Fuel Level</label>
+                        <select id="car-fuel">
+                            <option>Empty</option>
+                            <option>1/4</option>
+                            <option>1/2</option>
+                            <option>3/4</option>
+                            <option selected>Full</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Color</label>
+                        <input type="text" id="car-color" placeholder="Black">
+                    </div>
+                    <div class="form-group">
+                        <label>VIN</label>
+                        <input type="text" id="car-vin" placeholder="Vehicle Identification Number">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('add-car-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Vehicle</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- QR Code Modal -->
+    <div class="modal" id="qr-modal">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2>Booking QR Code</h2>
+                <button class="close-btn" onclick="closeModal('qr-modal')">&times;</button>
+            </div>
+            <div class="qr-container">
+                <div class="qr-display" id="qr-display"></div>
+                <div class="qr-info">
+                    <p><strong>How to use:</strong></p>
+                    <ul>
+                        <li>📱 Send to customer via SMS/Email</li>
+                        <li>📸 Customer scans for check-in/out</li>
+                        <li>📍 Opens inspection form with GPS</li>
+                        <li>📸 Photos automatically timestamped</li>
+                    </ul>
+                    <button class="btn btn-primary" style="width: 100%; margin-top: 1rem;" onclick="printQR()">
+                        🖨️ Print QR Code
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

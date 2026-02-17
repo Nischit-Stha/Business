@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Portal</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        
+        .service-container {
+            max-width: 500px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 24px;
+            padding: 2.5rem 2rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.5s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+        
+        .logo {
+            margin-bottom: 1.5rem;
+            display: flex;
+            justify-content: center;
+        }
+        
+        #logo-image {
+            max-width: 450px;
+            width: 100%;
+            height: auto;
+            filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.3));
+            animation: fadeIn 0.8s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        
+        .badge {
+            background: rgba(255, 255, 255, 0.3);
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            color: #ffd700;
+            font-weight: 600;
+        }
+        
+        .tagline {
+            color: #64748b;
+            font-size: 0.95rem;
+            margin-top: 0.5rem;
+        }
+        
+        .service-options {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .service-card {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .service-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+        
+        .service-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(102, 126, 234, 0.2);
+        }
+        
+        .service-card:hover::before {
+            transform: scaleX(1);
+        }
+        
+        .service-card:active {
+            transform: translateY(0);
+        }
+        
+        .service-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .service-icon {
+            font-size: 2rem;
+            width: 3.5rem;
+            height: 3.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #f0f4ff 0%, #e9ecff 100%);
+            border-radius: 12px;
+            flex-shrink: 0;
+        }
+        
+        .service-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 0.25rem;
+        }
+        
+        .service-description {
+            color: #64748b;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        
+        .arrow {
+            margin-left: auto;
+            color: #94a3b8;
+            font-size: 1.25rem;
+            transition: transform 0.3s ease;
+        }
+        
+        .service-card:hover .arrow {
+            transform: translateX(4px);
+            color: #667eea;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .footer-text {
+            color: #94a3b8;
+            font-size: 0.85rem;
+        }
+        
+        .help-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            margin-top: 0.5rem;
+            display: inline-block;
+            transition: color 0.2s;
+        }
+        
+        .help-link:hover {
+            color: #764ba2;
+        }
+        
+        @media (max-width: 480px) {
+            #logo-image {
+                max-width: 350px;
+            }
+            
+            .service-container {
+                padding: 2rem 1.5rem;
+            }
+            
+            .service-card {
+                padding: 1.25rem;
+            }
+            
+            .service-icon {
+                width: 3rem;
+                height: 3rem;
+                font-size: 1.75rem;
+            }
+            
+            .service-title {
+                font-size: 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="service-container">
+        <div class="header">
+            <div class="logo">
+                <img src="logo.png" alt="Veera Rentals Logo" id="logo-image">
+            </div>
+            <p class="tagline">Select your service type to continue</p>
+        </div>
+        
+        <div class="service-options">
+            <div class="service-card" onclick="selectService('pickup')">
+                <div class="service-header">
+                    <div class="service-icon">🚗</div>
+                    <div style="flex: 1;">
+                        <h3 class="service-title">Vehicle Pickup</h3>
+                    </div>
+                    <span class="arrow">→</span>
+                </div>
+                <p class="service-description">
+                    Starting your rental? Complete the pickup inspection and get your keys. We'll verify the vehicle condition and provide you with all necessary documentation.
+                </p>
+            </div>
+            
+            <div class="service-card" onclick="selectService('dropoff')">
+                <div class="service-header">
+                    <div class="service-icon">🅿️</div>
+                    <div style="flex: 1;">
+                        <h3 class="service-title">Vehicle Drop-off</h3>
+                    </div>
+                    <span class="arrow">→</span>
+                </div>
+                <p class="service-description">
+                    Returning your rental? Submit your drop-off inspection with mileage, fuel level, and vehicle photos. Our team will process your return within minutes.
+                </p>
+            </div>
+            
+            <div class="service-card" onclick="selectService('swap')">
+                <div class="service-header">
+                    <div class="service-icon">🔄</div>
+                    <div style="flex: 1;">
+                        <h3 class="service-title">Vehicle Swap</h3>
+                    </div>
+                    <span class="arrow">→</span>
+                </div>
+                <p class="service-description">
+                    Need to exchange vehicles? Complete both drop-off and pickup in one seamless transaction. Perfect for upgrades or vehicle changes during your rental period.
+                </p>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p class="footer-text">Professional Fleet Management</p>
+        </div>
+    </div>
+    
+    <script>
+        function selectService(type) {
+            // Store selection
+            sessionStorage.setItem('serviceType', type);
+            
+            // Redirect to service page (we'll create this next)
+            window.location.href = `service.html?type=${type}`;
+        }
+    </script>
+</body>
+</html>
