@@ -758,15 +758,21 @@ function handleNewBooking(e) {
     updateStats();
     renderFleet();
     renderRentals();
+    renderServiceHistory();
     
     // Close modal and reset form
     closeModal('booking-modal');
     document.getElementById('booking-form').reset();
     initializeBookingDateInputs();
     
-    // Generate QR code for this booking
+    // Show booking summary
+    const days = Math.ceil((returnDate - pickupDate) / (1000 * 60 * 60 * 24));
+    const total = car.rate * days;
+    const summaryMessage = `✅ Booking Created!\n\nCustomer: ${customerName}\nVehicle: ${car.name}\nDays: ${days}\nTotal: $${total}\n\nQR code generated. Ready for pickup!`;
+    
     setTimeout(() => {
-        showToast(`Booking created (ID: ${newRental.id})`, 'success');
+        showToast(`✅ ${customerName}'s booking confirmed!`, 'success');
+        alert(summaryMessage);
         generateCarQR(carId);
     }, 300);
 }
