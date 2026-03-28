@@ -229,7 +229,7 @@ function initializeBookingDateInputs() {
         returnInput.value = formatDateTimeLocal(twoHoursFromNow);
     }
 
-    pickupInput.addEventListener('change', () => {
+    pickupInput.onchange = () => {
         const pickupDate = new Date(pickupInput.value);
         if (Number.isNaN(pickupDate.getTime())) return;
         const minReturnDate = new Date(pickupDate.getTime() + 60 * 60 * 1000);
@@ -237,7 +237,39 @@ function initializeBookingDateInputs() {
         if (!returnInput.value || new Date(returnInput.value) <= pickupDate) {
             returnInput.value = formatDateTimeLocal(minReturnDate);
         }
+    };
+}
+
+function setActiveNavLink(targetId) {
+    document.querySelectorAll('.nav-link').forEach(link => {
+        const isActive = link.getAttribute('href') === `#${targetId}`;
+        link.classList.toggle('active', isActive);
     });
+}
+
+function initializeNavLinks() {
+    const navLinks = document.querySelectorAll('.nav-link');
+    if (!navLinks.length) return;
+
+    navLinks.forEach(link => {
+        link.addEventListener('click', (event) => {
+            event.preventDefault();
+            const targetHash = link.getAttribute('href');
+            if (!targetHash || !targetHash.startsWith('#')) return;
+
+            const targetId = targetHash.slice(1);
+            const targetSection = document.getElementById(targetId);
+            if (!targetSection) return;
+
+            targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setActiveNavLink(targetId);
+            window.history.replaceState(null, '', targetHash);
+        });
+    });
+
+    const initialHash = window.location.hash?.replace('#', '');
+    const initialTarget = initialHash && document.getElementById(initialHash) ? initialHash : 'dashboard';
+    setActiveNavLink(initialTarget);
 }
 
 // ===== INITIALIZE =====
@@ -248,6 +280,7 @@ document.addEventListener('DOMContentLoaded', function() {
     renderRentals();
     populateCarSelect();
     initializeBookingDateInputs();
+    initializeNavLinks();
     
     // Set up filter buttons
     document.querySelectorAll('.filter-btn').forEach(btn => {
@@ -409,8 +442,8 @@ function handleAddCar(e) {
     const color = document.getElementById('car-color')?.value || 'Unknown';
     const vin = document.getElementById('car-vin')?.value || 'N/A';
     
-    if (!carName || !carModel || !rate || !license) {
-        alert('Please fill in all required fields');
+    if (!carName || !carModel || !license || !Number.isFinite(rate) || rate <= 0) {
+        showToast('Please fill all required fields with a valid daily rate', 'warning');
         return;
     }
     
@@ -517,7 +550,7 @@ TODAY'S ACTIVITY
 • Average Daily Rate: $${avgRate}
 
 TOP PERFORMING CARS
-${fleet.sort((a, b) => b.rate - a.rate).slice(0, 3).map(c => 
+${[...fleet].sort((a, b) => b.rate - a.rate).slice(0, 3).map(c => 
     `• ${c.name} (${c.model}) - $${c.rate}/day`
 ).join('\n')}
     `;
