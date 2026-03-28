@@ -586,6 +586,17 @@
             <h1 id="service-title">Vehicle Service</h1>
             <span class="service-type" id="service-badge">PICKUP</span>
         </div>
+
+        <!-- Progress Indicator -->
+        <div style="background: #f0f4f8; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+            <div style="display: flex; gap: 0.5rem; justify-content: space-between; margin-bottom: 0.5rem;">
+                <span style="font-size: 0.85rem; font-weight: 600; color: #1a1a1a;">Progress</span>
+                <span style="font-size: 0.85rem; color: #666;" id="progress-text">Step 1 of 4</span>
+            </div>
+            <div style="height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden;">
+                <div id="progress-bar" style="height: 100%; background: linear-gradient(90deg, #ffd700, #ffed4e); width: 25%; transition: width 0.3s; border-radius: 3px;"></div>
+            </div>
+        </div>
         
         <div class="info-box" id="info-box">
             <p id="info-text">Complete the inspection form and upload photos of the vehicle.</p>
@@ -982,6 +993,54 @@
             const summaryText = document.getElementById('selected-car-summary-text');
             summaryText.textContent = `${getVehicleName(vehicle)} • ${vehicle.rego || vehicle.license || 'N/A'} • ${vehicle.color || 'N/A'} • $${vehicle.rate}/day`;
             summary.classList.add('show');
+            
+            // Update progress when vehicle is selected
+            updateFormProgress();
+        }
+
+        // Update progress bar
+        function updateFormProgress() {
+            const steps = [
+                { selector: '#selected-vehicle-data', complete: false },
+                { selector: '#customer-name, #customer-phone', complete: false },
+                { selector: '#mileage, #fuel', complete: false },
+                { selector: '#notes', complete: false }
+            ];
+            
+            let completedSteps = 0;
+            
+            // Check vehicle selection
+            if (document.getElementById('selected-vehicle-data').value) {
+                completedSteps++;
+            }
+            
+            // Check customer details
+            const nameVal = document.getElementById('customer-name').value.trim();
+            const phoneVal = document.getElementById('customer-phone').value.trim();
+            if (nameVal && phoneVal) {
+                completedSteps++;
+            }
+            
+            // Check odometer and fuel
+            const mileageVal = document.getElementById('mileage').value;
+            const fuelVal = document.getElementById('fuel').value;
+            if (mileageVal && fuelVal) {
+                completedSteps++;
+            }
+            
+            // Check notes (optional but counts when filled)
+            if (document.getElementById('notes').value.trim()) {
+                completedSteps++;
+            }
+            
+            const progress = ((completedSteps / 4) * 100);
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            
+            if (progressBar) {
+                progressBar.style.width = progress + '%';
+                progressText.textContent = `Step ${Math.ceil((progress / 25))} of 4`;
+            }
         }
 
         // Premium Features: Favorites
@@ -1225,6 +1284,13 @@
         
         // Initialize on page load
         initializePage();
+
+        // Add progress tracking to form inputs
+        document.getElementById('customer-name').addEventListener('input', updateFormProgress);
+        document.getElementById('customer-phone').addEventListener('input', updateFormProgress);
+        document.getElementById('mileage').addEventListener('input', updateFormProgress);
+        document.getElementById('fuel').addEventListener('change', updateFormProgress);
+        document.getElementById('notes').addEventListener('input', updateFormProgress);
 
         // Close compare modal when clicking outside
         document.getElementById('compare-modal').addEventListener('click', function(e) {

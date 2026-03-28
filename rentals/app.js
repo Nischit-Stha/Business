@@ -315,11 +315,17 @@ function updateStats() {
             return sum + (car ? car.rate * days : 0);
         }, 0);
     
+    const analytics = getAnalytics();
+    
     document.getElementById('available-count').textContent = available;
     document.getElementById('rented-count').textContent = rented;
     document.getElementById('maintenance-count').textContent = maintenance;
     document.getElementById('revenue-count').textContent = `$${todayRevenue}`;
     document.getElementById('utilization-count').textContent = `${utilization}%`;
+    const todayBookingsEl = document.getElementById('today-bookings');
+    if (todayBookingsEl) {
+        todayBookingsEl.textContent = analytics.todayBookings;
+    }
 }
 
 // ===== RENDER FLEET =====
@@ -759,6 +765,160 @@ function completeRental(rentalId) {
     populateCarSelect();
 
     showToast(`Rental #${rental.id} marked as completed`, 'success');
+}
+
+// ===== TOAST NOTIFICATIONS =====
+function showToast(message, type = 'info', duration = 3000) {
+    const existingToast = document.getElementById('toast-container');
+    if (existingToast) existingToast.remove();
+    
+    const toastContainer = document.createElement('div');
+    toastContainer.id = 'toast-container';
+    toastContainer.style.cssText = `
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : type === 'warning' ? '#f59e0b' : '#3b82f6'};
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        z-index: 9999;
+        animation: slideIn 0.3s ease-out;
+        font-weight: 500;
+        max-width: 300px;
+    `;
+    toastContainer.textContent = message;
+    document.body.appendChild(toastContainer);
+    
+    setTimeout(() => {
+        toastContainer.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => toastContainer.remove(), 300);
+    }, duration);
+}
+
+// Add animation styles
+if (!document.getElementById('toast-styles')) {
+    const style = document.createElement('style');
+    style.id = 'toast-styles';
+    style.textContent = `
+        @keyframes slideIn {
+            from { transform: translateX(400px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(400px); opacity: 0; }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// ===== ADVANCED ANALYTICS =====
+function getAnalytics() {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    const todayRentals = rentals.filter(r => {
+        const rentalDate = new Date(r.pickupDate);
+        const rentalDay = new Date(rentalDate.getFullYear(), rentalDate.getMonth(), rentalDate.getDate());
+        return rentalDay.getTime() === today.getTime();
+    });
+    
+    const thisMonthRentals = rentals.filter(r => {
+        const rentalDate = new Date(r.pickupDate);
+        return rentalDate >= thisMonth;
+    });
+    
+    const completedRentals = rentals.filter(r => r.status === 'completed');
+    const averageRentalDays = completedRentals.length > 0 
+        ? completedRentals.reduce((sum, r) => {
+            const days = Math.ceil((new Date(r.returnDate) - new Date(r.pickupDate)) / (1000 * 60 * 60 * 24));
+            return sum + days;
+          }, 0) / completedRentals.length
+        : 0;
+    
+    const totalRevenue = todayRentals.reduce((sum, r) => {
+        const car = fleet.find(c => c.id === r.carId);
+        const days = Math.ceil((new Date(r.returnDate) - new Date(r.pickupDate)) / (1000 * 60 * 60 * 24));
+        return sum + (car ? car.rate * days : 0);
+    }, 0);
+    
+    return {
+        todayBookings: todayRentals.length,
+        monthBookings: thisMonthRentals.length,
+        completedRentals: completedRentals.length,
+        averageRentalDays: averageRentalDays.toFixed(1),
+        totalRevenue: totalRevenue.toFixed(2),
+        monthRevenue: thisMonthRentals.reduce((sum, r) => {
+            const car = fleet.find(c => c.id === r.carId);
+            const days = Math.ceil((new Date(r.returnDate) - new Date(r.pickupDate)) / (1000 * 60 * 60 * 24));
+            return sum + (car ? car.rate * days : 0);
+        }, 0).toFixed(2)
+    };
+}
+
+function showDailyReport() {
+    const analytics = getAnalytics();
+    const revenue = parseFloat(analytics.totalRevenue);
+    const available = fleet.filter(c => c.status === 'available').length;
+    const rented = fleet.filter(c => c.status === 'rented').length;
+    const utilization = ((rented / fleet.length) * 100).toFixed(1);
+    
+    const reportHTML = `
+        📊 DAILY REPORT - ${new Date().toLocaleDateString()}
+        
+        BOOKINGS:
+        Today's Bookings: ${analytics.todayBookings}
+        This Month: ${analytics.monthBookings}
+        
+        FLEET STATUS:
+        Available: ${available}/${fleet.length}
+        Currently Rented: ${rented}
+        Utilization: ${utilization}%
+        
+        REVENUE:
+        Today: $${revenue}
+        This Month: $${analytics.monthRevenue}
+        
+        STATISTICS:
+        Completed Rentals: ${analytics.completedRentals}
+        Average Rental Days: ${analytics.averageRentalDays}
+    `;
+    
+    alert(reportHTML);
+    
+    // Option to download CSV
+    const csvContent = `Date,Metric,Value\n${new Date().toLocaleDateString()},Today Bookings,${analytics.todayBookings}\n${new Date().toLocaleDateString()},Daily Revenue,$${revenue}\n${new Date().toLocaleDateString()},Fleet Utilization,${utilization}%`;
+    
+    const downloadLink = document.createElement('a');
+    downloadLink.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvContent);
+    downloadLink.setAttribute('download', `report-${new Date().toISOString().split('T')[0]}.csv`);
+    downloadLink.click();
+}
+
+function exportData() {
+    const data = {
+        fleet: fleet,
+        rentals: rentals,
+        exportDate: new Date().toISOString(),
+        analytics: getAnalytics()
+    };
+    
+    const csv = 'Rental,Customer,Car,Pickup,Return,Status,Days,Amount\n' + rentals.map(r => {
+        const car = fleet.find(c => c.id === r.carId);
+        const days = Math.ceil((new Date(r.returnDate) - new Date(r.pickupDate)) / (1000 * 60 * 60 * 24));
+        const amount = car ? car.rate * days : 0;
+        return `${r.id},"${r.customer}","${r.car}","${new Date(r.pickupDate).toLocaleDateString()}","${new Date(r.returnDate).toLocaleDateString()}","${r.status}",${days},$${amount}`;
+    }).join('\n');
+    
+    const link = document.createElement('a');
+    link.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    link.setAttribute('download', `rentals-${new Date().toISOString().split('T')[0]}.csv`);
+    link.click();
+    
+    showToast('Data exported successfully!', 'success');
 }
 
 // ===== AUTO REFRESH =====
