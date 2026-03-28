@@ -755,26 +755,13 @@
                 <input type="number" id="mileage" required placeholder="45000">
             </div>
             
-            <!-- Fuel Level -->
-            <div class="form-group">
-                <label>Fuel Level</label>
-                <select id="fuel" required>
-                    <option value="">Select fuel level...</option>
-                    <option value="Full">Full</option>
-                    <option value="3/4">3/4</option>
-                    <option value="1/2">1/2</option>
-                    <option value="1/4">1/4</option>
-                    <option value="Empty">Empty</option>
-                </select>
-            </div>
-            
             <!-- Photo Upload -->
             <div class="form-group">
-                <label>Vehicle Photos</label>
+                <label id="upload-label">Vehicle Photos</label>
                 <div class="photo-upload" onclick="document.getElementById('photo-input').click()">
                     <div class="photo-upload-icon">📸</div>
-                    <p><strong>Tap to take photos</strong></p>
-                    <small>Front, Back, Interior, Fuel Gauge</small>
+                    <p><strong id="upload-title">Tap to take photos</strong></p>
+                    <small id="upload-hint">Front, Back, Interior, Vehicle condition</small>
                 </div>
                 <input type="file" id="photo-input" accept="image/*" capture="environment" multiple style="display: none;">
                 <div class="photo-preview" id="photo-preview"></div>
@@ -851,6 +838,9 @@
                 title.textContent = 'Vehicle Pickup';
                 badge.textContent = 'PICKUP';
                 infoText.textContent = 'Step 1: Choose your vehicle first. Step 2: Enter pickup details.';
+                document.getElementById('upload-label').textContent = 'Driver License Images';
+                document.getElementById('upload-title').textContent = 'Tap to upload license photos';
+                document.getElementById('upload-hint').textContent = 'Front and back of driver license';
                 vehicleLabel.textContent = 'Select Vehicle';
                 regoLookup.style.display = 'none';
                 customerInputs.style.display = 'block';
@@ -866,6 +856,9 @@
                 title.textContent = 'Vehicle Drop-off';
                 badge.textContent = 'DROP-OFF';
                 infoText.textContent = 'Enter your vehicle registration number to begin drop-off process.';
+                document.getElementById('upload-label').textContent = 'Vehicle Photos';
+                document.getElementById('upload-title').textContent = 'Tap to take photos';
+                document.getElementById('upload-hint').textContent = 'Front, Back, Interior, Vehicle condition';
                 regoLookup.style.display = 'block';
                 customerInputs.style.display = 'none';
                 vehicleSelection.style.display = 'none';
@@ -879,6 +872,9 @@
                 title.textContent = 'Vehicle Swap';
                 badge.textContent = 'SWAP';
                 infoText.textContent = 'Enter current vehicle rego to begin swap process.';
+                document.getElementById('upload-label').textContent = 'Vehicle Photos';
+                document.getElementById('upload-title').textContent = 'Tap to take photos';
+                document.getElementById('upload-hint').textContent = 'Current condition and key areas';
                 regoLookup.style.display = 'block';
                 customerInputs.style.display = 'none';
                 vehicleSelection.style.display = 'none';
@@ -1120,7 +1116,7 @@
             const steps = [
                 { selector: '#selected-vehicle-data', complete: false },
                 { selector: '#customer-name, #customer-phone', complete: false },
-                { selector: '#mileage, #fuel', complete: false },
+                { selector: '#mileage', complete: false },
                 { selector: '#notes', complete: false }
             ];
             
@@ -1138,10 +1134,9 @@
                 completedSteps++;
             }
             
-            // Check odometer and fuel
+            // Check odometer
             const mileageVal = document.getElementById('mileage').value;
-            const fuelVal = document.getElementById('fuel').value;
-            if (mileageVal && fuelVal) {
+            if (mileageVal) {
                 completedSteps++;
             }
             
@@ -1272,12 +1267,13 @@
             // Build header
             let headerHTML = '<th style="width: 120px;">Specification</th>';
             comparingVehicles.forEach(vehicle => {
-                headerHTML += `<th style="text-align: center;">${getVehicleName(vehicle)}</th>`;
+                headerHTML += `<th style="text-align: center;">${getVehicleName(vehicle)}<br><span style="font-size: 0.78rem; color: #64748b; font-weight: 500;">${vehicle.rego || vehicle.license || 'N/A'}</span></th>`;
             });
             headerRow.innerHTML = headerHTML;
 
             // Build comparison rows
             const specs = [
+                { label: 'Registration', key: 'rego', format: (_, vehicle) => vehicle.rego || vehicle.license || 'N/A' },
                 { label: 'Price/Day', key: 'rate', format: (v) => `$${v}` },
                 { label: 'Mileage', key: 'mileage', format: (v) => `${v} km` },
                 { label: 'Color', key: 'color', format: (v) => v },
@@ -1291,7 +1287,7 @@
                 bodyHTML += `<tr><td class="car-spec">${spec.label}</td>`;
                 comparingVehicles.forEach(vehicle => {
                     const value = vehicle[spec.key] || 'N/A';
-                    const formatted = spec.format(value);
+                    const formatted = spec.format(value, vehicle);
                     bodyHTML += `<td style="text-align: center;">${formatted}</td>`;
                 });
                 bodyHTML += '</tr>';
@@ -1368,6 +1364,10 @@
                     alert('Please select a vehicle');
                     return;
                 }
+                if (photos.length === 0) {
+                    alert('Please upload driver license photo(s) for pickup');
+                    return;
+                }
                 vehicle = JSON.parse(vehicleData);
                 customerName = document.getElementById('customer-name').value;
                 customerPhone = document.getElementById('customer-phone').value;
@@ -1389,7 +1389,6 @@
                 customerPhone: customerPhone,
                 vehicle: vehicle,
                 mileage: document.getElementById('mileage').value,
-                fuel: document.getElementById('fuel').value,
                 notes: document.getElementById('notes').value,
                 location: gpsLocation,
                 photos: photos,
@@ -1420,7 +1419,6 @@
         document.getElementById('customer-name').addEventListener('input', updateFormProgress);
         document.getElementById('customer-phone').addEventListener('input', updateFormProgress);
         document.getElementById('mileage').addEventListener('input', updateFormProgress);
-        document.getElementById('fuel').addEventListener('change', updateFormProgress);
         document.getElementById('notes').addEventListener('input', updateFormProgress);
 
         // Close compare modal when clicking outside
