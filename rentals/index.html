@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Veera Rentals Management System</title>
+    <script>
+        (function () {
+            const ADMIN_AUTH_KEY = 'veera_admin_auth';
+            if (sessionStorage.getItem(ADMIN_AUTH_KEY) === 'true') return;
+            const fileName = window.location.pathname.split('/').pop() || 'index.html';
+            const next = encodeURIComponent(fileName + window.location.search + window.location.hash);
+            window.location.replace(`login.html?next=${next}`);
+        })();
+    </script>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
 </head>
@@ -24,6 +33,9 @@
                 <a href="#fleet" class="nav-link" data-tab="fleet">Fleet</a>
                 <a href="#reports" class="nav-link" data-tab="reports">Reports</a>
             </nav>
+            <div style="display: flex; justify-content: flex-end; margin-top: 0.75rem;">
+                <a href="#" onclick="adminLogout(event)" style="color:#ffd700; text-decoration:none; font-weight:600;">Logout</a>
+            </div>
         </div>
     </header>
 
@@ -276,6 +288,13 @@
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script>
+        function adminLogout(event) {
+            if (event) event.preventDefault();
+            sessionStorage.removeItem('veera_admin_auth');
+            window.location.replace('login.html');
+        }
+    </script>
     <script src="app.js"></script>
 </body>
 </html>
