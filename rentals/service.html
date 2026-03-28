@@ -360,6 +360,224 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        /* Premium Features */
+        .shop-toolbar-extended {
+            display: grid;
+            grid-template-columns: 2fr 1.5fr 1fr 1fr;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            align-items: center;
+        }
+
+        .shop-toolbar-extended input,
+        .shop-toolbar-extended select,
+        .shop-toolbar-extended button {
+            margin: 0;
+        }
+
+        .premium-btn {
+            padding: 0.65rem 1rem;
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .premium-btn:hover {
+            background: #ffd700;
+            border-color: #ffd700;
+            color: #1a1a1a;
+        }
+
+        .premium-btn.active {
+            background: #ffd700;
+            border-color: #ffd700;
+            color: #1a1a1a;
+        }
+
+        /* Compare Modal */
+        .compare-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .compare-modal.show {
+            display: flex;
+        }
+
+        .compare-modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 900px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .compare-modal-content h2 {
+            margin-bottom: 1.5rem;
+            color: #1a1a1a;
+        }
+
+        .compare-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+        }
+
+        .compare-table th,
+        .compare-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .compare-table th {
+            background: #f8fafc;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        .compare-table td {
+            color: #475569;
+        }
+
+        .compare-table .car-spec {
+            font-weight: 500;
+            color: #1a1a1a;
+        }
+
+        .compare-price {
+            font-size: 1.2rem;
+            color: #ffd700;
+            font-weight: 700;
+        }
+
+        .compare-action {
+            background: #ffd700;
+            color: #1a1a1a;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .compare-action:hover {
+            background: #ffed4e;
+        }
+
+        .compare-close-btn {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .favorite-badge {
+            position: absolute;
+            top: 0.5rem;
+            left: 0.5rem;
+            background: #ff6b6b;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            cursor: pointer;
+            z-index: 10;
+            transition: all 0.2s;
+        }
+
+        .favorite-badge:hover {
+            background: #ff5252;
+            transform: scale(1.1);
+        }
+
+        .favorite-badge.liked {
+            background: #ffd700;
+            color: #1a1a1a;
+        }
+
+        /* Price Range Slider */
+        .price-range-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .price-range-wrapper input[type="range"] {
+            flex: 1;
+            height: 5px;
+            border-radius: 3px;
+            background: #e2e8f0;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .price-range-wrapper input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #ffd700;
+            cursor: pointer;
+        }
+
+        .price-range-wrapper input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #ffd700;
+            cursor: pointer;
+            border: none;
+        }
+
+        .price-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #1a1a1a;
+            min-width: 50px;
+            text-align: right;
+        }
+
+        @media (max-width: 768px) {
+            .shop-toolbar-extended {
+                grid-template-columns: 1fr;
+            }
+
+            .compare-modal-content {
+                padding: 1.5rem;
+            }
+
+            .compare-table {
+                font-size: 0.9rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -405,19 +623,44 @@
             <!-- Visual Car Selection (for pickup only) -->
             <div id="car-cards-section" style="display: none;">
                 <h3 class="section-heading">Shop Cars for Pickup</h3>
-                <div class="shop-toolbar">
+                
+                <!-- Enhanced toolbar with premium features -->
+                <div class="shop-toolbar-extended">
                     <input type="text" id="car-search" placeholder="Search by make, model, rego, or color">
+                    <div class="price-range-wrapper">
+                        <input type="range" id="price-range" min="10" max="500" value="500" style="margin: 0;">
+                        <span class="price-label">$<span id="price-display">500</span>/day</span>
+                    </div>
                     <select id="car-sort">
                         <option value="featured">Sort: Featured</option>
                         <option value="price-asc">Price: Low to High</option>
                         <option value="price-desc">Price: High to Low</option>
                         <option value="mileage-asc">Mileage: Low to High</option>
                     </select>
+                    <button class="premium-btn" id="favorites-toggle" onclick="toggleFavoritesView()">❤️ Favorites</button>
                 </div>
+                
                 <div id="car-selection-grid" class="car-selection-grid"></div>
                 <div id="selected-car-summary" class="selected-car-summary">
                     <h4>Selected Vehicle</h4>
                     <p id="selected-car-summary-text"></p>
+                    <button type="button" class="premium-btn" onclick="openCompareModal()" style="margin-top: 0.5rem;">📊 Compare Cars</button>
+                </div>
+            </div>
+
+            <!-- Compare Modal -->
+            <div id="compare-modal" class="compare-modal">
+                <div class="compare-modal-content">
+                    <button class="compare-close-btn" onclick="closeCompareModal()">✕</button>
+                    <h2>📊 Compare Vehicles</h2>
+                    <table class="compare-table" id="compare-table">
+                        <thead>
+                            <tr id="compare-header-row"></tr>
+                        </thead>
+                        <tbody id="compare-body">
+                        </tbody>
+                    </table>
+                    <p style="text-align: center; color: #666; font-size: 0.9rem;">Select at least 2 cars to compare. Click the compare button next to any vehicle.</p>
                 </div>
             </div>
             
@@ -494,6 +737,9 @@
         let gpsLocation = null;
         let currentRental = null;
         let availableVehicles = [];
+        let favoritedVehicles = [];
+        let comparingVehicles = [];
+        let showingFavoritesOnly = false;
         
         // Get service type from URL
         const params = new URLSearchParams(window.location.search);
@@ -637,8 +883,10 @@
 
             grid.innerHTML = vehiclesToRender.map(vehicle => {
                 const isSelected = selectedId === vehicle.id;
+                const isFavorited = favoritedVehicles.includes(vehicle.id);
                 return `
-                    <div class="car-option-card ${isSelected ? 'selected' : ''}" onclick="selectCar(${vehicle.id})" data-vehicle-id="${vehicle.id}">
+                    <div class="car-option-card ${isSelected ? 'selected' : ''}" data-vehicle-id="${vehicle.id}">
+                        <span class="favorite-badge ${isFavorited ? 'liked' : ''}" onclick="toggleFavorite(event, ${vehicle.id})" title="Add to favorites">❤️</span>
                         <span class="selected-badge">✓ SELECTED</span>
                         <img class="car-photo" src="${getVehicleImage(vehicle)}" alt="${getVehicleName(vehicle)}" loading="lazy">
                         <div class="car-option-content">
@@ -650,23 +898,41 @@
                                 <span class="car-meta-chip">Status: Available</span>
                             </div>
                             <p class="car-rate">$${vehicle.rate}/day</p>
+                            <button type="button" class="premium-btn" onclick="addToCompare(event, ${vehicle.id})" style="width: 100%; margin-top: 0.5rem;">📊 Compare</button>
                         </div>
                     </div>
                 `;
             }).join('');
+
+            // Attach click handlers for card selection
+            grid.querySelectorAll('.car-option-card').forEach(card => {
+                const vehicleId = parseInt(card.dataset.vehicleId);
+                card.querySelector('img').addEventListener('click', () => selectCar(vehicleId));
+                card.querySelector('h4').addEventListener('click', () => selectCar(vehicleId));
+            });
         }
 
         function initializeVehicleShopControls() {
             const searchInput = document.getElementById('car-search');
             const sortSelect = document.getElementById('car-sort');
+            const priceRange = document.getElementById('price-range');
+            const priceDisplay = document.getElementById('price-display');
+
+            // Load favorites from localStorage
+            const savedFavorites = JSON.parse(localStorage.getItem('veera-favorites') || '[]');
+            favoritedVehicles = savedFavorites;
 
             function applyFilters() {
                 const search = (searchInput.value || '').trim().toLowerCase();
                 const sortBy = sortSelect.value;
+                const maxPrice = parseInt(priceRange.value);
 
                 let filtered = availableVehicles.filter(vehicle => {
                     const haystack = `${getVehicleName(vehicle)} ${vehicle.rego || ''} ${vehicle.license || ''} ${vehicle.color || ''}`.toLowerCase();
-                    return haystack.includes(search);
+                    const priceCheck = (vehicle.rate || 0) <= maxPrice;
+                    const searchCheck = haystack.includes(search);
+                    const favoritesCheck = !showingFavoritesOnly || favoritedVehicles.includes(vehicle.id);
+                    return searchCheck && priceCheck && favoritesCheck;
                 });
 
                 if (sortBy === 'price-asc') {
@@ -682,6 +948,10 @@
 
             searchInput.oninput = applyFilters;
             sortSelect.onchange = applyFilters;
+            priceRange.oninput = () => {
+                priceDisplay.textContent = priceRange.value;
+                applyFilters();
+            };
         }
 
         // Select a car from the visual cards
@@ -712,6 +982,144 @@
             const summaryText = document.getElementById('selected-car-summary-text');
             summaryText.textContent = `${getVehicleName(vehicle)} • ${vehicle.rego || vehicle.license || 'N/A'} • ${vehicle.color || 'N/A'} • $${vehicle.rate}/day`;
             summary.classList.add('show');
+        }
+
+        // Premium Features: Favorites
+        function toggleFavorite(event, vehicleId) {
+            event.stopPropagation();
+            const index = favoritedVehicles.indexOf(vehicleId);
+            if (index > -1) {
+                favoritedVehicles.splice(index, 1);
+            } else {
+                favoritedVehicles.push(vehicleId);
+            }
+            localStorage.setItem('veera-favorites', JSON.stringify(favoritedVehicles));
+            
+            // Re-render to update UI
+            const filtered = getFilteredVehicles();
+            renderVehicleCards(filtered);
+        }
+
+        // Premium Features: Toggle Favorites View
+        function toggleFavoritesView() {
+            showingFavoritesOnly = !showingFavoritesOnly;
+            const btn = document.getElementById('favorites-toggle');
+            
+            if (showingFavoritesOnly) {
+                btn.classList.add('active');
+                btn.textContent = '❤️ Favorites (' + favoritedVehicles.length + ')';
+            } else {
+                btn.classList.remove('active');
+                btn.textContent = '❤️ Favorites';
+            }
+            
+            const filtered = getFilteredVehicles();
+            renderVehicleCards(filtered);
+        }
+
+        function getFilteredVehicles() {
+            const search = (document.getElementById('car-search').value || '').trim().toLowerCase();
+            const sortBy = document.getElementById('car-sort').value;
+            const maxPrice = parseInt(document.getElementById('price-range').value);
+
+            let filtered = availableVehicles.filter(vehicle => {
+                const haystack = `${getVehicleName(vehicle)} ${vehicle.rego || ''} ${vehicle.license || ''} ${vehicle.color || ''}`.toLowerCase();
+                const priceCheck = (vehicle.rate || 0) <= maxPrice;
+                const searchCheck = haystack.includes(search);
+                const favoritesCheck = !showingFavoritesOnly || favoritedVehicles.includes(vehicle.id);
+                return searchCheck && priceCheck && favoritesCheck;
+            });
+
+            if (sortBy === 'price-asc') {
+                filtered = [...filtered].sort((a, b) => (a.rate || 0) - (b.rate || 0));
+            } else if (sortBy === 'price-desc') {
+                filtered = [...filtered].sort((a, b) => (b.rate || 0) - (a.rate || 0));
+            } else if (sortBy === 'mileage-asc') {
+                filtered = [...filtered].sort((a, b) => (a.mileage || 0) - (b.mileage || 0));
+            }
+
+            return filtered;
+        }
+
+        // Premium Features: Compare Cars
+        function addToCompare(event, vehicleId) {
+            event.stopPropagation();
+            const vehicle = availableVehicles.find(v => v.id === vehicleId);
+            if (!vehicle) return;
+
+            const index = comparingVehicles.findIndex(v => v.id === vehicleId);
+            if (index > -1) {
+                comparingVehicles.splice(index, 1);
+            } else {
+                if (comparingVehicles.length < 5) {
+                    comparingVehicles.push(vehicle);
+                } else {
+                    alert('You can compare up to 5 vehicles');
+                    return;
+                }
+            }
+
+            // Show compare button only if we have vehicles to compare
+            if (comparingVehicles.length > 0) {
+                const summaryDiv = document.getElementById('selected-car-summary');
+                const compareBtn = summaryDiv.querySelector('[onclick*="openCompareModal"]');
+                if (compareBtn) {
+                    compareBtn.textContent = `📊 Compare (${comparingVehicles.length})`;
+                }
+            }
+        }
+
+        function openCompareModal() {
+            if (comparingVehicles.length < 2) {
+                alert('Please select at least 2 vehicles to compare');
+                return;
+            }
+
+            const modal = document.getElementById('compare-modal');
+            const headerRow = document.getElementById('compare-header-row');
+            const tbody = document.getElementById('compare-body');
+
+            // Build header
+            let headerHTML = '<th style="width: 120px;">Specification</th>';
+            comparingVehicles.forEach(vehicle => {
+                headerHTML += `<th style="text-align: center;">${getVehicleName(vehicle)}</th>`;
+            });
+            headerRow.innerHTML = headerHTML;
+
+            // Build comparison rows
+            const specs = [
+                { label: 'Price/Day', key: 'rate', format: (v) => `$${v}` },
+                { label: 'Mileage', key: 'mileage', format: (v) => `${v} km` },
+                { label: 'Color', key: 'color', format: (v) => v },
+                { label: 'Fuel Level', key: 'fuel', format: (v) => v },
+                { label: 'Transmission', key: 'transmission', format: (v) => v || 'N/A' },
+                { label: 'Seats', key: 'seats', format: (v) => v || 'N/A' },
+            ];
+
+            let bodyHTML = '';
+            specs.forEach(spec => {
+                bodyHTML += `<tr><td class="car-spec">${spec.label}</td>`;
+                comparingVehicles.forEach(vehicle => {
+                    const value = vehicle[spec.key] || 'N/A';
+                    const formatted = spec.format(value);
+                    bodyHTML += `<td style="text-align: center;">${formatted}</td>`;
+                });
+                bodyHTML += '</tr>';
+            });
+
+            // Add action row
+            bodyHTML += '<tr><td class="car-spec">Action</td>';
+            comparingVehicles.forEach(vehicle => {
+                bodyHTML += `<td style="text-align: center;"><button class="compare-action" onclick="selectCar(${vehicle.id}); closeCompareModal();">Select</button></td>`;
+            });
+            bodyHTML += '</tr>';
+
+            tbody.innerHTML = bodyHTML;
+            modal.classList.add('show');
+        }
+
+        function closeCompareModal() {
+            document.getElementById('compare-modal').classList.remove('show');
         }
 
         // Load available vehicles from fleet (old dropdown method - kept for compatibility)
@@ -817,6 +1225,13 @@
         
         // Initialize on page load
         initializePage();
+
+        // Close compare modal when clicking outside
+        document.getElementById('compare-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeCompareModal();
+            }
+        });
     </script>
 </body>
 </html>
