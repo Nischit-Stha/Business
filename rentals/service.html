@@ -222,6 +222,42 @@
         .pickup-details-section.hidden {
             display: none;
         }
+
+        .selected-car-sticky {
+            display: none;
+            position: sticky;
+            top: 0.75rem;
+            z-index: 30;
+            background: #fffef0;
+            border: 2px solid #ffd700;
+            border-radius: 10px;
+            padding: 0.85rem 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+        }
+
+        .selected-car-sticky.show {
+            display: block;
+        }
+
+        .selected-car-sticky .sticky-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .selected-car-sticky .sticky-title {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin-bottom: 0.2rem;
+        }
+
+        .selected-car-sticky .sticky-value {
+            font-weight: 600;
+            color: #0f172a;
+            font-size: 0.95rem;
+        }
         
         .car-option-card {
             background: white;
@@ -585,6 +621,11 @@
             .compare-table {
                 font-size: 0.9rem;
             }
+
+            .selected-car-sticky .sticky-top {
+                flex-direction: column;
+                align-items: flex-start;
+            }
         }
     </style>
 </head>
@@ -674,6 +715,16 @@
             <input type="hidden" id="selected-vehicle-data">
 
             <div id="pickup-details-section" class="pickup-details-section hidden">
+            <div id="selected-car-sticky" class="selected-car-sticky">
+                <div class="sticky-top">
+                    <div>
+                        <p class="sticky-title">Selected car</p>
+                        <p class="sticky-value" id="selected-car-sticky-text"></p>
+                    </div>
+                    <button type="button" class="premium-btn" onclick="backToCarSelection(true)">← Back to car list</button>
+                </div>
+            </div>
+
             <!-- Customer Details (for pickup) -->
             <div id="customer-input-fields">
                 <div class="form-group">
@@ -742,8 +793,10 @@
                 <input type="text" id="service-ref" readonly style="background: #f7fafc; font-weight: 600;">
             </div>
             
-            <button type="submit" class="btn btn-primary">Submit Service</button>
-            <button type="button" class="btn btn-secondary" onclick="window.location.href='scanner.html'">Cancel</button>
+            <div id="form-action-buttons">
+                <button type="submit" class="btn btn-primary">Submit Service</button>
+                <button type="button" class="btn btn-secondary" onclick="window.location.href='scanner.html'">Cancel</button>
+            </div>
         </form>
         
         <div id="success-msg" class="success-message">
@@ -801,6 +854,8 @@
                 vehicleSelection.style.display = 'none'; // Hide dropdown
                 document.getElementById('car-cards-section').style.display = 'block'; // Show cards
                 document.getElementById('pickup-details-section').classList.add('hidden');
+                document.getElementById('selected-car-sticky').classList.remove('show');
+                document.getElementById('form-action-buttons').style.display = 'none';
                 document.querySelector('.container').classList.add('pickup-browse-mode');
                 document.getElementById('progress-text').textContent = 'Step 1 of 4 - Select Car';
                 loadAvailableVehiclesAsCards();
@@ -813,6 +868,7 @@
                 vehicleSelection.style.display = 'none';
                 document.getElementById('pickup-details-section').classList.remove('hidden');
                 document.querySelector('.container').classList.remove('pickup-browse-mode');
+                document.getElementById('form-action-buttons').style.display = 'block';
                 document.getElementById('customer-name').required = false;
                 document.getElementById('customer-phone').required = false;
                 document.getElementById('vehicle-select').required = false;
@@ -825,6 +881,7 @@
                 vehicleSelection.style.display = 'none';
                 document.getElementById('pickup-details-section').classList.remove('hidden');
                 document.querySelector('.container').classList.remove('pickup-browse-mode');
+                document.getElementById('form-action-buttons').style.display = 'block';
             }
             
             generateServiceRef();
@@ -1011,16 +1068,51 @@
             summaryText.textContent = `${getVehicleName(vehicle)} • ${vehicle.rego || vehicle.license || 'N/A'} • ${vehicle.color || 'N/A'} • $${vehicle.rate}/day`;
             summary.classList.add('show');
 
+            const sticky = document.getElementById('selected-car-sticky');
+            const stickyText = document.getElementById('selected-car-sticky-text');
+            stickyText.textContent = `${getVehicleName(vehicle)} • ${vehicle.rego || vehicle.license || 'N/A'} • $${vehicle.rate}/day`;
+            sticky.classList.add('show');
+
             const detailsSection = document.getElementById('pickup-details-section');
             const container = document.querySelector('.container');
             if (detailsSection && serviceType === 'pickup') {
+                document.getElementById('car-cards-section').style.display = 'none';
                 detailsSection.classList.remove('hidden');
                 container.classList.remove('pickup-browse-mode');
+                document.getElementById('form-action-buttons').style.display = 'block';
                 document.getElementById('progress-text').textContent = 'Step 2 of 4 - Enter Details';
                 detailsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
             
             // Update progress when vehicle is selected
+            updateFormProgress();
+        }
+
+        function backToCarSelection(clearSelection = true) {
+            if (serviceType !== 'pickup') return;
+
+            const container = document.querySelector('.container');
+            const carCardsSection = document.getElementById('car-cards-section');
+            const detailsSection = document.getElementById('pickup-details-section');
+            const sticky = document.getElementById('selected-car-sticky');
+            const summary = document.getElementById('selected-car-summary');
+
+            detailsSection.classList.add('hidden');
+            carCardsSection.style.display = 'block';
+            container.classList.add('pickup-browse-mode');
+            document.getElementById('form-action-buttons').style.display = 'none';
+            sticky.classList.remove('show');
+
+            if (clearSelection) {
+                document.getElementById('selected-vehicle-data').value = '';
+                document.getElementById('vehicle-select').innerHTML = '<option value="">Choose vehicle...</option>';
+                document.querySelectorAll('.car-option-card').forEach(card => card.classList.remove('selected'));
+                summary.classList.remove('show');
+                document.getElementById('selected-car-summary-text').textContent = '';
+            }
+
+            document.getElementById('progress-text').textContent = 'Step 1 of 4 - Select Car';
+            document.getElementById('car-cards-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
             updateFormProgress();
         }
 
