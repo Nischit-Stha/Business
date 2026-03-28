@@ -323,9 +323,31 @@ function updateStats() {
     document.getElementById('maintenance-count').textContent = maintenance;
     document.getElementById('revenue-count').textContent = `$${todayRevenue}`;
     document.getElementById('utilization-count').textContent = `${utilization}%`;
+    
     const todayBookingsEl = document.getElementById('today-bookings');
     if (todayBookingsEl) {
         todayBookingsEl.textContent = analytics.todayBookings;
+    }
+    
+    // Update premium stats cards if they exist
+    const monthBookingsEl = document.getElementById('month-bookings');
+    if (monthBookingsEl) {
+        monthBookingsEl.textContent = analytics.monthBookings;
+    }
+    
+    const monthRevenueEl = document.getElementById('month-revenue');
+    if (monthRevenueEl) {
+        monthRevenueEl.textContent = `$${analytics.monthRevenue}`;
+    }
+    
+    const completedRentalsEl = document.getElementById('completed-rentals');
+    if (completedRentalsEl) {
+        completedRentalsEl.textContent = analytics.completedRentals;
+    }
+    
+    const avgRentalEl = document.getElementById('avg-rental-days');
+    if (avgRentalEl) {
+        avgRentalEl.textContent = analytics.averageRentalDays;
     }
 }
 

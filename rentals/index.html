@@ -30,8 +30,25 @@
     <!-- Main Content -->
     <main class="main">
         <div class="container">
-            <!-- Stats Overview -->
-            <section class="stats-grid" id="dashboard">
+            <!-- Quick Stats Cards -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1.5rem; border-radius: 12px; text-align: center;">
+                    <div style="font-size: 2rem; font-weight: 700; margin-bottom: 0.25rem;" id="month-bookings">0</div>
+                    <div style="font-size: 0.85rem; opacity: 0.9;">This Month</div>
+                </div>
+                <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 1.5rem; border-radius: 12px; text-align: center;">
+                    <div style="font-size: 2rem; font-weight: 700; margin-bottom: 0.25rem;" id="month-revenue">$0</div>
+                    <div style="font-size: 0.85rem; opacity: 0.9;">Month Revenue</div>
+                </div>
+                <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 1.5rem; border-radius: 12px; text-align: center;">
+                    <div style="font-size: 2rem; font-weight: 700; margin-bottom: 0.25rem;" id="completed-rentals">0</div>
+                    <div style="font-size: 0.85rem; opacity: 0.9;">Completed</div>
+                </div>
+                <div style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: white; padding: 1.5rem; border-radius: 12px; text-align: center;">
+                    <div style="font-size: 2rem; font-weight: 700; margin-bottom: 0.25rem;" id="avg-rental-days">0</div>
+                    <div style="font-size: 0.85rem; opacity: 0.9;">Avg Days/Rental</div>
+                </div>
+            </div>
                 <div class="stat-card available">
                     <div class="stat-icon">🟢</div>
                     <div class="stat-content">
