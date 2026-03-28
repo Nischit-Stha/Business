@@ -286,6 +286,80 @@
             padding-bottom: 0.5rem;
             border-bottom: 2px solid #ffd700;
         }
+
+        .shop-toolbar {
+            display: grid;
+            grid-template-columns: 1fr 180px;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .shop-toolbar input,
+        .shop-toolbar select {
+            margin: 0;
+        }
+
+        .car-option-card {
+            overflow: hidden;
+            padding: 0;
+        }
+
+        .car-photo {
+            width: 100%;
+            height: 165px;
+            object-fit: cover;
+            display: block;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .car-option-content {
+            padding: 1rem 1rem 1.1rem;
+        }
+
+        .car-meta-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-top: 0.7rem;
+        }
+
+        .car-meta-chip {
+            font-size: 0.75rem;
+            background: #f8fafc;
+            color: #334155;
+            border: 1px solid #e2e8f0;
+            border-radius: 999px;
+            padding: 0.2rem 0.6rem;
+        }
+
+        .selected-car-summary {
+            margin-top: 1rem;
+            background: #fffef0;
+            border: 2px solid #ffd700;
+            border-radius: 10px;
+            padding: 0.9rem 1rem;
+            display: none;
+        }
+
+        .selected-car-summary.show {
+            display: block;
+        }
+
+        .selected-car-summary h4 {
+            margin-bottom: 0.35rem;
+            color: #1a1a1a;
+        }
+
+        .selected-car-summary p {
+            color: #475569;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 640px) {
+            .shop-toolbar {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
@@ -330,8 +404,21 @@
             
             <!-- Visual Car Selection (for pickup only) -->
             <div id="car-cards-section" style="display: none;">
-                <h3 class="section-heading">Select Your Vehicle</h3>
+                <h3 class="section-heading">Shop Cars for Pickup</h3>
+                <div class="shop-toolbar">
+                    <input type="text" id="car-search" placeholder="Search by make, model, rego, or color">
+                    <select id="car-sort">
+                        <option value="featured">Sort: Featured</option>
+                        <option value="price-asc">Price: Low to High</option>
+                        <option value="price-desc">Price: High to Low</option>
+                        <option value="mileage-asc">Mileage: Low to High</option>
+                    </select>
+                </div>
                 <div id="car-selection-grid" class="car-selection-grid"></div>
+                <div id="selected-car-summary" class="selected-car-summary">
+                    <h4>Selected Vehicle</h4>
+                    <p id="selected-car-summary-text"></p>
+                </div>
             </div>
             
             <!-- Hidden input to store selected vehicle -->
@@ -406,6 +493,7 @@
         let photos = [];
         let gpsLocation = null;
         let currentRental = null;
+        let availableVehicles = [];
         
         // Get service type from URL
         const params = new URLSearchParams(window.location.search);
@@ -521,53 +609,111 @@
         // Load available vehicles as visual cards (for pickup)
         function loadAvailableVehiclesAsCards() {
             const fleet = JSON.parse(localStorage.getItem('fleet-data') || '[]');
-            const grid = document.getElementById('car-selection-grid');
-            
-            const available = fleet.filter(v => v.status === 'available');
-            
-            if (available.length === 0) {
-                grid.innerHTML = '<p style=\"text-align: center; color: #666; grid-column: 1/-1;\">No vehicles available at the moment. Please contact us.</p>';
-            } else {
-                grid.innerHTML = available.map(vehicle => `
-                    <div class=\"car-option-card\" onclick=\"selectCar(${vehicle.id})\" data-vehicle-id=\"${vehicle.id}\">
-                        <span class=\"selected-badge\">✓ SELECTED</span>
-                        <div class=\"car-icon\">🚗</div>
-                        <h4>${vehicle.name || vehicle.make + ' ' + vehicle.model}</h4>
-                        <p class=\"car-details\">📋 ${vehicle.rego || vehicle.license}</p>
-                        <p class=\"car-details\">🎨 ${vehicle.color || 'N/A'}</p>
-                        <p class=\"car-details\">📊 ${vehicle.mileage || 0} km</p>
-                        <p class=\"car-rate\">$${vehicle.rate}/day</p>
-                    </div>
-                `).join('');
-            }
+            availableVehicles = fleet.filter(v => v.status === 'available');
+            renderVehicleCards(availableVehicles);
+            initializeVehicleShopControls();
         }
-        
+
+        function getVehicleName(vehicle) {
+            return vehicle.name || `${vehicle.make || ''} ${vehicle.model || ''}`.trim() || 'Vehicle';
+        }
+
+        function getVehicleImage(vehicle) {
+            if (vehicle.image) return vehicle.image;
+            if (vehicle.photo) return vehicle.photo;
+            const seed = encodeURIComponent(vehicle.rego || vehicle.license || getVehicleName(vehicle));
+            return `https://picsum.photos/seed/veera-${seed}/640/360`;
+        }
+
+        function renderVehicleCards(vehiclesToRender) {
+            const grid = document.getElementById('car-selection-grid');
+            const selectedVehicleData = document.getElementById('selected-vehicle-data').value;
+            const selectedId = selectedVehicleData ? JSON.parse(selectedVehicleData).id : null;
+
+            if (!vehiclesToRender.length) {
+                grid.innerHTML = '<p style="text-align: center; color: #666; grid-column: 1/-1;">No matching vehicles found. Try another search.</p>';
+                return;
+            }
+
+            grid.innerHTML = vehiclesToRender.map(vehicle => {
+                const isSelected = selectedId === vehicle.id;
+                return `
+                    <div class="car-option-card ${isSelected ? 'selected' : ''}" onclick="selectCar(${vehicle.id})" data-vehicle-id="${vehicle.id}">
+                        <span class="selected-badge">✓ SELECTED</span>
+                        <img class="car-photo" src="${getVehicleImage(vehicle)}" alt="${getVehicleName(vehicle)}" loading="lazy">
+                        <div class="car-option-content">
+                            <h4>${getVehicleName(vehicle)}</h4>
+                            <p class="car-details">📋 ${vehicle.rego || vehicle.license || 'N/A'}</p>
+                            <p class="car-details">🎨 ${vehicle.color || 'N/A'} &nbsp;|&nbsp; 📊 ${vehicle.mileage || 0} km</p>
+                            <div class="car-meta-row">
+                                <span class="car-meta-chip">Fuel: ${vehicle.fuel || 'N/A'}</span>
+                                <span class="car-meta-chip">Status: Available</span>
+                            </div>
+                            <p class="car-rate">$${vehicle.rate}/day</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function initializeVehicleShopControls() {
+            const searchInput = document.getElementById('car-search');
+            const sortSelect = document.getElementById('car-sort');
+
+            function applyFilters() {
+                const search = (searchInput.value || '').trim().toLowerCase();
+                const sortBy = sortSelect.value;
+
+                let filtered = availableVehicles.filter(vehicle => {
+                    const haystack = `${getVehicleName(vehicle)} ${vehicle.rego || ''} ${vehicle.license || ''} ${vehicle.color || ''}`.toLowerCase();
+                    return haystack.includes(search);
+                });
+
+                if (sortBy === 'price-asc') {
+                    filtered = [...filtered].sort((a, b) => (a.rate || 0) - (b.rate || 0));
+                } else if (sortBy === 'price-desc') {
+                    filtered = [...filtered].sort((a, b) => (b.rate || 0) - (a.rate || 0));
+                } else if (sortBy === 'mileage-asc') {
+                    filtered = [...filtered].sort((a, b) => (a.mileage || 0) - (b.mileage || 0));
+                }
+
+                renderVehicleCards(filtered);
+            }
+
+            searchInput.oninput = applyFilters;
+            sortSelect.onchange = applyFilters;
+        }
+
         // Select a car from the visual cards
         function selectCar(vehicleId) {
-            const fleet = JSON.parse(localStorage.getItem('fleet-data') || '[]');
-            const vehicle = fleet.find(v => v.id === vehicleId);
-            
+            const vehicle = availableVehicles.find(v => v.id === vehicleId);
+
             if (!vehicle) return;
-            
+
             // Remove selection from all cards
             document.querySelectorAll('.car-option-card').forEach(card => {
                 card.classList.remove('selected');
             });
-            
+
             // Add selection to clicked card
-            const selectedCard = document.querySelector(`[data-vehicle-id=\"${vehicleId}\"]`);
+            const selectedCard = document.querySelector(`[data-vehicle-id="${vehicleId}"]`);
             if (selectedCard) {
                 selectedCard.classList.add('selected');
             }
-            
+
             // Store selected vehicle data
             document.getElementById('selected-vehicle-data').value = JSON.stringify(vehicle);
-            
+
             // Also populate the hidden select for form validation
             const select = document.getElementById('vehicle-select');
-            select.innerHTML = `<option value=\"${JSON.stringify(vehicle).replace(/\"/g, '&quot;')}\" selected>${vehicle.name || vehicle.make + ' ' + vehicle.model} - ${vehicle.rego || vehicle.license}</option>`;
+            select.innerHTML = `<option value="${JSON.stringify(vehicle).replace(/"/g, '&quot;')}" selected>${getVehicleName(vehicle)} - ${vehicle.rego || vehicle.license || 'N/A'}</option>`;
+
+            const summary = document.getElementById('selected-car-summary');
+            const summaryText = document.getElementById('selected-car-summary-text');
+            summaryText.textContent = `${getVehicleName(vehicle)} • ${vehicle.rego || vehicle.license || 'N/A'} • ${vehicle.color || 'N/A'} • $${vehicle.rate}/day`;
+            summary.classList.add('show');
         }
-        
+
         // Load available vehicles from fleet (old dropdown method - kept for compatibility)
         function loadAvailableVehicles() {
             const fleet = JSON.parse(localStorage.getItem('fleet-data') || '[]');
