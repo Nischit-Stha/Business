@@ -686,6 +686,9 @@
                     </select>
                     <button class="premium-btn" id="favorites-toggle" onclick="toggleFavoritesView()">❤️ Favorites</button>
                 </div>
+                <div style="display: flex; justify-content: flex-end; margin-bottom: 0.75rem;">
+                    <button type="button" class="premium-btn" id="compare-launch-top" onclick="openCompareModal()">📊 Compare (0)</button>
+                </div>
                 
                 <div id="car-selection-grid" class="car-selection-grid"></div>
                 <div id="selected-car-summary" class="selected-car-summary">
@@ -721,7 +724,10 @@
                         <p class="sticky-title">Selected car</p>
                         <p class="sticky-value" id="selected-car-sticky-text"></p>
                     </div>
-                    <button type="button" class="premium-btn" onclick="backToCarSelection(true)">← Back to car list</button>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button type="button" class="premium-btn" id="compare-launch-sticky" onclick="openCompareModal()">📊 Compare (0)</button>
+                        <button type="button" class="premium-btn" onclick="backToCarSelection(true)">← Back to car list</button>
+                    </div>
                 </div>
             </div>
 
@@ -959,7 +965,7 @@
         function renderVehicleCards(vehiclesToRender) {
             const grid = document.getElementById('car-selection-grid');
             const selectedVehicleData = document.getElementById('selected-vehicle-data').value;
-            const selectedId = selectedVehicleData ? JSON.parse(selectedVehicleData).id : null;
+            const selectedId = selectedVehicleData ? String(JSON.parse(selectedVehicleData).id) : null;
 
             if (!vehiclesToRender.length) {
                 grid.innerHTML = '<p style="text-align: center; color: #666; grid-column: 1/-1;">No matching vehicles found. Try another search.</p>';
@@ -967,11 +973,13 @@
             }
 
             grid.innerHTML = vehiclesToRender.map(vehicle => {
-                const isSelected = selectedId === vehicle.id;
-                const isFavorited = favoritedVehicles.includes(vehicle.id);
+                const vehicleId = String(vehicle.id);
+                const isSelected = selectedId === vehicleId;
+                const isFavorited = favoritedVehicles.some(id => String(id) === vehicleId);
+                const isCompared = comparingVehicles.some(v => String(v.id) === vehicleId);
                 return `
-                    <div class="car-option-card ${isSelected ? 'selected' : ''}" data-vehicle-id="${vehicle.id}">
-                        <span class="favorite-badge ${isFavorited ? 'liked' : ''}" onclick="toggleFavorite(event, ${vehicle.id})" title="Add to favorites">❤️</span>
+                    <div class="car-option-card ${isSelected ? 'selected' : ''}" data-vehicle-id="${vehicleId}" onclick='selectCar(${JSON.stringify(vehicle.id)})'>
+                        <span class="favorite-badge ${isFavorited ? 'liked' : ''}" onclick='toggleFavorite(event, ${JSON.stringify(vehicle.id)})' title="Add to favorites">❤️</span>
                         <span class="selected-badge">✓ SELECTED</span>
                         <img class="car-photo" src="${getVehicleImage(vehicle)}" alt="${getVehicleName(vehicle)}" loading="lazy">
                         <div class="car-option-content">
@@ -983,18 +991,13 @@
                                 <span class="car-meta-chip">Status: Available</span>
                             </div>
                             <p class="car-rate">$${vehicle.rate}/day</p>
-                            <button type="button" class="premium-btn" onclick="addToCompare(event, ${vehicle.id})" style="width: 100%; margin-top: 0.5rem;">📊 Compare</button>
+                            <button type="button" class="premium-btn ${isCompared ? 'active' : ''}" onclick='addToCompare(event, ${JSON.stringify(vehicle.id)})' style="width: 100%; margin-top: 0.5rem;">${isCompared ? '✅ Added to Compare' : '📊 Add to Compare'}</button>
                         </div>
                     </div>
                 `;
             }).join('');
 
-            // Attach click handlers for card selection
-            grid.querySelectorAll('.car-option-card').forEach(card => {
-                const vehicleId = parseInt(card.dataset.vehicleId);
-                card.querySelector('img').addEventListener('click', () => selectCar(vehicleId));
-                card.querySelector('h4').addEventListener('click', () => selectCar(vehicleId));
-            });
+            updateCompareLaunchButtons();
         }
 
         function initializeVehicleShopControls() {
@@ -1041,7 +1044,7 @@
 
         // Select a car from the visual cards
         function selectCar(vehicleId) {
-            const vehicle = availableVehicles.find(v => v.id === vehicleId);
+            const vehicle = availableVehicles.find(v => String(v.id) === String(vehicleId));
 
             if (!vehicle) return;
 
@@ -1051,7 +1054,7 @@
             });
 
             // Add selection to clicked card
-            const selectedCard = document.querySelector(`[data-vehicle-id="${vehicleId}"]`);
+            const selectedCard = document.querySelector(`[data-vehicle-id="${String(vehicleId)}"]`);
             if (selectedCard) {
                 selectedCard.classList.add('selected');
             }
@@ -1164,7 +1167,7 @@
         // Premium Features: Favorites
         function toggleFavorite(event, vehicleId) {
             event.stopPropagation();
-            const index = favoritedVehicles.indexOf(vehicleId);
+            const index = favoritedVehicles.findIndex(id => String(id) === String(vehicleId));
             if (index > -1) {
                 favoritedVehicles.splice(index, 1);
             } else {
@@ -1221,10 +1224,10 @@
         // Premium Features: Compare Cars
         function addToCompare(event, vehicleId) {
             event.stopPropagation();
-            const vehicle = availableVehicles.find(v => v.id === vehicleId);
+            const vehicle = availableVehicles.find(v => String(v.id) === String(vehicleId));
             if (!vehicle) return;
 
-            const index = comparingVehicles.findIndex(v => v.id === vehicleId);
+            const index = comparingVehicles.findIndex(v => String(v.id) === String(vehicleId));
             if (index > -1) {
                 comparingVehicles.splice(index, 1);
             } else {
@@ -1236,13 +1239,27 @@
                 }
             }
 
-            // Show compare button only if we have vehicles to compare
-            if (comparingVehicles.length > 0) {
-                const summaryDiv = document.getElementById('selected-car-summary');
-                const compareBtn = summaryDiv.querySelector('[onclick*="openCompareModal"]');
-                if (compareBtn) {
-                    compareBtn.textContent = `📊 Compare (${comparingVehicles.length})`;
-                }
+            renderVehicleCards(getFilteredVehicles());
+        }
+
+        function updateCompareLaunchButtons() {
+            const compareCount = comparingVehicles.length;
+            const topButton = document.getElementById('compare-launch-top');
+            const stickyButton = document.getElementById('compare-launch-sticky');
+            const summaryDiv = document.getElementById('selected-car-summary');
+            const summaryCompareButton = summaryDiv ? summaryDiv.querySelector('[onclick*="openCompareModal"]') : null;
+
+            if (topButton) {
+                topButton.textContent = `📊 Compare (${compareCount})`;
+                topButton.classList.toggle('active', compareCount > 0);
+            }
+            if (stickyButton) {
+                stickyButton.textContent = `📊 Compare (${compareCount})`;
+                stickyButton.classList.toggle('active', compareCount > 0);
+            }
+            if (summaryCompareButton) {
+                summaryCompareButton.textContent = `📊 Compare (${compareCount})`;
+                summaryCompareButton.classList.toggle('active', compareCount > 0);
             }
         }
 
