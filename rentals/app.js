@@ -2,33 +2,115 @@
 let fleet = [
     {
         id: 1,
+        make: "Toyota",
+        model: "Camry",
         name: "Toyota Camry",
-        model: "2023",
         status: "available",
         rate: 80,
         mileage: 45000,
         fuel: "Full",
-        license: "ABC123"
+        license: "ABC123",
+        rego: "ABC123",
+        color: "Silver",
+        vin: "1HGBH41JXMN109186"
     },
     {
         id: 2,
+        make: "Honda",
+        model: "Civic",
         name: "Honda Civic",
-        model: "2022",
-        status: "rented",
+        status: "available",
         rate: 70,
         mileage: 32000,
-        fuel: "3/4",
-        license: "XYZ789"
+        fuel: "Full",
+        license: "XYZ789",
+        rego: "XYZ789",
+        color: "White",
+        vin: "2HGFG12648H501234"
     },
     {
         id: 3,
+        make: "Mazda",
+        model: "CX-5",
         name: "Mazda CX-5",
-        model: "2024",
         status: "available",
         rate: 90,
         mileage: 12000,
         fuel: "Full",
-        license: "DEF456"
+        license: "DEF456",
+        rego: "DEF456",
+        color: "Red",
+        vin: "JM3KFBDM0K0123456"
+    },
+    {
+        id: 4,
+        make: "Tesla",
+        model: "Model 3",
+        name: "Tesla Model 3",
+        status: "available",
+        rate: 120,
+        mileage: 8500,
+        fuel: "Full",
+        license: "TSL001",
+        rego: "TSL001",
+        color: "Pearl White",
+        vin: "5YJ3E1EA1KF123456"
+    },
+    {
+        id: 5,
+        make: "BMW",
+        model: "X5",
+        name: "BMW X5",
+        status: "available",
+        rate: 150,
+        mileage: 25000,
+        fuel: "Full",
+        license: "BMW777",
+        rego: "BMW777",
+        color: "Black",
+        vin: "5UXKR0C58L0P12345"
+    },
+    {
+        id: 6,
+        make: "Hyundai",
+        model: "Kona",
+        name: "Hyundai Kona",
+        status: "available",
+        rate: 65,
+        mileage: 15000,
+        fuel: "Full",
+        license: "HYN234",
+        rego: "HYN234",
+        color: "Blue",
+        vin: "KM8K1CAA4LU123456"
+    },
+    {
+        id: 7,
+        make: "Ford",
+        model: "Ranger",
+        name: "Ford Ranger",
+        status: "available",
+        rate: 95,
+        mileage: 42000,
+        fuel: "Full",
+        license: "FRD999",
+        rego: "FRD999",
+        color: "Grey",
+        vin: "1FTEW1EP5KFB12345"
+    },
+    {
+        id: 8,
+        make: "Kia",
+        model: "Sportage",
+        name: "Kia Sportage",
+        status: "available",
+        rate: 75,
+        mileage: 28000,
+        fuel: "Full",
+        license: "KIA555",
+        rego: "KIA555",
+        color: "Green",
+        vin: "KNDPM3AC2K7123456"
     }
 ];
 
@@ -67,6 +149,97 @@ function saveData() {
     localStorage.setItem('rentals-data', JSON.stringify(rentals));
 }
 
+function showToast(message, type = 'info') {
+    if (!document.getElementById('toast-styles')) {
+        const style = document.createElement('style');
+        style.id = 'toast-styles';
+        style.textContent = `
+            #toast-container {
+                position: fixed;
+                top: 1rem;
+                right: 1rem;
+                z-index: 9999;
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+            .app-toast {
+                min-width: 260px;
+                max-width: 360px;
+                padding: 0.85rem 1rem;
+                border-radius: 0.75rem;
+                color: #ffffff;
+                font-weight: 600;
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+                opacity: 0;
+                transform: translateY(-8px);
+                transition: all 0.22s ease;
+            }
+            .app-toast.show {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            .app-toast.info { background: #2563eb; }
+            .app-toast.success { background: #059669; }
+            .app-toast.warning { background: #d97706; }
+            .app-toast.error { background: #dc2626; }
+        `;
+        document.head.appendChild(style);
+    }
+
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `app-toast ${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+
+    requestAnimationFrame(() => toast.classList.add('show'));
+
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 220);
+    }, 3200);
+}
+
+function formatDateTimeLocal(date) {
+    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 16);
+}
+
+function initializeBookingDateInputs() {
+    const pickupInput = document.getElementById('pickup-date');
+    const returnInput = document.getElementById('return-date');
+    if (!pickupInput || !returnInput) return;
+
+    const now = new Date();
+    pickupInput.min = formatDateTimeLocal(now);
+
+    const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+    if (!pickupInput.value) {
+        pickupInput.value = formatDateTimeLocal(now);
+    }
+    returnInput.min = formatDateTimeLocal(twoHoursFromNow);
+    if (!returnInput.value) {
+        returnInput.value = formatDateTimeLocal(twoHoursFromNow);
+    }
+
+    pickupInput.addEventListener('change', () => {
+        const pickupDate = new Date(pickupInput.value);
+        if (Number.isNaN(pickupDate.getTime())) return;
+        const minReturnDate = new Date(pickupDate.getTime() + 60 * 60 * 1000);
+        returnInput.min = formatDateTimeLocal(minReturnDate);
+        if (!returnInput.value || new Date(returnInput.value) <= pickupDate) {
+            returnInput.value = formatDateTimeLocal(minReturnDate);
+        }
+    });
+}
+
 // ===== INITIALIZE =====
 document.addEventListener('DOMContentLoaded', function() {
     loadData();
@@ -74,6 +247,7 @@ document.addEventListener('DOMContentLoaded', function() {
     renderFleet();
     renderRentals();
     populateCarSelect();
+    initializeBookingDateInputs();
     
     // Set up filter buttons
     document.querySelectorAll('.filter-btn').forEach(btn => {
@@ -86,6 +260,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Set up booking form
     document.getElementById('booking-form').addEventListener('submit', handleNewBooking);
+    const addVehicleForm = document.getElementById('car-form');
+    if (addVehicleForm) {
+        addVehicleForm.addEventListener('submit', handleAddCar);
+    }
 });
 
 // ===== UPDATE STATS =====
@@ -93,6 +271,7 @@ function updateStats() {
     const available = fleet.filter(car => car.status === 'available').length;
     const rented = fleet.filter(car => car.status === 'rented').length;
     const maintenance = fleet.filter(car => car.status === 'maintenance').length;
+    const utilization = fleet.length > 0 ? Math.round((rented / fleet.length) * 100) : 0;
     
     // Calculate today's revenue (simplified)
     const todayRevenue = rentals
@@ -107,6 +286,7 @@ function updateStats() {
     document.getElementById('rented-count').textContent = rented;
     document.getElementById('maintenance-count').textContent = maintenance;
     document.getElementById('revenue-count').textContent = `$${todayRevenue}`;
+    document.getElementById('utilization-count').textContent = `${utilization}%`;
 }
 
 // ===== RENDER FLEET =====
@@ -153,6 +333,7 @@ function filterFleet(filter) {
 function renderRentals() {
     const list = document.getElementById('rentals-list');
     const activeRentals = rentals.filter(r => r.status === 'active');
+    document.getElementById('active-rental-count').textContent = activeRentals.length;
     
     if (activeRentals.length === 0) {
         list.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">No active rentals</p>';
@@ -188,6 +369,9 @@ function renderRentals() {
                     <button class="btn-small btn-primary" onclick="showRentalDetails(${rental.id})">
                         View Details
                     </button>
+                    <button class="btn-small btn-edit" onclick="completeRental(${rental.id})">
+                        ✅ Complete
+                    </button>
                 </div>
             </div>
         `;
@@ -209,19 +393,19 @@ function showNewBooking() {
 }
 
 function showAddCar() {
-    showModal('add-car-modal');
+    showModal('car-modal');
 }
 
 // ===== ADD CAR FUNCTIONS =====
 function handleAddCar(e) {
     if (e) e.preventDefault();
     
-    const carName = document.getElementById('car-name')?.value || prompt('Car Name:');
-    const carModel = document.getElementById('car-model')?.value || prompt('Car Model (year):');
-    const rate = parseInt(document.getElementById('car-rate')?.value || prompt('Daily Rate ($):'));
-    const mileage = parseInt(document.getElementById('car-mileage')?.value || prompt('Current Mileage:'));
+    const carName = document.getElementById('car-name')?.value?.trim() || '';
+    const carModel = document.getElementById('car-model')?.value?.trim() || '';
+    const rate = parseFloat(document.getElementById('car-rate')?.value || '0');
+    const mileage = parseInt(document.getElementById('car-mileage')?.value || '0', 10) || 0;
     const fuel = document.getElementById('car-fuel')?.value || 'Full';
-    const license = document.getElementById('car-license')?.value || prompt('License Plate:');
+    const license = document.getElementById('car-license')?.value?.trim() || '';
     const color = document.getElementById('car-color')?.value || 'Unknown';
     const vin = document.getElementById('car-vin')?.value || 'N/A';
     
@@ -249,16 +433,16 @@ function handleAddCar(e) {
     renderFleet();
     populateCarSelect();
     
-    closeModal('add-car-modal');
-    if (document.getElementById('add-car-form')) {
-        document.getElementById('add-car-form').reset();
+    closeModal('car-modal');
+    if (document.getElementById('car-form')) {
+        document.getElementById('car-form').reset();
     }
     
-    alert(`✅ Car added successfully!\nID: ${newCar.id}`);
+    showToast(`Car added successfully (ID: ${newCar.id})`, 'success');
 }
 
 function showInspection() {
-    alert('Inspection tool - opens at /scanner.html for photo documentation and QR scanning');
+    showToast('Inspection tool opens scanner.html', 'info');
 }
 
 // ===== DATA EXPORT FUNCTIONS =====
@@ -285,7 +469,7 @@ function exportData() {
     link.click();
     URL.revokeObjectURL(url);
     
-    alert('✅ Data exported successfully!');
+    showToast('Data exported successfully', 'success');
 }
 
 // ===== DAILY REPORT FUNCTIONS =====
@@ -360,6 +544,8 @@ function generateCarQR(carId) {
     
     const rental = rentals.find(r => r.carId === carId && r.status === 'active');
     
+    const scannerUrl = new URL('scanner.html', window.location.href).toString();
+
     const qrData = {
         type: 'car_access',
         carId: car.id,
@@ -369,7 +555,7 @@ function generateCarQR(carId) {
         rentalId: rental?.id || null,
         customer: rental?.customer || 'Available for Booking',
         timestamp: new Date().toISOString(),
-        scannerUrl: window.location.origin + '/scanner.html'
+        scannerUrl
     };
     
     const qrDisplay = document.getElementById('qr-display');
@@ -394,13 +580,13 @@ function generateCarQR(carId) {
         showModal('qr-modal');
     } catch (error) {
         console.error('QR generation failed:', error);
-        alert('Failed to generate QR code. Please try again.');
+        showToast('Failed to generate QR code. Please try again.', 'error');
     }
 }
 
 function generateQR() {
     if (fleet.length === 0) {
-        alert('No cars available. Please add a car first.');
+        showToast('No cars available. Please add a car first.', 'warning');
         return;
     }
     generateCarQR(fleet[0].id);
@@ -429,7 +615,17 @@ function handleNewBooking(e) {
     
     const car = fleet.find(c => c.id === carId);
     if (!car) {
-        alert('Please select a car');
+        showToast('Please select a car', 'warning');
+        return;
+    }
+
+    if (Number.isNaN(pickupDate.getTime()) || Number.isNaN(returnDate.getTime())) {
+        showToast('Please enter valid pickup and return dates', 'warning');
+        return;
+    }
+
+    if (returnDate <= pickupDate) {
+        showToast('Return date must be after pickup date', 'warning');
         return;
     }
     
@@ -461,10 +657,11 @@ function handleNewBooking(e) {
     // Close modal and reset form
     closeModal('booking-modal');
     document.getElementById('booking-form').reset();
+    initializeBookingDateInputs();
     
     // Generate QR code for this booking
     setTimeout(() => {
-        alert(`Booking created successfully!\nBooking ID: ${newRental.id}\n\nQR code will be sent to ${customerEmail}`);
+        showToast(`Booking created (ID: ${newRental.id})`, 'success');
         generateCarQR(carId);
     }, 300);
 }
@@ -481,6 +678,7 @@ function editCar(carId) {
         updateStats();
         renderFleet();
         renderRentals();
+        showToast(`Updated ${car.name} to ${newStatus}`, 'success');
     }
 }
 
@@ -501,6 +699,33 @@ function showRentalDetails(rentalId) {
           `Days: ${days}\n` +
           `Total: $${total}\n\n` +
           `QR actions available for pickup/dropoff`);
+}
+
+function completeRental(rentalId) {
+    const rental = rentals.find(r => r.id === rentalId);
+    if (!rental || rental.status !== 'active') {
+        showToast('Rental is not active', 'warning');
+        return;
+    }
+
+    const shouldComplete = confirm(`Complete rental for ${rental.customer}?`);
+    if (!shouldComplete) return;
+
+    rental.status = 'completed';
+    rental.completedAt = new Date();
+
+    const car = fleet.find(c => c.id === rental.carId);
+    if (car) {
+        car.status = 'available';
+    }
+
+    saveData();
+    updateStats();
+    renderFleet();
+    renderRentals();
+    populateCarSelect();
+
+    showToast(`Rental #${rental.id} marked as completed`, 'success');
 }
 
 // ===== AUTO REFRESH =====

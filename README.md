@@ -1,103 +1,89 @@
-# 🚀 Business Operations Platform
+# Business Operations Platform
 
-Complete online solution for **Starr365 Car Rental** and **Veera Food Corner** management.
+A combined web platform for:
+- **Starr365 Rentals** (fleet + booking + QR workflow)
+- **Veera Food Corner** (multi-page menu + cart + share)
 
-## 📋 Contents
+This project is fully static (HTML/CSS/JS) and runs directly from any static host.
 
-- **🚗 `/rentals`** - Starr365 Car Rental System
-  - Admin dashboard with fleet management
-  - QR code-based check-in/out process
-  - Real-time booking system
-  - Daily reports and analytics
-  
-- **🍽️ `/food`** - Veera Food Corner Menu
-  - Indian cuisine specialties
-  - Pizza, pasta & grill options
-  - Kebabs menu
-  - Online ordering interface
-  - Google Maps integration
+## Features
 
-- **🏠 `/public`** - Landing page with access portal
+### Rentals (`/rentals`)
+- Fleet dashboard with availability, maintenance, and utilization stats
+- Booking workflow with date validation and QR code generation
+- Active rentals list with quick completion action
+- Scanner and service pages for pickup/drop-off workflow
+- Local export/report helpers and browser persistence via `localStorage`
 
-## 🌐 Live URLs
+### Food (`/food`)
+- Multi-page menu: Indian, Pizza/Pasta/Grill, Kebabs
+- Cart + call-to-order flow
+- QR/share link support
+- Mobile-friendly layout and Google Maps embed
 
-Once deployed on GitHub Pages, access at:
+### Landing (`/index.html`)
+- Central gateway linking Rentals and Food modules
 
+## Project Structure
+
+```text
+Business-main/
+├── index.html
+├── README.md
+├── food/
+│   ├── index.html
+│   ├── pizza-pasta-grill.html
+│   ├── kebabs.html
+│   ├── script.js
+│   ├── style.css
+│   └── Menu_Extracted_Content.csv
+└── rentals/
+    ├── index.html
+    ├── scanner.html
+    ├── service.html
+    ├── admin.html
+    ├── app.js
+    ├── admin-enhanced.js
+    ├── style.css
+    ├── logo.png
+    └── README.md
 ```
-https://yourusername.github.io/business-online/
-https://yourusername.github.io/business-online/rentals
-https://yourusername.github.io/business-online/food
-```
 
-## 🚀 Quick Start (Local)
+## Run Locally
 
-### Start both servers:
+From the project root:
+
 ```bash
-cd ~/Desktop/website && python3 -m http.server 8000 &
-cd ~/Desktop/starr365-rental && python3 -m http.server 8080 &
+cd /home/redmoon/Desktop/Business-main
+python3 -m http.server 8080
 ```
 
-### Access locally:
-- Main: http://localhost:8080
-- Rentals: http://localhost:8080
-- Food: http://localhost:8000
+Open in browser:
+- `http://localhost:8080/index.html`
+- `http://localhost:8080/rentals/index.html`
+- `http://localhost:8080/food/index.html`
 
-### Stop servers:
-```bash
-pkill -f "http.server"
-```
+## Deploy (GitHub Pages)
 
-## 📦 Features
+1. Push this folder to a GitHub repository.
+2. In repository settings, enable **GitHub Pages** from the default branch root.
+3. Access pages using:
+   - `https://<username>.github.io/<repo>/`
+   - `https://<username>.github.io/<repo>/rentals/`
+   - `https://<username>.github.io/<repo>/food/`
 
-### Starr365 Car Rental
-- ✅ Fleet management (add/edit vehicles)
-- ✅ Real-time booking system
-- ✅ QR code generation for pickups
-- ✅ Customer scanner app
-- ✅ Daily revenue reports
-- ✅ Data export (JSON)
-- ✅ localStorage persistence
+## Tech Stack
 
-### Veera Food Corner
-- ✅ 3-page menu system
-- ✅ Shopping cart
-- ✅ QR sharing
-- ✅ Google Maps location
-- ✅ Responsive design
-- ✅ Mobile-friendly
+- HTML5, CSS3, JavaScript (ES6+)
+- QRCode.js (CDN)
+- Google Maps Embed
+- Browser `localStorage` for client-side persistence
 
-## 🔧 Tech Stack
+## Notes
 
-- **Frontend**: HTML5, CSS3, JavaScript (ES6+)
-- **Storage**: Browser localStorage
-- **QR Code**: QRCode.js library
-- **Maps**: Google Maps Embed API
-- **Styling**: Modern CSS with gradients & animations
-- **Responsive**: Mobile-first design
+- No backend/database is required for local demo usage.
+- For production business use, add authentication + server-side storage.
 
-## 📱 Browser Support
+## License
 
-- Chrome/Chromium ✅
-- Firefox ✅
-- Safari ✅
-- Edge ✅
-- Mobile browsers ✅
-
-## 🔐 Security
-
-- No backend database needed
-- All data stored locally in browser
-- HTTPS/SSL on GitHub Pages
-- No sensitive data exposed
-
-## 📝 License
-
-Private - All rights reserved
-
-## 👨‍💼 Owner
-
-Nischit-stha
-
----
-
-**Last Updated:** February 15, 2026
+Private - All rights reserved.

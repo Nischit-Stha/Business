@@ -207,6 +207,85 @@
             font-size: 0.9rem;
             margin: 0.25rem 0;
         }
+        
+        .car-selection-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .car-option-card {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+        
+        .car-option-card:hover {
+            border-color: #ffd700;
+            box-shadow: 0 8px 20px rgba(255, 215, 0, 0.3);
+            transform: translateY(-4px);
+        }
+        
+        .car-option-card.selected {
+            border-color: #ffd700;
+            background: #fffef0;
+            box-shadow: 0 8px 20px rgba(255, 215, 0, 0.4);
+        }
+        
+        .car-option-card .car-icon {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .car-option-card h4 {
+            font-size: 1.1rem;
+            color: #1a1a1a;
+            margin-bottom: 0.5rem;
+        }
+        
+        .car-option-card .car-details {
+            font-size: 0.9rem;
+            color: #666;
+            margin: 0.25rem 0;
+        }
+        
+        .car-option-card .car-rate {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #ffd700;
+            margin-top: 0.75rem;
+        }
+        
+        .car-option-card .selected-badge {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: #ffd700;
+            color: #1a1a1a;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            display: none;
+        }
+        
+        .car-option-card.selected .selected-badge {
+            display: block;
+        }
+        
+        .section-heading {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #ffd700;
+        }
     </style>
 </head>
 <body>
@@ -249,10 +328,19 @@
                 </div>
             </div>
             
-            <!-- Vehicle Selection (for pickup only) -->
-            <div class="form-group" id="vehicle-selection">
+            <!-- Visual Car Selection (for pickup only) -->
+            <div id="car-cards-section" style="display: none;">
+                <h3 class="section-heading">Select Your Vehicle</h3>
+                <div id="car-selection-grid" class="car-selection-grid"></div>
+            </div>
+            
+            <!-- Hidden input to store selected vehicle -->
+            <input type="hidden" id="selected-vehicle-data">
+            
+            <!-- Vehicle Selection Dropdown (backup/hidden for pickup) -->
+            <div class="form-group" id="vehicle-selection" style="display: none;">
                 <label id="vehicle-label">Select Vehicle</label>
-                <select id="vehicle-select" required>
+                <select id="vehicle-select">
                     <option value="">Choose vehicle...</option>
                 </select>
             </div>
@@ -294,11 +382,8 @@
                 <textarea id="notes" placeholder="Any damage or issues to report..."></textarea>
             </div>
             
-            <!-- GPS Location (auto-filled) -->
-            <div class="form-group">
-                <label>GPS Location</label>
-                <input type="text" id="location" readonly placeholder="Getting location...">
-            </div>
+            <!-- GPS Location (hidden from customer, captured in background) -->
+            <input type="hidden" id="location" readonly>
             
             <!-- Service Reference ID (auto-generated) -->
             <div class="form-group">
@@ -326,7 +411,7 @@
         const params = new URLSearchParams(window.location.search);
         serviceType = params.get('type') || 'pickup';
         
-        // Get GPS location
+        // Get GPS location (captured silently in background for admin tracking)
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(position => {
                 gpsLocation = {
@@ -335,6 +420,9 @@
                 };
                 document.getElementById('location').value = 
                     `${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}`;
+            }, error => {
+                console.log('Location access denied or unavailable');
+                gpsLocation = null;
             });
         }
         
@@ -351,12 +439,13 @@
             if (serviceType === 'pickup') {
                 title.textContent = 'Vehicle Pickup';
                 badge.textContent = 'PICKUP';
-                infoText.textContent = 'Starting your rental? Complete the pickup inspection and get your keys.';
+                infoText.textContent = 'Select your preferred vehicle from our available fleet.';
                 vehicleLabel.textContent = 'Select Vehicle';
                 regoLookup.style.display = 'none';
                 customerInputs.style.display = 'block';
-                vehicleSelection.style.display = 'block';
-                loadAvailableVehicles();
+                vehicleSelection.style.display = 'none'; // Hide dropdown
+                document.getElementById('car-cards-section').style.display = 'block'; // Show cards
+                loadAvailableVehiclesAsCards();
             } else if (serviceType === 'dropoff') {
                 title.textContent = 'Vehicle Drop-off';
                 badge.textContent = 'DROP-OFF';
@@ -429,7 +518,57 @@
             document.getElementById('service-ref').value = ref;
         }
         
-        // Load available vehicles from fleet
+        // Load available vehicles as visual cards (for pickup)
+        function loadAvailableVehiclesAsCards() {
+            const fleet = JSON.parse(localStorage.getItem('fleet-data') || '[]');
+            const grid = document.getElementById('car-selection-grid');
+            
+            const available = fleet.filter(v => v.status === 'available');
+            
+            if (available.length === 0) {
+                grid.innerHTML = '<p style=\"text-align: center; color: #666; grid-column: 1/-1;\">No vehicles available at the moment. Please contact us.</p>';
+            } else {
+                grid.innerHTML = available.map(vehicle => `
+                    <div class=\"car-option-card\" onclick=\"selectCar(${vehicle.id})\" data-vehicle-id=\"${vehicle.id}\">
+                        <span class=\"selected-badge\">✓ SELECTED</span>
+                        <div class=\"car-icon\">🚗</div>
+                        <h4>${vehicle.name || vehicle.make + ' ' + vehicle.model}</h4>
+                        <p class=\"car-details\">📋 ${vehicle.rego || vehicle.license}</p>
+                        <p class=\"car-details\">🎨 ${vehicle.color || 'N/A'}</p>
+                        <p class=\"car-details\">📊 ${vehicle.mileage || 0} km</p>
+                        <p class=\"car-rate\">$${vehicle.rate}/day</p>
+                    </div>
+                `).join('');
+            }
+        }
+        
+        // Select a car from the visual cards
+        function selectCar(vehicleId) {
+            const fleet = JSON.parse(localStorage.getItem('fleet-data') || '[]');
+            const vehicle = fleet.find(v => v.id === vehicleId);
+            
+            if (!vehicle) return;
+            
+            // Remove selection from all cards
+            document.querySelectorAll('.car-option-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // Add selection to clicked card
+            const selectedCard = document.querySelector(`[data-vehicle-id=\"${vehicleId}\"]`);
+            if (selectedCard) {
+                selectedCard.classList.add('selected');
+            }
+            
+            // Store selected vehicle data
+            document.getElementById('selected-vehicle-data').value = JSON.stringify(vehicle);
+            
+            // Also populate the hidden select for form validation
+            const select = document.getElementById('vehicle-select');
+            select.innerHTML = `<option value=\"${JSON.stringify(vehicle).replace(/\"/g, '&quot;')}\" selected>${vehicle.name || vehicle.make + ' ' + vehicle.model} - ${vehicle.rego || vehicle.license}</option>`;
+        }
+        
+        // Load available vehicles from fleet (old dropdown method - kept for compatibility)
         function loadAvailableVehicles() {
             const fleet = JSON.parse(localStorage.getItem('fleet-data') || '[]');
             const select = document.getElementById('vehicle-select');
@@ -477,7 +616,10 @@
             let vehicle, customerName, customerPhone;
             
             if (serviceType === 'pickup') {
-                const vehicleData = document.getElementById('vehicle-select').value;
+                // Get vehicle from card selection (visual) or dropdown (fallback)
+                const selectedVehicleData = document.getElementById('selected-vehicle-data').value;
+                const vehicleData = selectedVehicleData || document.getElementById('vehicle-select').value;
+                
                 if (!vehicleData) {
                     alert('Please select a vehicle');
                     return;

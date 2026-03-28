@@ -50,22 +50,22 @@
         }
         
         .logo {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-            padding: 0.75rem 1.5rem;
-            border-radius: 50px;
-            margin-bottom: 1rem;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            margin-bottom: 1.5rem;
+            display: flex;
+            justify-content: center;
         }
         
-        .logo h1 {
-            font-family: 'Poppins', sans-serif;
-            font-size: 1.5rem;
-            color: #ffd700;
-            font-weight: 700;
-            letter-spacing: -0.5px;
+        #logo-image {
+            max-width: 450px;
+            width: 100%;
+            height: auto;
+            filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.3));
+            animation: fadeIn 0.8s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
         }
         
         .badge {
@@ -197,6 +197,10 @@
         }
         
         @media (max-width: 480px) {
+            #logo-image {
+                max-width: 350px;
+            }
+            
             .service-container {
                 padding: 2rem 1.5rem;
             }
@@ -221,8 +225,7 @@
     <div class="service-container">
         <div class="header">
             <div class="logo">
-                <span class="badge">Veera Rentals</span>
-                <h1>CAR RENTAL SERVICE</h1>
+                <img src="logo.png" alt="Veera Rentals Logo" id="logo-image">
             </div>
             <p class="tagline">Select your service type to continue</p>
         </div>

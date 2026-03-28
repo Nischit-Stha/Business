@@ -1,4 +1,4 @@
-# Veera Rentals Veera Rentals Management System
+# Veera Rentals Management System
 
 ## 🚗 Features
 
@@ -151,5 +151,5 @@ Upload all files to your hosting:
 
 ---
 
-**Built for Veera Rentals Veera Rentalss**
+**Built for Veera Rentals**
 *Automating inspections, tracking, and customer experience*

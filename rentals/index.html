@@ -209,66 +209,6 @@
         </div>
     </div>
 
-    <!-- Add Car Modal -->
-    <div class="modal" id="add-car-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Add New Vehicle</h2>
-                <button class="close-btn" onclick="closeModal('add-car-modal')">&times;</button>
-            </div>
-            <form id="add-car-form" onsubmit="handleAddCar(event)">
-                <div class="form-group">
-                    <label>Vehicle Name *</label>
-                    <input type="text" id="car-name" placeholder="e.g., Toyota Camry" required>
-                </div>
-                <div class="form-group">
-                    <label>Model Year *</label>
-                    <input type="text" id="car-model" placeholder="e.g., 2024" required>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Daily Rate ($) *</label>
-                        <input type="number" id="car-rate" placeholder="80" min="10" required>
-                    </div>
-                    <div class="form-group">
-                        <label>License Plate *</label>
-                        <input type="text" id="car-license" placeholder="ABC123" required>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Current Mileage (km)</label>
-                        <input type="number" id="car-mileage" placeholder="45000" value="0">
-                    </div>
-                    <div class="form-group">
-                        <label>Fuel Level</label>
-                        <select id="car-fuel">
-                            <option>Empty</option>
-                            <option>1/4</option>
-                            <option>1/2</option>
-                            <option>3/4</option>
-                            <option selected>Full</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Color</label>
-                        <input type="text" id="car-color" placeholder="Black">
-                    </div>
-                    <div class="form-group">
-                        <label>VIN</label>
-                        <input type="text" id="car-vin" placeholder="Vehicle Identification Number">
-                    </div>
-                </div>
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('add-car-modal')">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Add Vehicle</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <!-- QR Code Modal -->
     <div class="modal" id="qr-modal">
         <div class="modal-content modal-sm">
