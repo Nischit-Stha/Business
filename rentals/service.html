@@ -750,9 +750,9 @@
             </div>
             
             <!-- Odometer Reading -->
-            <div class="form-group">
-                <label>Odometer Reading (km)</label>
-                <input type="number" id="mileage" required placeholder="45000">
+            <div class="form-group" id="odometer-group">
+                <label>Odometer Reading (Admin Only)</label>
+                <input type="number" id="mileage" required placeholder="Auto-filled by system" readonly>
             </div>
             
             <!-- Photo Upload -->
@@ -917,6 +917,12 @@
                 
                 // Show customer info box
                 document.getElementById('customer-info-display').classList.add('show');
+
+                // Auto-fill odometer (admin value from vehicle/rental)
+                const odometerInput = document.getElementById('mileage');
+                if (odometerInput) {
+                    odometerInput.value = foundRental.vehicle?.mileage || foundRental.mileage || '';
+                }
                 
                 // Hide rego lookup, enable form
                 document.getElementById('rego-lookup-group').style.display = 'none';
@@ -1053,6 +1059,12 @@
 
             // Store selected vehicle data
             document.getElementById('selected-vehicle-data').value = JSON.stringify(vehicle);
+
+            // Auto-fill odometer from vehicle data (admin-controlled)
+            const odometerInput = document.getElementById('mileage');
+            if (odometerInput) {
+                odometerInput.value = vehicle.mileage || '';
+            }
 
             // Also populate the hidden select for form validation
             const select = document.getElementById('vehicle-select');
@@ -1388,7 +1400,7 @@
                 customerName: customerName,
                 customerPhone: customerPhone,
                 vehicle: vehicle,
-                mileage: document.getElementById('mileage').value,
+                mileage: document.getElementById('mileage').value || vehicle.mileage || currentRental?.mileage || '',
                 notes: document.getElementById('notes').value,
                 location: gpsLocation,
                 photos: photos,
