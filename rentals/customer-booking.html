@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Booking | Veera Rentals</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .customer-page {
+            max-width: 900px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .customer-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.75rem;
+            box-shadow: var(--shadow-md);
+            margin-bottom: 1.5rem;
+        }
+
+        .customer-header {
+            margin-bottom: 1.25rem;
+        }
+
+        .customer-header h1 {
+            font-size: 1.7rem;
+            color: var(--dark);
+            margin-bottom: 0.35rem;
+        }
+
+        .customer-header p {
+            color: var(--gray-600);
+        }
+
+        .row-actions {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+        }
+
+        .booking-success {
+            display: none;
+            background: #ecfdf5;
+            border: 1px solid #10b981;
+            color: #065f46;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+
+        .helper-note {
+            color: var(--gray-600);
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <main class="customer-page">
+        <section class="customer-card">
+            <div class="customer-header">
+                <h1>Book Your Car</h1>
+                <p>Choose an available vehicle and submit your booking request.</p>
+            </div>
+
+            <form id="customer-booking-form" class="form">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Full Name *</label>
+                        <input type="text" id="customer-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Phone Number *</label>
+                        <input type="tel" id="customer-phone" required>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Email Address *</label>
+                        <input type="email" id="customer-email" required>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Select Vehicle *</label>
+                        <select id="customer-car-select" required>
+                            <option value="">Loading available cars...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Pickup Date & Time *</label>
+                        <input type="datetime-local" id="pickup-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Return Date & Time *</label>
+                        <input type="datetime-local" id="return-date" required>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Additional Notes</label>
+                        <textarea id="booking-notes" rows="3" placeholder="Any special requests..."></textarea>
+                    </div>
+                </div>
+
+                <div class="row-actions">
+                    <button type="submit" class="btn btn-primary">Submit Booking</button>
+                    <a href="index.html" class="btn btn-secondary" style="text-decoration:none;">Back to Admin Dashboard</a>
+                </div>
+                <p class="helper-note">Your booking is saved instantly and appears in active rentals.</p>
+            </form>
+
+            <div id="booking-success" class="booking-success"></div>
+        </section>
+    </main>
+
+    <script>
+        function getData(key, fallback) {
+            try {
+                const value = localStorage.getItem(key);
+                return value ? JSON.parse(value) : fallback;
+            } catch {
+                return fallback;
+            }
+        }
+
+        function setData(key, value) {
+            localStorage.setItem(key, JSON.stringify(value));
+        }
+
+        function formatDateTimeLocal(date) {
+            const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+            return local.toISOString().slice(0, 16);
+        }
+
+        function initializeDateFields() {
+            const pickupInput = document.getElementById('pickup-date');
+            const returnInput = document.getElementById('return-date');
+            const now = new Date();
+            const minPickup = new Date(now.getTime() + 60 * 60 * 1000);
+            const minReturn = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+
+            pickupInput.min = formatDateTimeLocal(now);
+            pickupInput.value = formatDateTimeLocal(minPickup);
+            returnInput.min = formatDateTimeLocal(minReturn);
+            returnInput.value = formatDateTimeLocal(minReturn);
+
+            pickupInput.addEventListener('change', () => {
+                const pickupDate = new Date(pickupInput.value);
+                if (Number.isNaN(pickupDate.getTime())) return;
+                const minimumReturnDate = new Date(pickupDate.getTime() + 60 * 60 * 1000);
+                returnInput.min = formatDateTimeLocal(minimumReturnDate);
+                if (!returnInput.value || new Date(returnInput.value) <= pickupDate) {
+                    returnInput.value = formatDateTimeLocal(minimumReturnDate);
+                }
+            });
+        }
+
+        function populateAvailableCars() {
+            const fleet = getData('fleet-data', []);
+            const select = document.getElementById('customer-car-select');
+            const available = fleet.filter(car => car.status === 'available');
+
+            if (!available.length) {
+                select.innerHTML = '<option value="">No cars currently available</option>';
+                select.disabled = true;
+                return;
+            }
+
+            select.disabled = false;
+            select.innerHTML = '<option value="">Choose a vehicle...</option>' +
+                available.map(car => `<option value="${car.id}">${car.name} - ${car.model} ($${car.rate}/day)</option>`).join('');
+        }
+
+        function showSuccess(message) {
+            const box = document.getElementById('booking-success');
+            box.textContent = message;
+            box.style.display = 'block';
+        }
+
+        function handleBookingSubmit(event) {
+            event.preventDefault();
+
+            const name = document.getElementById('customer-name').value.trim();
+            const phone = document.getElementById('customer-phone').value.trim();
+            const email = document.getElementById('customer-email').value.trim();
+            const selectedCarId = Number(document.getElementById('customer-car-select').value);
+            const pickupDate = new Date(document.getElementById('pickup-date').value);
+            const returnDate = new Date(document.getElementById('return-date').value);
+            const notes = document.getElementById('booking-notes').value.trim();
+
+            if (!name || !phone || !email || !selectedCarId) {
+                alert('Please complete all required fields.');
+                return;
+            }
+
+            if (Number.isNaN(pickupDate.getTime()) || Number.isNaN(returnDate.getTime()) || returnDate <= pickupDate) {
+                alert('Please select valid pickup and return times.');
+                return;
+            }
+
+            const fleet = getData('fleet-data', []);
+            const rentals = getData('rentals-data', []);
+            const selectedCar = fleet.find(car => car.id === selectedCarId);
+
+            if (!selectedCar || selectedCar.status !== 'available') {
+                alert('Selected car is no longer available. Please choose another vehicle.');
+                populateAvailableCars();
+                return;
+            }
+
+            const nextRentalId = rentals.length ? Math.max(...rentals.map(r => Number(r.id) || 0)) + 1 : 1;
+
+            const newRental = {
+                id: nextRentalId,
+                customer: name,
+                phone,
+                email,
+                car: selectedCar.name,
+                carId: selectedCar.id,
+                pickupDate,
+                returnDate,
+                notes,
+                status: 'active',
+                source: 'customer-portal',
+                createdAt: new Date().toISOString()
+            };
+
+            selectedCar.status = 'rented';
+            rentals.push(newRental);
+
+            setData('fleet-data', fleet);
+            setData('rentals-data', rentals);
+
+            document.getElementById('customer-booking-form').reset();
+            initializeDateFields();
+            populateAvailableCars();
+            showSuccess(`Booking submitted successfully! Booking ID: ${newRental.id}`);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeDateFields();
+            populateAvailableCars();
+            document.getElementById('customer-booking-form').addEventListener('submit', handleBookingSubmit);
+        });
+    </script>
+</body>
+</html>
