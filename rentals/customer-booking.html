@@ -81,17 +81,22 @@
                     </div>
                     <div class="form-group full-width">
                         <label>Select Vehicle *</label>
-                        <select id="customer-car-select" required>
+                        <select id="customer-car-select" required onchange="updateBookingPrice()">
                             <option value="">Loading available cars...</option>
                         </select>
+                        <small id="car-price-info" style="color: #666; margin-top: 0.25rem; display: block;"></small>
                     </div>
                     <div class="form-group">
                         <label>Pickup Date & Time *</label>
-                        <input type="datetime-local" id="pickup-date" required>
+                        <input type="datetime-local" id="pickup-date" required onchange="updateBookingPrice()">
                     </div>
                     <div class="form-group">
                         <label>Return Date & Time *</label>
-                        <input type="datetime-local" id="return-date" required>
+                        <input type="datetime-local" id="return-date" required onchange="updateBookingPrice()">
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Estimated Total</label>
+                        <input type="text" id="estimated-total" readonly style="background: #f0f4f8; font-weight: 600; color: #1a1a1a;" value="Select car and dates">
                     </div>
                     <div class="form-group full-width">
                         <label>Additional Notes</label>
@@ -166,6 +171,37 @@
             select.disabled = false;
             select.innerHTML = '<option value="">Choose a vehicle...</option>' +
                 available.map(car => `<option value="${car.id}">${car.name} - ${car.model} ($${car.rate}/day)</option>`).join('');
+        }
+
+        function updateBookingPrice() {
+            const fleet = getData('fleet-data', []);
+            const selectedCarId = Number(document.getElementById('customer-car-select').value);
+            const pickupDate = new Date(document.getElementById('pickup-date').value);
+            const returnDate = new Date(document.getElementById('return-date').value);
+            
+            const priceInfo = document.getElementById('car-price-info');
+            const estimatedTotal = document.getElementById('estimated-total');
+            
+            if (!selectedCarId || Number.isNaN(pickupDate.getTime()) || Number.isNaN(returnDate.getTime())) {
+                priceInfo.textContent = '';
+                estimatedTotal.value = 'Select car and dates';
+                return;
+            }
+            
+            if (returnDate <= pickupDate) {
+                priceInfo.textContent = '⚠️ Return date must be after pickup';
+                estimatedTotal.value = 'Invalid dates';
+                return;
+            }
+            
+            const car = fleet.find(c => c.id === selectedCarId);
+            if (!car) return;
+            
+            const days = Math.ceil((returnDate - pickupDate) / (1000 * 60 * 60 * 24));
+            const total = car.rate * days;
+            
+            priceInfo.textContent = `✓ $${car.rate}/day`;
+            estimatedTotal.value = `$${total.toFixed(2)} for ${days} day${days > 1 ? 's' : ''}`;
         }
 
         function showSuccess(message) {

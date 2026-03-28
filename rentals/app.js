@@ -278,6 +278,7 @@ document.addEventListener('DOMContentLoaded', function() {
     updateStats();
     renderFleet();
     renderRentals();
+    renderServiceHistory();
     populateCarSelect();
     initializeBookingDateInputs();
     initializeNavLinks();
@@ -411,6 +412,49 @@ function renderRentals() {
                     <button class="btn-small btn-edit" onclick="completeRental(${rental.id})">
                         ✅ Complete
                     </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// ===== RENDER SERVICE HISTORY =====
+function renderServiceHistory() {
+    const historyList = document.getElementById('service-history-list');
+    const pickups = JSON.parse(localStorage.getItem('veera-rentals-pickups') || '[]').slice(-5);
+    const dropoffs = JSON.parse(localStorage.getItem('veera-rentals-dropoffs') || '[]').slice(-5);
+    const swaps = JSON.parse(localStorage.getItem('veera-rentals-swaps') || '[]').slice(-5);
+    
+    const allServices = [
+        ...pickups.map(p => ({ ...p, type: 'Pickup' })),
+        ...dropoffs.map(d => ({ ...d, type: 'Drop-off' })),
+        ...swaps.map(s => ({ ...s, type: 'Swap' }))
+    ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 8);
+    
+    if (allServices.length === 0) {
+        historyList.innerHTML = '<div style="padding: 2rem; text-align: center; color: #999;"><p>No service records yet</p></div>';
+        return;
+    }
+    
+    historyList.innerHTML = allServices.map(service => {
+        const date = new Date(service.timestamp);
+        const typeIcon = service.type === 'Pickup' ? '📤' : service.type === 'Drop-off' ? '📥' : '🔄';
+        const typeColor = service.type === 'Pickup' ? '#3b82f6' : service.type === 'Drop-off' ? '#10b981' : '#f59e0b';
+        
+        return `
+            <div style="background: white; border: 1px solid #e5e7eb; border-radius: 10px; padding: 1rem; display: flex; justify-content: space-between; align-items: center;">
+                <div style="flex: 1;">
+                    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.35rem;">
+                        <span style="font-size: 1.5rem;">${typeIcon}</span>
+                        <div>
+                            <strong style="color: #1f2937;">${service.type} - ${service.customerName || 'Customer'}</strong>
+                            <div style="font-size: 0.85rem; color: #6b7280;">${service.vehicle ? service.vehicle.name || service.vehicle.rego : 'Vehicle N/A'}</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 0.9rem; color: #6b7280; margin-bottom: 0.25rem;">${date.toLocaleDateString()} ${date.toLocaleTimeString()}</div>
+                    <div style="font-size: 0.85rem; background: ${typeColor}15; color: ${typeColor}; padding: 0.25rem 0.75rem; border-radius: 20px; font-weight: 500;">Ref: ${service.serviceRef || 'N/A'}</div>
                 </div>
             </div>
         `;
