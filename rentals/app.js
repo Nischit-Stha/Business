@@ -127,20 +127,52 @@ let rentals = [
     }
 ];
 
+function normalizeRentalDates(rentalList = []) {
+    return rentalList.map(r => ({
+        ...r,
+        pickupDate: new Date(r.pickupDate),
+        returnDate: new Date(r.returnDate)
+    }));
+}
+
+async function importSeedDataFromRecords() {
+    const response = await fetch('records-seed.json', { cache: 'no-store' });
+    if (!response.ok) {
+        throw new Error('Seed file unavailable');
+    }
+
+    const seedData = await response.json();
+    if (Array.isArray(seedData.fleet) && seedData.fleet.length > 0) {
+        fleet = seedData.fleet;
+    }
+    if (Array.isArray(seedData.rentals) && seedData.rentals.length > 0) {
+        rentals = normalizeRentalDates(seedData.rentals);
+    }
+
+    saveData();
+    localStorage.setItem('records-imported-v1', 'true');
+}
+
 // Load from localStorage if available
-function loadData() {
+async function loadData() {
     const savedFleet = localStorage.getItem('fleet-data');
     const savedRentals = localStorage.getItem('rentals-data');
-    
-    if (savedFleet) fleet = JSON.parse(savedFleet);
+    const importedFlag = localStorage.getItem('records-imported-v1') === 'true';
+
+    if (!importedFlag) {
+        try {
+            await importSeedDataFromRecords();
+            return;
+        } catch (error) {
+            console.warn('Could not import Records seed data:', error);
+        }
+    }
+
+    if (savedFleet) {
+        fleet = JSON.parse(savedFleet);
+    }
     if (savedRentals) {
-        rentals = JSON.parse(savedRentals);
-        // Convert date strings back to Date objects
-        rentals = rentals.map(r => ({
-            ...r,
-            pickupDate: new Date(r.pickupDate),
-            returnDate: new Date(r.returnDate)
-        }));
+        rentals = normalizeRentalDates(JSON.parse(savedRentals));
     }
 }
 
@@ -273,8 +305,8 @@ function initializeNavLinks() {
 }
 
 // ===== INITIALIZE =====
-document.addEventListener('DOMContentLoaded', function() {
-    loadData();
+document.addEventListener('DOMContentLoaded', async function() {
+    await loadData();
     updateStats();
     renderFleet();
     renderRentals();
