@@ -162,6 +162,15 @@
                             <button class="filter-btn" data-filter="maintenance">Maintenance</button>
                         </div>
                     </div>
+                    <div class="filters" style="margin-bottom: 1rem; flex-wrap: wrap;">
+                        <input type="text" id="fleet-search" placeholder="Search by car, make, model, plate..." style="max-width: 340px;">
+                        <select id="fleet-sort" style="max-width: 220px;">
+                            <option value="name-asc">Sort: Name (A-Z)</option>
+                            <option value="rate-high">Sort: Rate High → Low</option>
+                            <option value="rate-low">Sort: Rate Low → High</option>
+                            <option value="status">Sort: Status</option>
+                        </select>
+                    </div>
                     <div class="fleet-grid" id="fleet-grid">
                         <!-- Fleet cards will be injected here -->
                     </div>
@@ -182,8 +191,21 @@
 
                 <section class="rentals-section">
                     <div class="section-header">
-                        <h2>Active Rentals</h2>
+                        <h2>Bookings List</h2>
                         <span class="badge" id="active-rental-count">0</span>
+                    </div>
+                    <div class="filters" style="margin-bottom: 1rem; flex-wrap: wrap;">
+                        <input type="text" id="booking-search" placeholder="Search by customer, phone, car..." style="max-width: 320px;">
+                        <select id="booking-status-filter" style="max-width: 200px;">
+                            <option value="active">Status: Active</option>
+                            <option value="completed">Status: Completed</option>
+                            <option value="all">Status: All</option>
+                        </select>
+                        <select id="booking-sort" style="max-width: 220px;">
+                            <option value="recent">Sort: Newest First</option>
+                            <option value="return-soon">Sort: Return Soonest</option>
+                            <option value="customer-asc">Sort: Customer (A-Z)</option>
+                        </select>
                     </div>
                     <div class="rentals-list" id="rentals-list">
                         <!-- Rental cards will be injected here -->

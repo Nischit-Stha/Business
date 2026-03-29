@@ -5,6 +5,12 @@ let rentals = [];
 
 const DEFAULT_RATE = 250;
 const BOOKING_REQUESTS_KEY = 'booking-requests-data';
+let activeFleetFilter = 'all';
+let fleetSearchQuery = '';
+let fleetSortMode = 'name-asc';
+let bookingSearchQuery = '';
+let bookingStatusFilter = 'active';
+let bookingSortMode = 'recent';
 
 function normalizeCarRate(rate) {
     const numericRate = Number(rate);
@@ -260,8 +266,9 @@ function setActiveFleetFilterButton(filter) {
 
 function applyFleetFilter(filter, options = {}) {
     const { scrollToFleet = false } = options;
+    activeFleetFilter = filter || 'all';
     setActiveFleetFilterButton(filter);
-    filterFleet(filter);
+    renderFleet();
 
     if (scrollToFleet) {
         showTabSection('fleet');
@@ -293,6 +300,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     initializeBookingDateInputs();
     initializeNavLinks();
     initializeStatsCardFilters();
+    setActiveFleetFilterButton(activeFleetFilter);
     
     // Set up filter buttons
     document.querySelectorAll('.filter-btn').forEach(btn => {
@@ -300,6 +308,46 @@ document.addEventListener('DOMContentLoaded', async function() {
             applyFleetFilter(this.dataset.filter);
         });
     });
+
+    const fleetSearchInput = document.getElementById('fleet-search');
+    if (fleetSearchInput) {
+        fleetSearchInput.addEventListener('input', (event) => {
+            fleetSearchQuery = (event.target.value || '').trim().toLowerCase();
+            renderFleet();
+        });
+    }
+
+    const fleetSortSelect = document.getElementById('fleet-sort');
+    if (fleetSortSelect) {
+        fleetSortSelect.addEventListener('change', (event) => {
+            fleetSortMode = event.target.value || 'name-asc';
+            renderFleet();
+        });
+    }
+
+    const bookingSearchInput = document.getElementById('booking-search');
+    if (bookingSearchInput) {
+        bookingSearchInput.addEventListener('input', (event) => {
+            bookingSearchQuery = (event.target.value || '').trim().toLowerCase();
+            renderRentals();
+        });
+    }
+
+    const bookingStatusSelect = document.getElementById('booking-status-filter');
+    if (bookingStatusSelect) {
+        bookingStatusSelect.addEventListener('change', (event) => {
+            bookingStatusFilter = event.target.value || 'active';
+            renderRentals();
+        });
+    }
+
+    const bookingSortSelect = document.getElementById('booking-sort');
+    if (bookingSortSelect) {
+        bookingSortSelect.addEventListener('change', (event) => {
+            bookingSortMode = event.target.value || 'recent';
+            renderRentals();
+        });
+    }
     
     // Set up booking form
     document.getElementById('booking-form').addEventListener('submit', handleNewBooking);
@@ -381,9 +429,47 @@ function getBookingReferenceDate(rental) {
 }
 
 // ===== RENDER FLEET =====
-function renderFleet(filter = 'all') {
+function renderFleet() {
     const grid = document.getElementById('fleet-grid');
-    const filtered = filter === 'all' ? fleet : fleet.filter(car => car.status === filter);
+    const statusFiltered = activeFleetFilter === 'all'
+        ? [...fleet]
+        : fleet.filter(car => car.status === activeFleetFilter);
+
+    const searchedFleet = statusFiltered.filter(car => {
+        if (!fleetSearchQuery) return true;
+        const searchableText = [
+            car.name,
+            car.make,
+            car.model,
+            car.license,
+            car.rego,
+            car.color,
+            car.status
+        ].filter(hasMeaningfulValue).join(' ').toLowerCase();
+        return searchableText.includes(fleetSearchQuery);
+    });
+
+    const filtered = searchedFleet.sort((firstCar, secondCar) => {
+        if (fleetSortMode === 'rate-high') {
+            return Number(secondCar.rate || 0) - Number(firstCar.rate || 0);
+        }
+        if (fleetSortMode === 'rate-low') {
+            return Number(firstCar.rate || 0) - Number(secondCar.rate || 0);
+        }
+        if (fleetSortMode === 'status') {
+            const firstStatus = (firstCar.status || '').toString();
+            const secondStatus = (secondCar.status || '').toString();
+            return firstStatus.localeCompare(secondStatus);
+        }
+        const firstName = (firstCar.name || firstCar.model || '').toString();
+        const secondName = (secondCar.name || secondCar.model || '').toString();
+        return firstName.localeCompare(secondName);
+    });
+
+    if (filtered.length === 0) {
+        grid.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">No vehicles match this filter.</p>';
+        return;
+    }
     
     grid.innerHTML = filtered.map(car => {
         const makeModel = [car.make, car.model].filter(hasMeaningfulValue).join(' ');
@@ -440,52 +526,54 @@ function renderFleet(filter = 'all') {
 }
 
 function filterFleet(filter) {
-    renderFleet(filter);
+    activeFleetFilter = filter || 'all';
+    renderFleet();
 }
 
 // ===== RENDER RENTALS =====
 function renderRentals() {
     const list = document.getElementById('rentals-list');
-    const activeRentals = rentals.filter(r => r.status === 'active');
-    document.getElementById('active-rental-count').textContent = activeRentals.length;
-    
-    if (activeRentals.length === 0) {
-        const recentBookings = [...rentals]
-            .sort((a, b) => getBookingReferenceDate(b) - getBookingReferenceDate(a))
-            .slice(0, 8);
+    const statusFilteredRentals = rentals.filter(rental => {
+        if (bookingStatusFilter === 'all') return true;
+        return (rental.status || 'active') === bookingStatusFilter;
+    });
 
-        if (recentBookings.length === 0) {
-            list.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">No bookings found</p>';
-            return;
+    const searchedRentals = statusFilteredRentals.filter(rental => {
+        if (!bookingSearchQuery) return true;
+        const searchableText = [
+            rental.customer,
+            rental.phone,
+            rental.car,
+            rental.email,
+            rental.status
+        ].filter(hasMeaningfulValue).join(' ').toLowerCase();
+        return searchableText.includes(bookingSearchQuery);
+    });
+
+    const sortedRentals = [...searchedRentals].sort((firstRental, secondRental) => {
+        if (bookingSortMode === 'return-soon') {
+            return new Date(firstRental.returnDate) - new Date(secondRental.returnDate);
         }
+        if (bookingSortMode === 'customer-asc') {
+            return String(firstRental.customer || '').localeCompare(String(secondRental.customer || ''));
+        }
+        return getBookingReferenceDate(secondRental) - getBookingReferenceDate(firstRental);
+    });
 
-        list.innerHTML = `
-            <div style="padding: 0.75rem 0; color: #4b5563; font-weight: 600;">No active rentals right now. Recent bookings:</div>
-            ${recentBookings.map(booking => {
-                const bookingDate = getBookingReferenceDate(booking);
-                const status = hasMeaningfulValue(booking.status) ? booking.status : 'unknown';
-                return `
-                    <div class="rental-card">
-                        <div class="rental-info">
-                            <h4>${booking.customer || 'Customer'} - ${booking.car || 'Vehicle'}</h4>
-                            <p>📅 ${bookingDate.toLocaleString()}</p>
-                        </div>
-                        <div class="rental-meta">
-                            <span class="status-badge status-${status}" style="align-self: center;">${status.charAt(0).toUpperCase() + status.slice(1)}</span>
-                            <button class="btn-small btn-primary" onclick="showRentalDetails(${booking.id})">View Details</button>
-                        </div>
-                    </div>
-                `;
-            }).join('')}
-        `;
+    document.getElementById('active-rental-count').textContent = sortedRentals.length;
+
+    if (sortedRentals.length === 0) {
+        list.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">No bookings match this filter.</p>';
         return;
     }
-    
-    list.innerHTML = activeRentals.map(rental => {
+
+    list.innerHTML = sortedRentals.map(rental => {
         const now = new Date();
         const timeUntilReturn = rental.returnDate - now;
         const hoursUntil = Math.floor(timeUntilReturn / (1000 * 60 * 60));
         const isOverdue = timeUntilReturn < 0;
+        const status = hasMeaningfulValue(rental.status) ? rental.status : 'active';
+        const isActive = status === 'active';
         const customerName = hasMeaningfulValue(rental.customer) ? rental.customer : 'Customer';
         const carName = hasMeaningfulValue(rental.car) ? rental.car : 'Assigned Vehicle';
         const showPhone = hasMeaningfulValue(rental.phone);
@@ -501,7 +589,9 @@ function renderRentals() {
         }
         
         let dueText = '';
-        if (isOverdue) {
+        if (!isActive) {
+            dueText = `<span>${status.charAt(0).toUpperCase() + status.slice(1)}</span>`;
+        } else if (isOverdue) {
             dueText = `<span class="overdue">Overdue by ${Math.abs(hoursUntil)}h</span>`;
         } else if (hoursUntil < 2) {
             dueText = `<span class="overdue">Due in ${hoursUntil}h</span>`;
@@ -517,16 +607,19 @@ function renderRentals() {
                     ${rentalNotes.length ? `<p>${rentalNotes.join(' • ')}</p>` : ''}
                 </div>
                 <div class="rental-meta">
+                    <span class="status-badge status-${status}" style="align-self: center;">${status.charAt(0).toUpperCase() + status.slice(1)}</span>
                     <div class="due-time">
-                        <strong>Return Time</strong>
+                        <strong>${isActive ? 'Return Time' : 'Booking Date'}</strong>
                         ${dueText}
                     </div>
                     <button class="btn-small btn-primary" onclick="showRentalDetails(${rental.id})">
                         View Details
                     </button>
-                    <button class="btn-small btn-edit" onclick="completeRental(${rental.id})">
-                        ✅ Complete
-                    </button>
+                    ${isActive ? `
+                        <button class="btn-small btn-edit" onclick="completeRental(${rental.id})">
+                            ✅ Complete
+                        </button>
+                    ` : ''}
                 </div>
             </div>
         `;
