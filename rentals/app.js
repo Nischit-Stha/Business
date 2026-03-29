@@ -4,6 +4,7 @@ let fleet = [];
 let rentals = [];
 
 const DEFAULT_RATE = 250;
+const BOOKING_REQUESTS_KEY = 'booking-requests-data';
 
 function normalizeCarRate(rate) {
     const numericRate = Number(rate);
@@ -24,6 +25,20 @@ function normalizeFleetRates() {
         return car;
     });
     return changed;
+}
+
+function getBookingRequests() {
+    try {
+        const raw = localStorage.getItem(BOOKING_REQUESTS_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+}
+
+function saveBookingRequests(requests) {
+    localStorage.setItem(BOOKING_REQUESTS_KEY, JSON.stringify(requests));
 }
 
 function normalizeRentalDates(rentalList = []) {
@@ -270,6 +285,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     await loadData();
     updateStats();
     renderFleet();
+    renderBookingRequests();
     renderRentals();
     renderRentedCarsDetails();
     renderServiceHistory();
@@ -571,6 +587,116 @@ function renderRentedCarsDetails() {
             </div>
         `;
     }).join('');
+}
+
+function renderBookingRequests() {
+    const list = document.getElementById('booking-requests-list');
+    const count = document.getElementById('booking-requests-count');
+    if (!list || !count) return;
+
+    const requests = getBookingRequests()
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+    count.textContent = requests.length;
+
+    if (requests.length === 0) {
+        list.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">No pending booking requests</p>';
+        return;
+    }
+
+    list.innerHTML = requests.map(request => {
+        const requestedCar = fleet.find(car => car.id === Number(request.carId));
+        const carName = request.car || requestedCar?.name || 'Requested Vehicle';
+        const plate = requestedCar?.license || requestedCar?.rego || 'N/A';
+        const createdAt = new Date(request.createdAt || Date.now());
+        const pickup = new Date(request.pickupDate);
+        const dropoff = new Date(request.returnDate);
+        const statusHint = requestedCar?.status === 'available' ? '✅ Available' : '⚠️ Currently unavailable';
+
+        return `
+            <div style="background:white; border:1px solid #e5e7eb; border-radius:12px; padding:1rem 1.25rem; box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+                <div style="display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap; align-items:flex-start;">
+                    <div>
+                        <h4 style="margin:0 0 0.35rem 0; color:#111827;">${request.customer || 'Customer'} — ${carName}</h4>
+                        <p style="margin:0; color:#6b7280; font-size:0.9rem;">📅 Requested: ${createdAt.toLocaleString()} • ${statusHint}</p>
+                    </div>
+                    <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                        <button class="btn-small btn-primary" onclick="approveBookingRequest(${Number(request.id)})">✅ Approve</button>
+                        <button class="btn-small btn-edit" onclick="rejectBookingRequest(${Number(request.id)})">❌ Reject</button>
+                    </div>
+                </div>
+                <div style="margin-top:0.75rem; display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0.5rem 1rem;">
+                    <p style="margin:0; color:#374151;"><strong>Phone:</strong> ${request.phone || 'N/A'}</p>
+                    <p style="margin:0; color:#374151;"><strong>Email:</strong> ${request.email || 'N/A'}</p>
+                    <p style="margin:0; color:#374151;"><strong>Plate:</strong> ${plate}</p>
+                    <p style="margin:0; color:#374151;"><strong>Pickup:</strong> ${pickup.toLocaleString()}</p>
+                    <p style="margin:0; color:#374151;"><strong>Return:</strong> ${dropoff.toLocaleString()}</p>
+                    ${request.notes ? `<p style="margin:0; color:#374151;"><strong>Notes:</strong> ${request.notes}</p>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function approveBookingRequest(requestId) {
+    const requests = getBookingRequests();
+    const request = requests.find(item => Number(item.id) === Number(requestId));
+    if (!request) {
+        showToast('Booking request not found.', 'warning');
+        return;
+    }
+
+    const car = fleet.find(item => item.id === Number(request.carId));
+    if (!car || car.status !== 'available') {
+        showToast('Requested car is not available right now.', 'warning');
+        return;
+    }
+
+    const newRental = {
+        id: rentals.length ? Math.max(...rentals.map(r => Number(r.id) || 0)) + 1 : 1,
+        customer: request.customer || 'Customer',
+        phone: request.phone || 'N/A',
+        email: request.email || '',
+        car: car.name,
+        carId: car.id,
+        pickupDate: new Date(request.pickupDate),
+        returnDate: new Date(request.returnDate),
+        notes: request.notes || '',
+        status: 'active',
+        source: 'customer-request',
+        createdAt: request.createdAt || new Date().toISOString(),
+        approvedAt: new Date().toISOString()
+    };
+
+    rentals.push(newRental);
+    car.status = 'rented';
+
+    const updatedRequests = requests.filter(item => Number(item.id) !== Number(requestId));
+    saveBookingRequests(updatedRequests);
+    saveData();
+
+    updateStats();
+    renderFleet();
+    renderBookingRequests();
+    renderRentals();
+    renderRentedCarsDetails();
+    populateCarSelect();
+
+    showToast(`Booking approved for ${newRental.customer}`, 'success');
+}
+
+function rejectBookingRequest(requestId) {
+    const requests = getBookingRequests();
+    const exists = requests.some(item => Number(item.id) === Number(requestId));
+    if (!exists) {
+        showToast('Booking request not found.', 'warning');
+        return;
+    }
+
+    const updatedRequests = requests.filter(item => Number(item.id) !== Number(requestId));
+    saveBookingRequests(updatedRequests);
+    renderBookingRequests();
+    showToast('Booking request rejected.', 'info');
 }
 
 // ===== RENDER SERVICE HISTORY =====
@@ -893,6 +1019,7 @@ function handleNewBooking(e) {
     saveData();
     updateStats();
     renderFleet();
+    renderBookingRequests();
     renderRentals();
     renderRentedCarsDetails();
     renderServiceHistory();
@@ -988,6 +1115,7 @@ function handleEditCar(e) {
     saveData();
     updateStats();
     renderFleet();
+    renderBookingRequests();
     renderRentals();
     renderRentedCarsDetails();
     populateCarSelect();
@@ -1039,6 +1167,7 @@ function completeRental(rentalId) {
     saveData();
     updateStats();
     renderFleet();
+    renderBookingRequests();
     renderRentals();
     renderRentedCarsDetails();
     populateCarSelect();
@@ -1203,6 +1332,7 @@ function exportData() {
 // ===== AUTO REFRESH =====
 // Update time-sensitive displays every minute
 setInterval(() => {
+    renderBookingRequests();
     renderRentals();
     renderRentedCarsDetails();
 }, 60000);

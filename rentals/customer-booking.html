@@ -108,7 +108,7 @@
                     <button type="submit" class="btn btn-primary">Submit Booking</button>
                     <a href="index.html" class="btn btn-secondary" style="text-decoration:none;">Back to Admin Dashboard</a>
                 </div>
-                <p class="helper-note">Your booking is saved instantly and appears in active rentals.</p>
+                <p class="helper-note">Your request will be reviewed in admin dashboard booking requests.</p>
             </form>
 
             <div id="booking-success" class="booking-success"></div>
@@ -232,19 +232,19 @@
             }
 
             const fleet = getData('fleet-data', []);
-            const rentals = getData('rentals-data', []);
+            const requests = getData('booking-requests-data', []);
             const selectedCar = fleet.find(car => car.id === selectedCarId);
 
-            if (!selectedCar || selectedCar.status !== 'available') {
+            if (!selectedCar) {
                 alert('Selected car is no longer available. Please choose another vehicle.');
                 populateAvailableCars();
                 return;
             }
 
-            const nextRentalId = rentals.length ? Math.max(...rentals.map(r => Number(r.id) || 0)) + 1 : 1;
+            const nextRequestId = requests.length ? Math.max(...requests.map(r => Number(r.id) || 0)) + 1 : 1;
 
-            const newRental = {
-                id: nextRentalId,
+            const newRequest = {
+                id: nextRequestId,
                 customer: name,
                 phone,
                 email,
@@ -253,21 +253,19 @@
                 pickupDate,
                 returnDate,
                 notes,
-                status: 'active',
+                status: 'pending',
                 source: 'customer-portal',
                 createdAt: new Date().toISOString()
             };
 
-            selectedCar.status = 'rented';
-            rentals.push(newRental);
+            requests.push(newRequest);
 
-            setData('fleet-data', fleet);
-            setData('rentals-data', rentals);
+            setData('booking-requests-data', requests);
 
             document.getElementById('customer-booking-form').reset();
             initializeDateFields();
             populateAvailableCars();
-            showSuccess(`Booking submitted successfully! Booking ID: ${newRental.id}`);
+            showSuccess(`Booking request submitted! Request ID: ${newRequest.id}`);
         }
 
         document.addEventListener('DOMContentLoaded', () => {
