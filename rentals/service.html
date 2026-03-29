@@ -991,14 +991,14 @@
                         <img class="car-photo" src="${getVehicleImage(vehicle)}" alt="${getVehicleName(vehicle)}" loading="lazy">
                         <div class="car-option-content">
                             <h4>${getVehicleName(vehicle)}</h4>
-                            <p class="car-details">[Plate] ${vehicle.rego || vehicle.license || 'N/A'}</p>
-                            <p class="car-details">[Color] ${vehicle.color || 'N/A'} &nbsp;|&nbsp; [Mileage] ${vehicle.mileage || 0} km</p>
+                            <p class="car-details">📋 ${vehicle.rego || vehicle.license || 'N/A'}</p>
+                            <p class="car-details">🎨 ${vehicle.color || 'N/A'} &nbsp;|&nbsp; 📊 ${vehicle.mileage || 0} km</p>
                             <div class="car-meta-row">
                                 <span class="car-meta-chip">Fuel: ${vehicle.fuel || 'N/A'}</span>
                                 <span class="car-meta-chip">Status: Available</span>
                             </div>
                             <p class="car-rate">$${vehicle.rate}/day</p>
-                            <button type="button" class="premium-btn" onclick='selectCar(${JSON.stringify(vehicle.id)})' style="width: 100%; margin-top: 0.5rem;">[Car] Select Vehicle</button>
+                            <button type="button" class="premium-btn" onclick='selectCar(${JSON.stringify(vehicle.id)})' style="width: 100%; margin-top: 0.5rem;">🚗 Select Vehicle</button>
                         </div>
                     </div>
                 `;
