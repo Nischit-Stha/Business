@@ -38,6 +38,108 @@ function normalizeFleetRates() {
     return changed;
 }
 
+function parseAvailabilityCalendar(rawText = '') {
+    if (!rawText) return [];
+
+    return String(rawText)
+        .split('\n')
+        .map(line => line.trim())
+        .filter(Boolean)
+        .map(line => {
+            const [rangePart, ...noteParts] = line.split('|');
+            const [startPart, endPart] = String(rangePart || '').split('to').map(item => item.trim());
+            const startDate = new Date(startPart);
+            const endDate = new Date(endPart || startPart);
+
+            if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+                return null;
+            }
+
+            return {
+                start: startDate.toISOString(),
+                end: endDate.toISOString(),
+                note: noteParts.join('|').trim() || 'Blocked'
+            };
+        })
+        .filter(Boolean);
+}
+
+function formatAvailabilityCalendar(calendarEntries = []) {
+    if (!Array.isArray(calendarEntries) || !calendarEntries.length) return '';
+
+    return calendarEntries
+        .map(entry => {
+            const start = new Date(entry.start);
+            const end = new Date(entry.end);
+            if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+            const startText = start.toISOString().slice(0, 10);
+            const endText = end.toISOString().slice(0, 10);
+            return `${startText} to ${endText} | ${entry.note || 'Blocked'}`;
+        })
+        .filter(Boolean)
+        .join('\n');
+}
+
+function normalizeCarRecord(car) {
+    const dayRate = normalizeCarRate(car.priceDay ?? car.rate);
+    const weekRate = Number(car.priceWeek);
+    return {
+        ...car,
+        rate: dayRate,
+        priceDay: dayRate,
+        priceWeek: Number.isFinite(weekRate) && weekRate > 0 ? weekRate : Number((dayRate * 6).toFixed(2)),
+        location: hasMeaningfulValue(car.location) ? String(car.location).trim() : 'Main Branch',
+        images: Array.isArray(car.images) ? car.images.filter(Boolean).slice(0, 8) : [],
+        availabilityCalendar: Array.isArray(car.availabilityCalendar) ? car.availabilityCalendar : []
+    };
+}
+
+function normalizeFleetRecords() {
+    fleet = fleet.map(normalizeCarRecord);
+}
+
+function readImageFilesAsDataUrls(fileList) {
+    return Promise.all(Array.from(fileList || []).map(file => new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(file);
+    })));
+}
+
+function getAvailabilitySummary(car) {
+    const now = new Date();
+    const calendar = Array.isArray(car.availabilityCalendar) ? car.availabilityCalendar : [];
+    const upcoming = calendar
+        .map(entry => ({
+            ...entry,
+            startDate: new Date(entry.start),
+            endDate: new Date(entry.end)
+        }))
+        .filter(entry => !Number.isNaN(entry.startDate.getTime()) && !Number.isNaN(entry.endDate.getTime()) && entry.endDate >= now)
+        .sort((a, b) => a.startDate - b.startDate);
+
+    if (!upcoming.length) {
+        return 'Open calendar';
+    }
+
+    const first = upcoming[0];
+    return `Blocked ${first.startDate.toLocaleDateString()} - ${first.endDate.toLocaleDateString()}`;
+}
+
+function isDateRangeOverlapping(firstStart, firstEnd, secondStart, secondEnd) {
+    const startA = new Date(firstStart);
+    const endA = new Date(firstEnd);
+    const startB = new Date(secondStart);
+    const endB = new Date(secondEnd);
+
+    if ([startA, endA, startB, endB].some(date => Number.isNaN(date.getTime()))) {
+        return false;
+    }
+
+    return startA <= endB && startB <= endA;
+}
+
 function getBookingRequests() {
     try {
         const raw = localStorage.getItem(BOOKING_REQUESTS_KEY);
@@ -86,6 +188,7 @@ async function importSeedDataFromRecords() {
             ...car,
             rate: normalizeCarRate(car.rate)
         }));
+        normalizeFleetRecords();
     }
     if (Array.isArray(seedData.rentals) && seedData.rentals.length > 0) {
         rentals = normalizeRentalDates(seedData.rentals);
@@ -151,6 +254,7 @@ async function loadData() {
     if (normalizeFleetRates()) {
         saveData();
     }
+    normalizeFleetRecords();
 }
 
 function saveData() {
@@ -428,6 +532,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     const editVehicleForm = document.getElementById('edit-car-form');
     if (editVehicleForm) {
         editVehicleForm.addEventListener('submit', handleEditCar);
+    }
+
+    const deleteVehicleButton = document.getElementById('edit-delete-car-btn');
+    if (deleteVehicleButton) {
+        deleteVehicleButton.addEventListener('click', () => {
+            if (!editingCarId) return;
+            deleteCar(editingCarId);
+        });
     }
 });
 
@@ -927,6 +1039,13 @@ function renderFleet() {
         const statusText = hasMeaningfulValue(car.status) ? car.status : 'available';
         const primaryName = hasMeaningfulValue(car.name) ? car.name : makeModel || `Vehicle ${car.id}`;
         const carModelText = hasMeaningfulValue(makeModel) ? makeModel : (hasMeaningfulValue(car.model) ? car.model : 'Vehicle');
+        const coverImage = Array.isArray(car.images) && car.images.length ? car.images[0] : '';
+        const priceDay = normalizeCarRate(car.priceDay ?? car.rate);
+        const priceWeek = Number.isFinite(Number(car.priceWeek)) && Number(car.priceWeek) > 0
+            ? Number(car.priceWeek)
+            : Number((priceDay * 6).toFixed(2));
+        const locationText = hasMeaningfulValue(car.location) ? car.location : 'Main Branch';
+        const availabilityText = getAvailabilitySummary(car);
 
         const topDetails = [];
         const plateValue = hasMeaningfulValue(car.license) ? car.license : car.rego;
@@ -936,9 +1055,7 @@ function renderFleet() {
         if (hasMeaningfulValue(car.color)) {
             topDetails.push(`🎨 ${car.color}`);
         }
-        if (Number.isFinite(Number(car.rate)) && Number(car.rate) > 0) {
-            topDetails.push(`💰 $${Number(car.rate).toFixed(2)}`);
-        }
+        topDetails.push(`📍 ${locationText}`);
 
         const secondaryDetails = [];
         if (Number.isFinite(Number(car.mileage)) && Number(car.mileage) > 0) {
@@ -947,11 +1064,15 @@ function renderFleet() {
         if (hasMeaningfulValue(car.fuel) && String(car.fuel).toLowerCase() !== 'full') {
             secondaryDetails.push(`⛽ ${car.fuel}`);
         }
+        secondaryDetails.push(`🗓️ ${availabilityText}`);
 
         const isRented = statusText === 'rented';
 
         return `
         <div class="fleet-card" data-id="${car.id}" ${isRented ? `onclick="openRentedCarDetails(${car.id})" style="cursor: pointer;"` : ''}>
+            <div class="fleet-media-wrap">
+                ${coverImage ? `<img src="${coverImage}" alt="${primaryName}" class="fleet-media">` : `<div class="fleet-media-placeholder">No Image</div>`}
+            </div>
             <div class="car-header">
                 <div>
                     <div class="car-name">${primaryName}</div>
@@ -964,13 +1085,20 @@ function renderFleet() {
             <div class="car-details">
                 ${topDetails.map(detail => `<span>${detail}</span>`).join('')}
             </div>
+            <div class="car-pricing-row">
+                <span>💵 $${priceDay.toFixed(2)}/day</span>
+                <span>🗓️ $${priceWeek.toFixed(2)}/week</span>
+            </div>
             ${secondaryDetails.length ? `<div class="car-details">${secondaryDetails.map(detail => `<span>${detail}</span>`).join('')}</div>` : ''}
             <div class="car-actions">
-                <button class="btn-small btn-qr" onclick="generateCarQR(${car.id})">
+                <button class="btn-small btn-qr" onclick="event.stopPropagation(); generateCarQR(${car.id})">
                     📱 Generate QR
                 </button>
-                <button class="btn-small btn-edit" onclick="editCar(${car.id})">
+                <button class="btn-small btn-edit" onclick="event.stopPropagation(); editCar(${car.id})">
                     ✏️ Edit
+                </button>
+                <button class="btn-small btn-edit" onclick="event.stopPropagation(); deleteCar(${car.id})">
+                    🗑️ Delete
                 </button>
                 ${isRented ? `<button class="btn-small btn-primary" onclick="event.stopPropagation(); openRentedCarDetails(${car.id});">📋 Details</button>` : ''}
             </div>
@@ -1443,39 +1571,60 @@ function showAddCar() {
 }
 
 // ===== ADD CAR FUNCTIONS =====
-function handleAddCar(e) {
+async function handleAddCar(e) {
     if (e) e.preventDefault();
     
     const carName = document.getElementById('car-name')?.value?.trim() || '';
     const carModel = document.getElementById('car-model')?.value?.trim() || '';
-    const rate = parseFloat(document.getElementById('car-rate')?.value || '0');
+    const rateDayInput = parseFloat(document.getElementById('car-rate')?.value || '0');
+    const rateWeekInput = parseFloat(document.getElementById('car-rate-week')?.value || '0');
     const mileage = parseInt(document.getElementById('car-mileage')?.value || '0', 10) || 0;
     const fuel = document.getElementById('car-fuel')?.value || 'Full';
     const license = document.getElementById('car-license')?.value?.trim() || '';
+    const status = (document.getElementById('car-status')?.value || 'available').trim().toLowerCase();
+    const location = document.getElementById('car-location')?.value?.trim() || '';
     const color = document.getElementById('car-color')?.value || 'Unknown';
     const vin = document.getElementById('car-vin')?.value || 'N/A';
+    const availabilityText = document.getElementById('car-availability')?.value || '';
+    const imageFiles = document.getElementById('car-images')?.files;
     
-    if (!carName || !carModel || !license || !Number.isFinite(rate) || rate <= 0) {
-        showToast('Please fill all required fields with a valid daily rate.', 'warning');
+    if (!carName || !carModel || !license || !location || !Number.isFinite(rateDayInput) || rateDayInput <= 0) {
+        showToast('Please fill required fields with valid day price and location.', 'warning');
         return;
     }
 
-    const normalizedRate = normalizeCarRate(rate);
+    if (!['available', 'rented', 'maintenance'].includes(status)) {
+        showToast('Invalid status selected.', 'warning');
+        return;
+    }
+
+    const normalizedRateDay = normalizeCarRate(rateDayInput);
+    const normalizedRateWeek = Number.isFinite(rateWeekInput) && rateWeekInput > 0
+        ? Number(rateWeekInput)
+        : Number((normalizedRateDay * 6).toFixed(2));
+    const availabilityCalendar = parseAvailabilityCalendar(availabilityText);
+    const images = (await readImageFilesAsDataUrls(imageFiles)).filter(Boolean).slice(0, 8);
     
     const newCar = {
         id: Math.max(...fleet.map(c => c.id), 0) + 1,
         name: carName,
         model: carModel,
-        status: 'available',
-        rate: normalizedRate,
+        status,
+        rate: normalizedRateDay,
+        priceDay: normalizedRateDay,
+        priceWeek: normalizedRateWeek,
         mileage: mileage,
         fuel: fuel,
         license: license,
+        rego: license,
+        location,
         color: color,
-        vin: vin
+        vin: vin,
+        images,
+        availabilityCalendar
     };
     
-    fleet.push(newCar);
+    fleet.push(normalizeCarRecord(newCar));
     saveData();
     updateStats();
     renderFleet();
@@ -1647,7 +1796,7 @@ function populateCarSelect() {
     
     select.innerHTML = '<option value="">Choose a car...</option>' +
         availableCars.map(car => 
-            `<option value="${car.id}">${car.name} - ${car.model} ($${car.rate}/day)</option>`
+            `<option value="${car.id}">${car.name} - ${car.model} ($${normalizeCarRate(car.priceDay ?? car.rate).toFixed(2)}/day)</option>`
         ).join('');
 }
 
@@ -1674,6 +1823,15 @@ function handleNewBooking(e) {
 
     if (returnDate <= pickupDate) {
         showToast('Return date must be after pickup date', 'warning');
+        return;
+    }
+
+    const hasCalendarConflict = (Array.isArray(car.availabilityCalendar) ? car.availabilityCalendar : []).some(entry => (
+        isDateRangeOverlapping(pickupDate, returnDate, entry.start, entry.end)
+    ));
+
+    if (hasCalendarConflict) {
+        showToast('Selected vehicle is blocked in availability calendar for these dates.', 'warning');
         return;
     }
     
@@ -1729,23 +1887,30 @@ function editCar(carId) {
     const car = fleet.find(c => c.id === carId);
     if (!car) return;
 
+    const normalizedCar = normalizeCarRecord(car);
+
     editingCarId = carId;
-    document.getElementById('edit-car-name').value = car.name || '';
-    document.getElementById('edit-car-make').value = car.make || '';
-    document.getElementById('edit-car-model').value = car.model || '';
-    document.getElementById('edit-car-status').value = car.status || 'available';
-    document.getElementById('edit-car-license').value = car.license || '';
-    document.getElementById('edit-car-rego').value = car.rego || car.license || '';
-    document.getElementById('edit-car-rate').value = normalizeCarRate(car.rate);
-    document.getElementById('edit-car-mileage').value = Number(car.mileage || 0);
-    document.getElementById('edit-car-fuel').value = car.fuel || 'N/A';
-    document.getElementById('edit-car-color').value = car.color || '';
-    document.getElementById('edit-car-vin').value = car.vin || '';
+    document.getElementById('edit-car-name').value = normalizedCar.name || '';
+    document.getElementById('edit-car-make').value = normalizedCar.make || '';
+    document.getElementById('edit-car-model').value = normalizedCar.model || '';
+    document.getElementById('edit-car-status').value = normalizedCar.status || 'available';
+    document.getElementById('edit-car-license').value = normalizedCar.license || '';
+    document.getElementById('edit-car-rego').value = normalizedCar.rego || normalizedCar.license || '';
+    document.getElementById('edit-car-rate').value = normalizeCarRate(normalizedCar.priceDay ?? normalizedCar.rate);
+    document.getElementById('edit-car-rate-week').value = Number(normalizedCar.priceWeek || (normalizeCarRate(normalizedCar.priceDay ?? normalizedCar.rate) * 6)).toFixed(2);
+    document.getElementById('edit-car-location').value = normalizedCar.location || 'Main Branch';
+    document.getElementById('edit-car-mileage').value = Number(normalizedCar.mileage || 0);
+    document.getElementById('edit-car-fuel').value = normalizedCar.fuel || 'N/A';
+    document.getElementById('edit-car-color').value = normalizedCar.color || '';
+    document.getElementById('edit-car-vin').value = normalizedCar.vin || '';
+    document.getElementById('edit-car-availability').value = formatAvailabilityCalendar(normalizedCar.availabilityCalendar);
+    const editImageInput = document.getElementById('edit-car-images');
+    if (editImageInput) editImageInput.value = '';
 
     showModal('edit-car-modal');
 }
 
-function handleEditCar(e) {
+async function handleEditCar(e) {
     if (e) e.preventDefault();
     if (!editingCarId) return;
 
@@ -1761,21 +1926,25 @@ function handleEditCar(e) {
     const statusInput = document.getElementById('edit-car-status').value.trim().toLowerCase();
     const licenseInput = document.getElementById('edit-car-license').value.trim();
     const regoInput = document.getElementById('edit-car-rego').value.trim();
-    const rateInput = parseFloat(document.getElementById('edit-car-rate').value);
+    const rateDayInput = parseFloat(document.getElementById('edit-car-rate').value);
+    const rateWeekInput = parseFloat(document.getElementById('edit-car-rate-week').value);
+    const locationInput = document.getElementById('edit-car-location').value.trim();
     const mileageInput = parseInt(document.getElementById('edit-car-mileage').value || '0', 10);
     const fuelInput = document.getElementById('edit-car-fuel').value.trim();
     const colorInput = document.getElementById('edit-car-color').value.trim();
     const vinInput = document.getElementById('edit-car-vin').value.trim();
+    const availabilityInput = document.getElementById('edit-car-availability').value;
+    const imageFiles = document.getElementById('edit-car-images')?.files;
 
-    if (!nameInput || !modelInput || !licenseInput) {
-        showToast('Name, model, and license are required.', 'warning');
+    if (!nameInput || !modelInput || !licenseInput || !locationInput) {
+        showToast('Name, model, license, and location are required.', 'warning');
         return;
     }
     if (!['available', 'rented', 'maintenance'].includes(statusInput)) {
         showToast('Invalid status. Use available, rented, or maintenance.', 'warning');
         return;
     }
-    if (!Number.isFinite(rateInput) || rateInput <= 0) {
+    if (!Number.isFinite(rateDayInput) || rateDayInput <= 0) {
         showToast('Daily rate must be greater than 0.', 'warning');
         return;
     }
@@ -1784,17 +1953,38 @@ function handleEditCar(e) {
         return;
     }
 
+    const normalizedRateDay = normalizeCarRate(rateDayInput);
+    const normalizedRateWeek = Number.isFinite(rateWeekInput) && rateWeekInput > 0
+        ? Number(rateWeekInput)
+        : Number((normalizedRateDay * 6).toFixed(2));
+    const newImages = (await readImageFilesAsDataUrls(imageFiles)).filter(Boolean).slice(0, 8);
+
     car.name = nameInput;
     car.make = makeInput;
     car.model = modelInput;
     car.status = statusInput;
     car.license = licenseInput;
     car.rego = regoInput || licenseInput;
-    car.rate = normalizeCarRate(rateInput);
+    car.location = locationInput;
+    car.rate = normalizedRateDay;
+    car.priceDay = normalizedRateDay;
+    car.priceWeek = normalizedRateWeek;
     car.mileage = mileageInput;
     car.fuel = fuelInput || 'N/A';
     car.color = colorInput;
     car.vin = vinInput;
+    car.availabilityCalendar = parseAvailabilityCalendar(availabilityInput);
+    if (newImages.length > 0) {
+        const existingImages = Array.isArray(car.images) ? car.images : [];
+        car.images = [...existingImages, ...newImages].slice(0, 8);
+    }
+
+    const activeRental = rentals.find(rental => Number(rental.carId) === Number(car.id) && rental.status === 'active');
+    if (activeRental) {
+        activeRental.car = car.name;
+    }
+
+    normalizeFleetRecords();
 
     saveData();
     updateStats();
@@ -1810,6 +2000,42 @@ function handleEditCar(e) {
     editingCarId = null;
 
     showToast(`Updated vehicle: ${car.name}`, 'success');
+}
+
+function deleteCar(carId) {
+    const car = fleet.find(item => Number(item.id) === Number(carId));
+    if (!car) {
+        showToast('Vehicle not found.', 'warning');
+        return;
+    }
+
+    const activeRental = rentals.find(rental => Number(rental.carId) === Number(carId) && rental.status === 'active');
+    if (activeRental) {
+        showToast('Cannot delete a vehicle with active rental. Complete rental first.', 'warning');
+        return;
+    }
+
+    const confirmed = window.confirm(`Delete vehicle ${car.name} (${car.license || car.rego || 'N/A'})? This cannot be undone.`);
+    if (!confirmed) {
+        return;
+    }
+
+    fleet = fleet.filter(item => Number(item.id) !== Number(carId));
+    saveData();
+    updateStats();
+    renderFleet();
+    renderBookingRequests();
+    renderBargainOffers();
+    renderRentals();
+    renderRentedCarsDetails();
+    populateCarSelect();
+
+    if (editingCarId === carId) {
+        closeModal('edit-car-modal');
+        editingCarId = null;
+    }
+
+    showToast(`Deleted vehicle: ${car.name}`, 'success');
 }
 
 function showRentalDetails(rentalId) {

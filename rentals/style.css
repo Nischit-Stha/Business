@@ -593,6 +593,59 @@ body {
     transform: translateY(-2px);
 }
 
+.fleet-media-wrap {
+    width: 100%;
+    height: 148px;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 0.75rem;
+    border: 1px solid #dde7f7;
+    background: #f8fbff;
+}
+
+.fleet-media {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.fleet-media-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.82rem;
+    color: #64748b;
+    font-weight: 600;
+    background: repeating-linear-gradient(
+        45deg,
+        #f8fbff,
+        #f8fbff 10px,
+        #eef4ff 10px,
+        #eef4ff 20px
+    );
+}
+
+.car-pricing-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem;
+    margin-bottom: 0.8rem;
+}
+
+.car-pricing-row span {
+    border: 1px solid #dbe7f8;
+    background: #f8fbff;
+    border-radius: 8px;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.79rem;
+    color: #1e293b;
+    font-weight: 600;
+    text-align: center;
+}
+
 .car-header {
     display: flex;
     justify-content: space-between;
