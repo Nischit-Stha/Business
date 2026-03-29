@@ -278,6 +278,79 @@ function mapSupabaseOfferToLocal(offer) {
     };
 }
 
+function mapSupabaseInvoiceToLocal(invoice) {
+    const toIsoDate = (value, fallback = new Date().toISOString()) => {
+        if (!value) return fallback;
+        const parsed = new Date(value);
+        return Number.isNaN(parsed.getTime()) ? fallback : parsed.toISOString();
+    };
+
+    const createdAt = toIsoDate(invoice.created_at || invoice.issue_date || invoice.createdAt || invoice.issueDate);
+    const issueDate = toIsoDate(invoice.issue_date || invoice.issueDate || createdAt, createdAt);
+    const dueDate = toIsoDate(invoice.due_date || invoice.dueDate || issueDate, issueDate);
+    const pickupDate = toIsoDate(invoice.pickup_date || invoice.pickupDate || issueDate, issueDate);
+    const returnDate = toIsoDate(invoice.return_date || invoice.returnDate || dueDate, dueDate);
+
+    return {
+        id: Number(invoice.id || 0) || Date.now(),
+        invoiceNumber: invoice.invoice_no || invoice.invoice_number || invoice.invoiceNumber || `INV-${new Date(issueDate).getFullYear()}-${String(invoice.id || '00000').padStart(5, '0')}`,
+        rentalId: Number(invoice.rental_id || invoice.rentalId || invoice.booking_request_id || 0) || null,
+        customer: invoice.customer || 'Customer',
+        customerPhone: invoice.customer_phone || invoice.customerPhone || 'N/A',
+        customerEmail: invoice.customer_email || invoice.customerEmail || 'N/A',
+        carId: Number(invoice.car_id || invoice.carId || 0) || null,
+        carName: invoice.car_name || invoice.carName || 'Vehicle',
+        status: invoice.status || 'open',
+        issueDate,
+        dueDate,
+        pickupDate,
+        returnDate,
+        totalDays: Number(invoice.total_days || invoice.totalDays || 0) || 0,
+        dailyRate: Number(invoice.daily_rate || invoice.dailyRate || 0) || 0,
+        subTotal: Number(invoice.sub_total || invoice.subTotal || 0) || 0,
+        taxRate: Number(invoice.tax_rate || invoice.taxRate || 0) || 0,
+        taxAmount: Number(invoice.tax_amount || invoice.taxAmount || 0) || 0,
+        totalAmount: Number(invoice.total_amount || invoice.totalAmount || 0) || 0,
+        paidAmount: Number(invoice.paid_amount || invoice.paidAmount || 0) || 0,
+        notes: invoice.notes || '',
+        createdAt,
+        updatedAt: toIsoDate(invoice.updated_at || invoice.updatedAt || createdAt, createdAt)
+    };
+}
+
+function mapLocalInvoiceToSupabase(invoice) {
+    const toIsoDate = (value) => {
+        const parsed = new Date(value);
+        return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+    };
+
+    return {
+        id: Number(invoice.id || 0) || null,
+        rental_id: Number(invoice.rentalId || 0) || null,
+        invoice_no: invoice.invoiceNumber || null,
+        customer: invoice.customer || null,
+        customer_phone: invoice.customerPhone || null,
+        customer_email: invoice.customerEmail || null,
+        car_id: Number(invoice.carId || 0) || null,
+        car_name: invoice.carName || null,
+        status: invoice.status || 'open',
+        issue_date: toIsoDate(invoice.issueDate || invoice.createdAt),
+        due_date: toIsoDate(invoice.dueDate || invoice.issueDate || invoice.createdAt),
+        pickup_date: toIsoDate(invoice.pickupDate || invoice.issueDate || invoice.createdAt),
+        return_date: toIsoDate(invoice.returnDate || invoice.dueDate || invoice.issueDate || invoice.createdAt),
+        total_days: Number(invoice.totalDays || 0) || 0,
+        daily_rate: Number(invoice.dailyRate || 0) || 0,
+        sub_total: Number(invoice.subTotal || 0) || 0,
+        tax_rate: Number(invoice.taxRate || 0) || 0,
+        tax_amount: Number(invoice.taxAmount || 0) || 0,
+        total_amount: Number(invoice.totalAmount || 0) || 0,
+        paid_amount: Number(invoice.paidAmount || 0) || 0,
+        notes: invoice.notes || null,
+        created_at: toIsoDate(invoice.createdAt || invoice.issueDate),
+        updated_at: toIsoDate(invoice.updatedAt || invoice.createdAt || invoice.issueDate)
+    };
+}
+
 function mapLocalOfferToSupabase(offer) {
     return {
         id: Number(offer.id),
@@ -411,6 +484,52 @@ async function syncPriceOffersToSupabase(offers) {
         }
     } catch (error) {
         console.warn('Supabase offers upsert exception:', error);
+    }
+}
+
+async function loadInvoicesFromSupabase() {
+    const client = getSupabaseClient();
+    if (!client) return null;
+
+    try {
+        const { data, error } = await client
+            .from('invoices')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.warn('Supabase invoices read failed:', error.message || error);
+            return null;
+        }
+
+        if (!Array.isArray(data)) {
+            return null;
+        }
+
+        return data.map(mapSupabaseInvoiceToLocal);
+    } catch (error) {
+        console.warn('Supabase invoices read exception:', error);
+        return null;
+    }
+}
+
+async function syncInvoicesToSupabase(invoiceList) {
+    const client = getSupabaseClient();
+    if (!client || !Array.isArray(invoiceList)) return;
+
+    try {
+        const payload = invoiceList.map(mapLocalInvoiceToSupabase).filter(item => item.id !== null);
+        if (!payload.length) return;
+
+        const { error } = await client
+            .from('invoices')
+            .upsert(payload, { onConflict: 'id' });
+
+        if (error) {
+            console.warn('Supabase invoices upsert failed:', error.message || error);
+        }
+    } catch (error) {
+        console.warn('Supabase invoices upsert exception:', error);
     }
 }
 
@@ -597,12 +716,19 @@ async function loadData() {
     if (Array.isArray(supabaseOffers) && supabaseOffers.length > 0) {
         localStorage.setItem(PRICE_OFFERS_KEY, JSON.stringify(supabaseOffers));
     }
+
+    const supabaseInvoices = await loadInvoicesFromSupabase();
+    if (Array.isArray(supabaseInvoices) && supabaseInvoices.length > 0) {
+        invoices = supabaseInvoices;
+        localStorage.setItem(INVOICES_KEY, JSON.stringify(supabaseInvoices));
+    }
 }
 
 function saveData() {
     localStorage.setItem('fleet-data', JSON.stringify(fleet));
     localStorage.setItem('rentals-data', JSON.stringify(rentals));
     localStorage.setItem(INVOICES_KEY, JSON.stringify(invoices));
+    void syncInvoicesToSupabase(invoices);
 }
 
 function showToast(message, type = 'info') {
