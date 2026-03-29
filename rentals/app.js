@@ -354,6 +354,15 @@ function hasMeaningfulValue(value) {
     return text !== '' && text !== 'n/a' && text !== 'na' && text !== 'unknown' && text !== '-';
 }
 
+function getBookingReferenceDate(rental) {
+    const reference = rental?.createdAt || rental?.pickupDate;
+    const parsedDate = new Date(reference);
+    if (Number.isNaN(parsedDate.getTime())) {
+        return new Date(0);
+    }
+    return parsedDate;
+}
+
 // ===== RENDER FLEET =====
 function renderFleet(filter = 'all') {
     const grid = document.getElementById('fleet-grid');
@@ -424,7 +433,34 @@ function renderRentals() {
     document.getElementById('active-rental-count').textContent = activeRentals.length;
     
     if (activeRentals.length === 0) {
-        list.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">No active rentals</p>';
+        const recentBookings = [...rentals]
+            .sort((a, b) => getBookingReferenceDate(b) - getBookingReferenceDate(a))
+            .slice(0, 8);
+
+        if (recentBookings.length === 0) {
+            list.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">No bookings found</p>';
+            return;
+        }
+
+        list.innerHTML = `
+            <div style="padding: 0.75rem 0; color: #4b5563; font-weight: 600;">No active rentals right now. Recent bookings:</div>
+            ${recentBookings.map(booking => {
+                const bookingDate = getBookingReferenceDate(booking);
+                const status = hasMeaningfulValue(booking.status) ? booking.status : 'unknown';
+                return `
+                    <div class="rental-card">
+                        <div class="rental-info">
+                            <h4>${booking.customer || 'Customer'} - ${booking.car || 'Vehicle'}</h4>
+                            <p>📅 ${bookingDate.toLocaleString()}</p>
+                        </div>
+                        <div class="rental-meta">
+                            <span class="status-badge status-${status}" style="align-self: center;">${status.charAt(0).toUpperCase() + status.slice(1)}</span>
+                            <button class="btn-small btn-primary" onclick="showRentalDetails(${booking.id})">View Details</button>
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        `;
         return;
     }
     
@@ -842,6 +878,7 @@ function handleNewBooking(e) {
         carId: car.id,
         pickupDate: pickupDate,
         returnDate: returnDate,
+        createdAt: new Date(),
         status: 'active'
     };
     
@@ -1062,13 +1099,13 @@ function getAnalytics() {
     const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     
     const todayRentals = rentals.filter(r => {
-        const rentalDate = new Date(r.pickupDate);
+        const rentalDate = getBookingReferenceDate(r);
         const rentalDay = new Date(rentalDate.getFullYear(), rentalDate.getMonth(), rentalDate.getDate());
         return rentalDay.getTime() === today.getTime();
     });
     
     const thisMonthRentals = rentals.filter(r => {
-        const rentalDate = new Date(r.pickupDate);
+        const rentalDate = getBookingReferenceDate(r);
         return rentalDate >= thisMonth;
     });
     
