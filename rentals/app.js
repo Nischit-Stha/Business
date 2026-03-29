@@ -15,6 +15,7 @@ let bookingSearchQuery = '';
 let bookingStatusFilter = 'active';
 let bookingSortMode = 'recent';
 let revenueRangeDays = 14;
+let bookingQuickFilterMode = 'all';
 
 function normalizeCarRate(rate) {
     const numericRate = Number(rate);
@@ -304,6 +305,34 @@ function applyFleetFilter(filter, options = {}) {
     }
 }
 
+function isSameCalendarDate(firstDate, secondDate) {
+    return firstDate.getFullYear() === secondDate.getFullYear()
+        && firstDate.getMonth() === secondDate.getMonth()
+        && firstDate.getDate() === secondDate.getDate();
+}
+
+function getOperationalInsights() {
+    const now = new Date();
+    const bookingRequests = getBookingRequests();
+    const priceOffers = getPriceOffers();
+
+    const activeRentals = rentals.filter(rental => (rental.status || 'active') === 'active');
+    const overdueReturns = activeRentals.filter(rental => new Date(rental.returnDate) < now).length;
+    const returnsToday = activeRentals.filter(rental => isSameCalendarDate(new Date(rental.returnDate), now)).length;
+    const pendingApprovals = bookingRequests.length;
+    const pendingBargains = priceOffers.filter(offer => String(offer.status || 'pending').toLowerCase() === 'pending').length;
+    const unpaidInvoices = invoices.filter(invoice => Number(invoice.totalAmount || 0) > Number(invoice.paidAmount || 0)).length;
+
+    return {
+        pendingApprovals,
+        pendingBargains,
+        overdueReturns,
+        returnsToday,
+        unpaidInvoices,
+        riskScore: overdueReturns + unpaidInvoices + pendingBargains
+    };
+}
+
 let editingCarId = null;
 
 function initializeStatsCardFilters() {
@@ -368,6 +397,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (bookingStatusSelect) {
         bookingStatusSelect.addEventListener('change', (event) => {
             bookingStatusFilter = event.target.value || 'active';
+            bookingQuickFilterMode = 'all';
             renderRentals();
         });
     }
@@ -472,10 +502,49 @@ function updateStats() {
         activeBookingsEl.textContent = rentals.filter(rental => (rental.status || 'active') === 'active').length;
     }
 
-    const pendingOffersCount = getPriceOffers().filter(offer => String(offer.status || 'pending').toLowerCase() === 'pending').length;
+    const insights = getOperationalInsights();
+    const pendingOffersCount = insights.pendingBargains;
     const pendingBargainsEl = document.getElementById('overview-pending-bargains');
     if (pendingBargainsEl) {
         pendingBargainsEl.textContent = pendingOffersCount;
+    }
+
+    const trendText = document.getElementById('overview-trend-text');
+    if (trendText) {
+        trendText.classList.remove('positive', 'negative');
+        const signal = insights.overdueReturns + insights.pendingApprovals;
+        if (signal === 0) {
+            trendText.textContent = 'Operations are healthy: no overdue returns and no pending approvals.';
+            trendText.classList.add('positive');
+        } else {
+            trendText.textContent = `Attention needed: ${insights.overdueReturns} overdue return(s), ${insights.pendingApprovals} pending approval(s), ${insights.pendingBargains} pending bargain(s).`;
+            trendText.classList.add('negative');
+        }
+    }
+
+    const actionPendingApprovalsEl = document.getElementById('action-pending-approvals');
+    if (actionPendingApprovalsEl) {
+        actionPendingApprovalsEl.textContent = insights.pendingApprovals;
+    }
+
+    const actionPendingBargainsEl = document.getElementById('action-pending-bargains');
+    if (actionPendingBargainsEl) {
+        actionPendingBargainsEl.textContent = insights.pendingBargains;
+    }
+
+    const actionOverdueReturnsEl = document.getElementById('action-overdue-returns');
+    if (actionOverdueReturnsEl) {
+        actionOverdueReturnsEl.textContent = insights.overdueReturns;
+    }
+
+    const actionUnpaidInvoicesEl = document.getElementById('action-unpaid-invoices');
+    if (actionUnpaidInvoicesEl) {
+        actionUnpaidInvoicesEl.textContent = insights.unpaidInvoices;
+    }
+
+    const actionRiskEl = document.getElementById('action-center-risk');
+    if (actionRiskEl) {
+        actionRiskEl.textContent = `Risk: ${insights.riskScore}`;
     }
 
     const updatedEl = document.getElementById('overview-last-updated');
@@ -535,6 +604,34 @@ function getRevenueSeries(days = 14) {
     });
 
     return series;
+}
+
+function getRevenueTotalForDaysEnding(dayEndDate, days) {
+    const targetDays = Math.max(1, Number(days) || 14);
+    const end = new Date(dayEndDate);
+    end.setHours(23, 59, 59, 999);
+    const start = new Date(end);
+    start.setDate(end.getDate() - (targetDays - 1));
+    start.setHours(0, 0, 0, 0);
+
+    const inRange = (dateValue) => {
+        const date = new Date(dateValue);
+        return !Number.isNaN(date.getTime()) && date >= start && date <= end;
+    };
+
+    if (Array.isArray(invoices) && invoices.length > 0) {
+        return invoices.reduce((sum, invoice) => {
+            if (!inRange(invoice.issueDate || invoice.createdAt)) return sum;
+            const amount = Number(invoice.totalAmount || 0);
+            return sum + (Number.isFinite(amount) ? amount : 0);
+        }, 0);
+    }
+
+    return rentals.reduce((sum, rental) => {
+        if (!inRange(rental.createdAt || rental.pickupDate)) return sum;
+        const car = fleet.find(item => Number(item.id) === Number(rental.carId));
+        return sum + calculateRentalAmount(rental, car).totalAmount;
+    }, 0);
 }
 
 function renderRevenueGraph() {
@@ -597,6 +694,69 @@ function renderRevenueGraph() {
 
     const totalRevenue = series.reduce((sum, point) => sum + point.value, 0);
     summary.textContent = `Revenue total for last ${revenueRangeDays} day(s): $${totalRevenue.toFixed(2)}.`;
+
+    const deltaEl = document.getElementById('revenue-chart-delta');
+    if (deltaEl) {
+        const currentPeriodEnd = new Date();
+        currentPeriodEnd.setHours(23, 59, 59, 999);
+        const previousPeriodEnd = new Date(currentPeriodEnd);
+        previousPeriodEnd.setDate(currentPeriodEnd.getDate() - revenueRangeDays);
+
+        const previousTotal = getRevenueTotalForDaysEnding(previousPeriodEnd, revenueRangeDays);
+        const delta = totalRevenue - previousTotal;
+        const deltaPercent = previousTotal > 0 ? (delta / previousTotal) * 100 : (totalRevenue > 0 ? 100 : 0);
+
+        deltaEl.classList.remove('positive', 'negative');
+        if (delta >= 0) {
+            deltaEl.classList.add('positive');
+            deltaEl.textContent = `Up ${deltaPercent.toFixed(1)}% (+$${delta.toFixed(2)}) vs previous ${revenueRangeDays}-day period.`;
+        } else {
+            deltaEl.classList.add('negative');
+            deltaEl.textContent = `Down ${Math.abs(deltaPercent).toFixed(1)}% (-$${Math.abs(delta).toFixed(2)}) vs previous ${revenueRangeDays}-day period.`;
+        }
+    }
+}
+
+function handleActionCenter(actionKey) {
+    if (!actionKey) return;
+
+    if (actionKey === 'pending-approvals') {
+        showTabSection('bookings');
+        bookingStatusFilter = 'all';
+        bookingQuickFilterMode = 'all';
+        const statusSelect = document.getElementById('booking-status-filter');
+        if (statusSelect) statusSelect.value = 'all';
+        renderBookingRequests();
+        renderRentals();
+        const section = document.getElementById('booking-requests-section');
+        if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+    }
+
+    if (actionKey === 'pending-bargains') {
+        showTabSection('bookings');
+        renderBargainOffers();
+        const section = document.getElementById('bargain-offers-section');
+        if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+    }
+
+    if (actionKey === 'overdue-returns') {
+        showTabSection('bookings');
+        bookingStatusFilter = 'active';
+        bookingQuickFilterMode = 'overdue';
+        const statusSelect = document.getElementById('booking-status-filter');
+        if (statusSelect) statusSelect.value = 'active';
+        renderRentals();
+        return;
+    }
+
+    if (actionKey === 'unpaid-invoices') {
+        showTabSection('reports');
+        renderInvoiceCenter();
+        const section = document.getElementById('invoice-center');
+        if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 }
 
 function hasMeaningfulValue(value) {
@@ -844,7 +1004,20 @@ function renderRentals() {
         return searchableText.includes(bookingSearchQuery);
     });
 
-    const sortedRentals = [...searchedRentals].sort((firstRental, secondRental) => {
+    const quickFilteredRentals = searchedRentals.filter(rental => {
+        if (bookingQuickFilterMode === 'all') return true;
+        const now = new Date();
+        const returnDate = new Date(rental.returnDate);
+        if (bookingQuickFilterMode === 'overdue') {
+            return returnDate < now;
+        }
+        if (bookingQuickFilterMode === 'return-today') {
+            return isSameCalendarDate(returnDate, now);
+        }
+        return true;
+    });
+
+    const sortedRentals = [...quickFilteredRentals].sort((firstRental, secondRental) => {
         if (bookingSortMode === 'return-soon') {
             return new Date(firstRental.returnDate) - new Date(secondRental.returnDate);
         }
@@ -1093,6 +1266,7 @@ function acceptPriceOffer(offerId) {
     offer.updatedAt = new Date().toISOString();
     savePriceOffers(offers);
     renderBargainOffers();
+    updateStats();
     showToast(`Offer #${offerId} accepted.`, 'success');
 }
 
@@ -1109,6 +1283,7 @@ function rejectPriceOffer(offerId) {
     offer.updatedAt = new Date().toISOString();
     savePriceOffers(offers);
     renderBargainOffers();
+    updateStats();
     showToast(`Offer #${offerId} rejected.`, 'info');
 }
 
@@ -1138,6 +1313,7 @@ function counterPriceOffer(offerId) {
     offer.updatedAt = new Date().toISOString();
     savePriceOffers(offers);
     renderBargainOffers();
+    updateStats();
     showToast(`Counter sent for offer #${offerId}.`, 'success');
 }
 
@@ -1201,6 +1377,7 @@ function rejectBookingRequest(requestId) {
     const updatedRequests = requests.filter(item => Number(item.id) !== Number(requestId));
     saveBookingRequests(updatedRequests);
     renderBookingRequests();
+    updateStats();
     showToast('Booking request rejected.', 'info');
 }
 

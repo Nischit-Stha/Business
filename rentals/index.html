@@ -135,6 +135,34 @@
                         <h3 id="overview-pending-bargains">0</h3>
                     </article>
                 </div>
+                <p class="muted-text" id="overview-trend-text">Performance trend will appear here.</p>
+
+                <div class="section-header" style="margin-top: 1rem;">
+                    <h2>Owner Action Center</h2>
+                    <span class="badge" id="action-center-risk">Risk: 0</span>
+                </div>
+                <div class="action-center-grid">
+                    <article class="action-card" data-action="pending-approvals">
+                        <p>Pending Booking Approvals</p>
+                        <h3 id="action-pending-approvals">0</h3>
+                        <button type="button" class="btn btn-secondary btn-compact" onclick="handleActionCenter('pending-approvals')">Review</button>
+                    </article>
+                    <article class="action-card" data-action="pending-bargains">
+                        <p>Pending Bargain Offers</p>
+                        <h3 id="action-pending-bargains">0</h3>
+                        <button type="button" class="btn btn-secondary btn-compact" onclick="handleActionCenter('pending-bargains')">Review</button>
+                    </article>
+                    <article class="action-card" data-action="overdue-returns">
+                        <p>Overdue Active Returns</p>
+                        <h3 id="action-overdue-returns">0</h3>
+                        <button type="button" class="btn btn-secondary btn-compact" onclick="handleActionCenter('overdue-returns')">Open</button>
+                    </article>
+                    <article class="action-card" data-action="unpaid-invoices">
+                        <p>Unpaid Invoices</p>
+                        <h3 id="action-unpaid-invoices">0</h3>
+                        <button type="button" class="btn btn-secondary btn-compact" onclick="handleActionCenter('unpaid-invoices')">Inspect</button>
+                    </article>
+                </div>
 
                 <div class="section-header" style="margin-top: 1.1rem;">
                     <h2>Revenue Graph</h2>
@@ -153,6 +181,7 @@
                     </div>
                 </div>
                 <p class="muted-text" id="revenue-chart-summary">Revenue trend for selected period.</p>
+                <p class="muted-text" id="revenue-chart-delta">Comparison against previous period will appear here.</p>
             </section>
             </div>
 
