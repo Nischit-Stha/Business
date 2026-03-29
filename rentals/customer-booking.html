@@ -288,6 +288,25 @@
             font-size: 0.83rem;
         }
 
+        .payment-methods {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .payment-card {
+            border: 1px solid #dbe7f8;
+            background: #f8fbff;
+            border-radius: 10px;
+            padding: 0.75rem;
+        }
+
+        .payment-card h3 {
+            margin: 0 0 0.35rem;
+            color: #1f2937;
+            font-size: 0.95rem;
+        }
+
         @media (max-width: 1040px) {
             .portal-grid {
                 grid-template-columns: 1fr;
@@ -371,8 +390,38 @@
 
                 <section class="panel" id="payment-panel" hidden>
                     <h2>Payment</h2>
-                    <div class="payment-placeholder">
-                        Stripe integration will be enabled in Phase 2. For now, bookings are request-based and paid manually on approval.
+                    <div class="payment-methods">
+                        <div class="payment-card">
+                            <h3>PayPal</h3>
+                            <p class="muted">Fast online payment through your PayPal account.</p>
+                            <button type="button" class="btn btn-primary" id="pay-with-paypal-btn">Pay with PayPal</button>
+                        </div>
+                        <div class="payment-card">
+                            <h3>Bank Transfer / Bank ID</h3>
+                            <p class="muted" id="bank-details-text"></p>
+                            <div class="row" style="margin-top:0.5rem;">
+                                <button type="button" class="btn btn-secondary" id="copy-bank-details-btn">Copy Bank Details</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form id="payment-confirm-form" class="form-mini" style="margin-top:0.8rem;">
+                        <h3 style="margin:0;">Share Payment Reference</h3>
+                        <select id="payment-method" required>
+                            <option value="">Select method</option>
+                            <option value="paypal">PayPal</option>
+                            <option value="bank-transfer">Bank Transfer / Bank ID</option>
+                        </select>
+                        <input type="number" id="payment-amount" min="1" step="0.01" placeholder="Amount paid" required>
+                        <input type="text" id="payment-reference" placeholder="Transaction / reference number" required>
+                        <textarea id="payment-note" placeholder="Optional note"></textarea>
+                        <button type="submit" class="btn btn-primary">Submit Payment Proof</button>
+                    </form>
+
+                    <div id="payment-success" class="success-box"></div>
+                    <div id="payment-history" class="list"></div>
+                    <div class="payment-placeholder" style="margin-top:0.6rem;">
+                        Payment status still requires owner verification in admin before final confirmation.
                     </div>
                 </section>
             </aside>
@@ -445,6 +494,15 @@
         const SESSION_KEY = 'customer-session-v1';
         const OFFERS_KEY = 'price-offers-data';
         const REQUESTS_KEY = 'booking-requests-data';
+        const PAYMENT_INTENTS_KEY = 'customer-payment-intents-v1';
+
+        const PAYMENT_CONFIG = {
+            paypalUrl: 'https://paypal.me/veerarentals',
+            bankName: 'Veera Rentals Pty Ltd',
+            bankBsb: '062-123',
+            bankAccount: '12345678',
+            bankId: 'VEERA-AU-01'
+        };
 
         let selectedCarId = null;
 
@@ -735,6 +793,108 @@
             box.style.display = 'block';
         }
 
+        function getBankDetailsText() {
+            return `Account Name: ${PAYMENT_CONFIG.bankName} | BSB: ${PAYMENT_CONFIG.bankBsb} | Account: ${PAYMENT_CONFIG.bankAccount} | Bank ID: ${PAYMENT_CONFIG.bankId}`;
+        }
+
+        function copyBankDetails() {
+            const details = getBankDetailsText();
+            navigator.clipboard.writeText(details)
+                .then(() => showSuccess('payment-success', 'Bank details copied. Paste this into your banking app.'))
+                .catch(() => alert(`Copy failed. Use this manually:\n${details}`));
+        }
+
+        function openPayPal() {
+            window.open(PAYMENT_CONFIG.paypalUrl, '_blank', 'noopener,noreferrer');
+        }
+
+        function renderPaymentHistory() {
+            const user = getCurrentUser();
+            const container = document.getElementById('payment-history');
+            if (!user || !container) return;
+
+            const items = getData(PAYMENT_INTENTS_KEY, [])
+                .filter(item => String(item.customerEmail || '').toLowerCase() === String(user.email || '').toLowerCase())
+                .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+            if (!items.length) {
+                container.innerHTML = '<div class="empty">No payment references submitted yet.</div>';
+                return;
+            }
+
+            container.innerHTML = items.map(item => `
+                <div class="list-item">
+                    <div class="list-item-title">
+                        <span>${item.method === 'paypal' ? 'PayPal' : 'Bank Transfer'} • $${Number(item.amount || 0).toFixed(2)}</span>
+                        <span class="status-chip status-pending">pending-verification</span>
+                    </div>
+                    <div class="muted">Reference: ${item.reference}</div>
+                    ${item.note ? `<div class="muted">Note: ${item.note}</div>` : ''}
+                    <div class="muted">${new Date(item.createdAt).toLocaleString()}</div>
+                </div>
+            `).join('');
+        }
+
+        function handlePaymentConfirm(event) {
+            event.preventDefault();
+            const user = getCurrentUser();
+            if (!user) {
+                alert('Please login first.');
+                return;
+            }
+
+            const method = document.getElementById('payment-method').value;
+            const amount = Number(document.getElementById('payment-amount').value);
+            const reference = document.getElementById('payment-reference').value.trim();
+            const note = document.getElementById('payment-note').value.trim();
+
+            if (!method || !Number.isFinite(amount) || amount <= 0 || !reference) {
+                alert('Please complete method, amount, and reference.');
+                return;
+            }
+
+            const intents = getData(PAYMENT_INTENTS_KEY, []);
+            intents.push({
+                id: intents.length ? Math.max(...intents.map(item => Number(item.id) || 0)) + 1 : 1,
+                customerId: user.id,
+                customerName: user.name,
+                customerEmail: user.email,
+                method,
+                amount,
+                reference,
+                note,
+                status: 'pending-verification',
+                createdAt: new Date().toISOString()
+            });
+
+            setData(PAYMENT_INTENTS_KEY, intents);
+            document.getElementById('payment-confirm-form').reset();
+            showSuccess('payment-success', 'Payment proof submitted. Owner will verify shortly.');
+            renderPaymentHistory();
+        }
+
+        function initializePaymentPanel() {
+            const bankDetailsText = document.getElementById('bank-details-text');
+            if (bankDetailsText) {
+                bankDetailsText.textContent = getBankDetailsText();
+            }
+
+            const paypalButton = document.getElementById('pay-with-paypal-btn');
+            if (paypalButton) {
+                paypalButton.addEventListener('click', openPayPal);
+            }
+
+            const copyButton = document.getElementById('copy-bank-details-btn');
+            if (copyButton) {
+                copyButton.addEventListener('click', copyBankDetails);
+            }
+
+            const paymentForm = document.getElementById('payment-confirm-form');
+            if (paymentForm) {
+                paymentForm.addEventListener('submit', handlePaymentConfirm);
+            }
+        }
+
         function handleOfferSubmit(event) {
             event.preventDefault();
             const user = getCurrentUser();
@@ -969,6 +1129,7 @@
             updateBookingSummary();
             renderOffers();
             renderHistory();
+            renderPaymentHistory();
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -979,6 +1140,7 @@
 
             initializeDateFields();
             initializeFilters();
+            initializePaymentPanel();
             document.getElementById('offer-form').addEventListener('submit', handleOfferSubmit);
             document.getElementById('booking-form').addEventListener('submit', handleBookingSubmit);
             initializePortal();
