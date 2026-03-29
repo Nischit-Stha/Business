@@ -1,7 +1,7 @@
 (function () {
     const config = {
-        url: 'REPLACE_WITH_SUPABASE_URL',
-        publishableKey: 'REPLACE_WITH_SB_PUBLISHABLE_KEY'
+        url: 'https://idutrrekubhevckchhdx.supabase.co',
+        publishableKey: 'sb_publishable_BdQV0a7sVC_xFqHElVLisg_7FuWSBQG'
     };
 
     window.VEERA_SUPABASE_CONFIG = config;
