@@ -68,7 +68,7 @@ function renderAllBookings() {
                 <p><strong>Mileage:</strong> ${booking.mileage} km</p>
                 <p><strong>Fuel:</strong> ${booking.fuel}</p>
                 <p><strong>Date:</strong> ${new Date(booking.timestamp).toLocaleString()}</p>
-                ${booking.location ? `<p><strong>📍 Location:</strong> <a href="https://www.google.com/maps?q=${booking.location.lat},${booking.location.lng}" target="_blank">${booking.location.lat.toFixed(6)}, ${booking.location.lng.toFixed(6)}</a></p>` : ''}
+                ${booking.location ? `<p><strong>[Location] Location:</strong> <a href="https://www.google.com/maps?q=${booking.location.lat},${booking.location.lng}" target="_blank">${booking.location.lat.toFixed(6)}, ${booking.location.lng.toFixed(6)}</a></p>` : ''}
                 ${booking.notes ? `<p><strong>Notes:</strong> ${booking.notes}</p>` : ''}
             </div>
         </div>
@@ -223,8 +223,8 @@ function renderReports() {
             </div>
         </div>
         <div class="export-section">
-            <button class="btn btn-primary" onclick="exportAllData()">📥 Export All Data</button>
-            <button class="btn btn-secondary" onclick="printReport()">🖨️ Print Report</button>
+            <button class="btn btn-primary" onclick="exportAllData()">[Export] Export All Data</button>
+            <button class="btn btn-secondary" onclick="printReport()">[Print] Print Report</button>
         </div>
     `;
 }

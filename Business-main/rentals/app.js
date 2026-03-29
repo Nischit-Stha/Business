@@ -1691,21 +1691,21 @@ function renderFleet() {
         const topDetails = [];
         const plateValue = hasMeaningfulValue(car.license) ? car.license : car.rego;
         if (hasMeaningfulValue(plateValue)) {
-            topDetails.push(`🚗 ${plateValue}`);
+            topDetails.push(`[Plate] ${plateValue}`);
         }
         if (hasMeaningfulValue(car.color)) {
-            topDetails.push(`🎨 ${car.color}`);
+            topDetails.push(`[Color] ${car.color}`);
         }
-        topDetails.push(`📍 ${locationText}`);
+        topDetails.push(`[Location] ${locationText}`);
 
         const secondaryDetails = [];
         if (Number.isFinite(Number(car.mileage)) && Number(car.mileage) > 0) {
-            secondaryDetails.push(`📊 ${Number(car.mileage).toLocaleString()} km`);
+            secondaryDetails.push(`[Mileage] ${Number(car.mileage).toLocaleString()} km`);
         }
         if (hasMeaningfulValue(car.fuel) && String(car.fuel).toLowerCase() !== 'full') {
-            secondaryDetails.push(`⛽ ${car.fuel}`);
+            secondaryDetails.push(`[Fuel] ${car.fuel}`);
         }
-        secondaryDetails.push(`🗓️ ${availabilityText}`);
+        secondaryDetails.push(`[Date] ${availabilityText}`);
 
         const isRented = statusText === 'rented';
 
@@ -1727,21 +1727,21 @@ function renderFleet() {
                 ${topDetails.map(detail => `<span>${detail}</span>`).join('')}
             </div>
             <div class="car-pricing-row">
-                <span>💵 $${priceDay.toFixed(2)}/day</span>
-                <span>🗓️ $${priceWeek.toFixed(2)}/week</span>
+                <span>$${priceDay.toFixed(2)}/day</span>
+                <span>$${priceWeek.toFixed(2)}/week</span>
             </div>
             ${secondaryDetails.length ? `<div class="car-details">${secondaryDetails.map(detail => `<span>${detail}</span>`).join('')}</div>` : ''}
             <div class="car-actions">
                 <button class="btn-small btn-qr" onclick="event.stopPropagation(); generateCarQR(${car.id})">
-                    📱 Generate QR
+                    [QR] Generate QR
                 </button>
                 <button class="btn-small btn-edit" onclick="event.stopPropagation(); editCar(${car.id})">
-                    ✏️ Edit
+                    [Edit] Edit
                 </button>
                 <button class="btn-small btn-edit" onclick="event.stopPropagation(); deleteCar(${car.id})">
-                    🗑️ Delete
+                    [Delete] Delete
                 </button>
-                ${isRented ? `<button class="btn-small btn-primary" onclick="event.stopPropagation(); openRentedCarDetails(${car.id});">📋 Details</button>` : ''}
+                ${isRented ? `<button class="btn-small btn-primary" onclick="event.stopPropagation(); openRentedCarDetails(${car.id});">[Details] Details</button>` : ''}
             </div>
         </div>
     `;
@@ -1827,10 +1827,10 @@ function renderRentals() {
 
         const rentalNotes = [];
         if (hasMeaningfulValue(pendingText) && String(pendingText).toLowerCase() !== 'clear') {
-            rentalNotes.push(`⏳ ${pendingText}`);
+            rentalNotes.push(`[Pending] ${pendingText}`);
         }
         if (hasMeaningfulValue(unpaidText) && String(unpaidText).trim() !== '$-' && String(unpaidText).trim() !== '$0.00') {
-            rentalNotes.push(`💳 Unpaid ${unpaidText}`);
+            rentalNotes.push(`[Payment] Unpaid ${unpaidText}`);
         }
         
         let dueText = '';
@@ -1848,7 +1848,7 @@ function renderRentals() {
             <div class="rental-card">
                 <div class="rental-info">
                     <h4>${customerName} - ${carName}</h4>
-                    ${showPhone ? `<p>📞 ${rental.phone}</p>` : ''}
+                    ${showPhone ? `<p>[Phone] ${rental.phone}</p>` : ''}
                     ${rentalNotes.length ? `<p>${rentalNotes.join(' • ')}</p>` : ''}
                 </div>
                 <div class="rental-meta">
@@ -1861,10 +1861,10 @@ function renderRentals() {
                         View Details
                     </button>
                     <button class="btn-small btn-edit" onclick="showRentalCustomerProfile(${rental.id})">
-                        👤 Customer
+                        [Customer] Customer
                     </button>
                     <button class="btn-small btn-qr" onclick="openInvoiceForRental(${rental.id})">
-                        🧾 Invoice
+                        [Invoice] Invoice
                     </button>
                     ${isActive ? `
                         <button class="btn-small btn-edit" onclick="completeRental(${rental.id})">
@@ -1914,7 +1914,7 @@ function renderRentedCarsDetails() {
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; flex-wrap:wrap;">
                     <div>
                         <h4 style="margin:0 0 0.35rem 0; color:#111827;">${carName}</h4>
-                        <p style="margin:0; color:#6b7280; font-size:0.9rem;">🚗 Plate: ${plate} • Status: ${status}</p>
+                        <p style="margin:0; color:#6b7280; font-size:0.9rem;">[Plate] Plate: ${plate} • Status: ${status}</p>
                     </div>
                     <div style="text-align:right;">
                         <p style="margin:0; font-weight:600; color:#111827;">$${totalCost.toFixed(2)}</p>
@@ -1929,8 +1929,8 @@ function renderRentedCarsDetails() {
                     <p style="margin:0; color:#374151;"><strong>Return:</strong> ${returnDate.toLocaleString()}</p>
                 </div>
                 <div style="display:flex; gap:0.5rem; margin-top:0.85rem; flex-wrap:wrap;">
-                    <button class="btn-small btn-primary" onclick="showRentalDetails(${Number(rental.id)})">📋 Full Details</button>
-                    <button class="btn-small btn-qr" onclick="openInvoiceForRental(${Number(rental.id)})">🧾 Invoice</button>
+                    <button class="btn-small btn-primary" onclick="showRentalDetails(${Number(rental.id)})">[Details] Full Details</button>
+                    <button class="btn-small btn-qr" onclick="openInvoiceForRental(${Number(rental.id)})">[Invoice] Invoice</button>
                 </div>
             </div>
         `;
@@ -1992,12 +1992,12 @@ function renderBookingRequests() {
                 <div style="display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap; align-items:flex-start;">
                     <div>
                         <h4 style="margin:0 0 0.35rem 0; color:#111827;">${request.customer || 'Customer'} — ${carName}</h4>
-                        <p style="margin:0; color:#6b7280; font-size:0.9rem;">📅 Requested: ${createdAt.toLocaleString()} • ${statusHint}</p>
+                        <p style="margin:0; color:#6b7280; font-size:0.9rem;">[Date] Requested: ${createdAt.toLocaleString()} • ${statusHint}</p>
                     </div>
                     <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-                        <button class="btn-small btn-edit" onclick="showRequestCustomerProfile(${Number(request.id)})">👤 Customer</button>
-                        <button class="btn-small btn-primary" onclick="approveBookingRequest(${Number(request.id)})">✅ Approve</button>
-                        <button class="btn-small btn-edit" onclick="rejectBookingRequest(${Number(request.id)})">❌ Reject</button>
+                        <button class="btn-small btn-edit" onclick="showRequestCustomerProfile(${Number(request.id)})">[Customer] Customer</button>
+                        <button class="btn-small btn-primary" onclick="approveBookingRequest(${Number(request.id)})">[Approve] Approve</button>
+                        <button class="btn-small btn-edit" onclick="rejectBookingRequest(${Number(request.id)})">[Reject] Reject</button>
                     </div>
                 </div>
                 <div style="margin-top:0.75rem; display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0.5rem 1rem;">
@@ -2032,12 +2032,12 @@ function showRequestCustomerProfile(requestId) {
         <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0.65rem;">
             <div style="background:#ffffff; border:1px solid #e5e7eb; border-radius:10px; padding:0.85rem;">
                 <strong style="color:#111827;">Contact</strong>
-                <p style="margin:0.35rem 0 0; color:#374151;">📞 ${request.phone || 'N/A'}</p>
-                <p style="margin:0.2rem 0 0; color:#374151;">✉️ ${request.email || 'N/A'}</p>
+                <p style="margin:0.35rem 0 0; color:#374151;">[Phone] ${request.phone || 'N/A'}</p>
+                <p style="margin:0.2rem 0 0; color:#374151;">[Email] ${request.email || 'N/A'}</p>
             </div>
             <div style="background:#ffffff; border:1px solid #e5e7eb; border-radius:10px; padding:0.85rem;">
                 <strong style="color:#111827;">Requested Booking</strong>
-                <p style="margin:0.35rem 0 0; color:#374151;">🚗 ${request.car || 'Vehicle'}</p>
+                <p style="margin:0.35rem 0 0; color:#374151;">[Car] ${request.car || 'Vehicle'}</p>
                 <p style="margin:0.2rem 0 0; color:#374151;">Pickup: ${new Date(request.pickupDate).toLocaleString()}</p>
                 <p style="margin:0.2rem 0 0; color:#374151;">Return: ${new Date(request.returnDate).toLocaleString()}</p>
             </div>
@@ -2067,12 +2067,12 @@ function showRentalCustomerProfile(rentalId) {
         <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0.65rem;">
             <div style="background:#ffffff; border:1px solid #e5e7eb; border-radius:10px; padding:0.85rem;">
                 <strong style="color:#111827;">Contact</strong>
-                <p style="margin:0.35rem 0 0; color:#374151;">📞 ${rental.phone || 'N/A'}</p>
-                <p style="margin:0.2rem 0 0; color:#374151;">✉️ ${rental.email || 'N/A'}</p>
+                <p style="margin:0.35rem 0 0; color:#374151;">[Phone] ${rental.phone || 'N/A'}</p>
+                <p style="margin:0.2rem 0 0; color:#374151;">[Email] ${rental.email || 'N/A'}</p>
             </div>
             <div style="background:#ffffff; border:1px solid #e5e7eb; border-radius:10px; padding:0.85rem;">
                 <strong style="color:#111827;">Active Rental</strong>
-                <p style="margin:0.35rem 0 0; color:#374151;">🚗 ${rental.car || 'Vehicle'}</p>
+                <p style="margin:0.35rem 0 0; color:#374151;">[Car] ${rental.car || 'Vehicle'}</p>
                 <p style="margin:0.2rem 0 0; color:#374151;">Pickup: ${new Date(rental.pickupDate).toLocaleString()}</p>
                 <p style="margin:0.2rem 0 0; color:#374151;">Return: ${new Date(rental.returnDate).toLocaleString()}</p>
             </div>
@@ -2116,14 +2116,14 @@ function renderBargainOffers() {
                 <div style="display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap; align-items:flex-start;">
                     <div>
                         <h4 style="margin:0 0 0.35rem 0; color:#111827;">${offer.customerName || offer.customerEmail || 'Customer'} — ${offer.carName || 'Vehicle'}</h4>
-                        <p style="margin:0; color:#6b7280; font-size:0.9rem;">📅 ${createdDate.toLocaleString()} • Listed $${listedRate.toFixed(2)} • Offered $${offeredRate.toFixed(2)}</p>
+                        <p style="margin:0; color:#6b7280; font-size:0.9rem;">[Date] ${createdDate.toLocaleString()} • Listed $${listedRate.toFixed(2)} • Offered $${offeredRate.toFixed(2)}</p>
                     </div>
                     <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
                         <span class="status-badge ${statusClass}" style="text-transform: capitalize;">${status}</span>
-                        <button class="btn-small btn-edit" onclick="openOfferNegotiation(${Number(offer.id)})">💬 Negotiate</button>
-                        <button class="btn-small btn-primary" onclick="acceptPriceOffer(${Number(offer.id)})">✅ Accept</button>
-                        <button class="btn-small btn-edit" onclick="counterPriceOffer(${Number(offer.id)})">↔️ Counter</button>
-                        <button class="btn-small btn-edit" onclick="rejectPriceOffer(${Number(offer.id)})">❌ Reject</button>
+                        <button class="btn-small btn-edit" onclick="openOfferNegotiation(${Number(offer.id)})">[Chat] Negotiate</button>
+                        <button class="btn-small btn-primary" onclick="acceptPriceOffer(${Number(offer.id)})">[Accept] Accept</button>
+                        <button class="btn-small btn-edit" onclick="counterPriceOffer(${Number(offer.id)})">[Counter] Counter</button>
+                        <button class="btn-small btn-edit" onclick="rejectPriceOffer(${Number(offer.id)})">[Reject] Reject</button>
                     </div>
                 </div>
                 <div style="margin-top:0.75rem; display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0.5rem 1rem;">

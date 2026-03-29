@@ -687,7 +687,7 @@
                     <button class="premium-btn" id="favorites-toggle" onclick="toggleFavoritesView()">❤️ Favorites</button>
                 </div>
                 <div style="display: flex; justify-content: flex-end; margin-bottom: 0.75rem;">
-                    <button type="button" class="premium-btn" id="selection-hint-top" onclick="return false;">👆 Tap any card to select a vehicle</button>
+                    <button type="button" class="premium-btn" id="selection-hint-top" onclick="return false;">[Select] Tap any card to select a vehicle</button>
                 </div>
                 
                 <div id="car-selection-grid" class="car-selection-grid"></div>
@@ -702,7 +702,7 @@
             <div id="compare-modal" class="compare-modal">
                 <div class="compare-modal-content">
                     <button class="compare-close-btn" onclick="closeCompareModal()">✕</button>
-                    <h2>📊 Compare Vehicles</h2>
+                    <h2>[Compare] Compare Vehicles</h2>
                     <table class="compare-table" id="compare-table">
                         <thead>
                             <tr id="compare-header-row"></tr>
@@ -759,7 +759,7 @@
             <div class="form-group">
                 <label id="upload-label">Vehicle Photos</label>
                 <div class="photo-upload" onclick="document.getElementById('photo-input').click()">
-                    <div class="photo-upload-icon">📸</div>
+                    <div class="photo-upload-icon">[+]</div>
                     <p><strong id="upload-title">Tap to take photos</strong></p>
                     <small id="upload-hint">Front, Back, Interior, Vehicle condition</small>
                 </div>
@@ -790,7 +790,7 @@
         </form>
         
         <div id="success-msg" class="success-message">
-            <h3>✅ Service Submitted Successfully!</h3>
+            <h3>[Success] Service Submitted Successfully!</h3>
             <p>Your service reference: <strong id="ref-display"></strong></p>
         </div>
     </div>
@@ -982,14 +982,14 @@
                         <img class="car-photo" src="${getVehicleImage(vehicle)}" alt="${getVehicleName(vehicle)}" loading="lazy">
                         <div class="car-option-content">
                             <h4>${getVehicleName(vehicle)}</h4>
-                            <p class="car-details">📋 ${vehicle.rego || vehicle.license || 'N/A'}</p>
-                            <p class="car-details">🎨 ${vehicle.color || 'N/A'} &nbsp;|&nbsp; 📊 ${vehicle.mileage || 0} km</p>
+                            <p class="car-details">[Plate] ${vehicle.rego || vehicle.license || 'N/A'}</p>
+                            <p class="car-details">[Color] ${vehicle.color || 'N/A'} &nbsp;|&nbsp; [Mileage] ${vehicle.mileage || 0} km</p>
                             <div class="car-meta-row">
                                 <span class="car-meta-chip">Fuel: ${vehicle.fuel || 'N/A'}</span>
                                 <span class="car-meta-chip">Status: Available</span>
                             </div>
                             <p class="car-rate">$${vehicle.rate}/day</p>
-                            <button type="button" class="premium-btn" onclick='selectCar(${JSON.stringify(vehicle.id)})' style="width: 100%; margin-top: 0.5rem;">🚗 Select Vehicle</button>
+                            <button type="button" class="premium-btn" onclick='selectCar(${JSON.stringify(vehicle.id)})' style="width: 100%; margin-top: 0.5rem;">[Car] Select Vehicle</button>
                         </div>
                     </div>
                 `;
@@ -1253,11 +1253,11 @@
             const summaryCompareButton = summaryDiv ? summaryDiv.querySelector('[onclick*="openCompareModal"]') : null;
 
             if (topButton) {
-                topButton.textContent = `📊 Compare (${compareCount})`;
+                topButton.textContent = `[Compare] Compare (${compareCount})`;
                 topButton.classList.toggle('active', compareCount > 0);
             }
             if (stickyButton) {
-                stickyButton.textContent = `📊 Compare (${compareCount})`;
+                stickyButton.textContent = `[Compare] Compare (${compareCount})`;
                 stickyButton.classList.toggle('active', compareCount > 0);
             }
             if (summaryCompareButton) {

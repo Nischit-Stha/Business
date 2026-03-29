@@ -368,7 +368,7 @@
             <div class="form-group">
                 <label>Vehicle Photos</label>
                 <div class="photo-upload" onclick="document.getElementById('photo-input').click()">
-                    <div class="photo-upload-icon">📸</div>
+                    <div class="photo-upload-icon">[+]</div>
                     <p><strong>Tap to take photos</strong></p>
                     <small>Front, Back, Interior, Fuel Gauge</small>
                 </div>
@@ -531,11 +531,11 @@
                 grid.innerHTML = available.map(vehicle => `
                     <div class=\"car-option-card\" onclick=\"selectCar(${vehicle.id})\" data-vehicle-id=\"${vehicle.id}\">
                         <span class=\"selected-badge\">✓ SELECTED</span>
-                        <div class=\"car-icon\">🚗</div>
+                        <div class="car-icon">[CAR]</div>
                         <h4>${vehicle.name || vehicle.make + ' ' + vehicle.model}</h4>
-                        <p class=\"car-details\">📋 ${vehicle.rego || vehicle.license}</p>
-                        <p class=\"car-details\">🎨 ${vehicle.color || 'N/A'}</p>
-                        <p class=\"car-details\">📊 ${vehicle.mileage || 0} km</p>
+                        <p class="car-details">[Plate] ${vehicle.rego || vehicle.license}</p>
+                        <p class="car-details">[Color] ${vehicle.color || 'N/A'}</p>
+                        <p class="car-details">[Mileage] ${vehicle.mileage || 0} km</p>
                         <p class=\"car-rate\">$${vehicle.rate}/day</p>
                     </div>
                 `).join('');

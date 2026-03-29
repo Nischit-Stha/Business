@@ -80,35 +80,35 @@
                     </div>
                 </div>
                 <div class="stat-card rented" data-filter="rented" title="Show rented vehicles">
-                    <div class="stat-icon">🔴</div>
+                    <div class="stat-icon">[●]</div>
                     <div class="stat-content">
                         <h3 id="rented-count">0</h3>
                         <p>Currently Rented</p>
                     </div>
                 </div>
                 <div class="stat-card maintenance" data-filter="maintenance" title="Show maintenance vehicles">
-                    <div class="stat-icon">🔧</div>
+                    <div class="stat-icon">[⚙]</div>
                     <div class="stat-content">
                         <h3 id="maintenance-count">0</h3>
                         <p>Maintenance</p>
                     </div>
                 </div>
                 <div class="stat-card revenue">
-                    <div class="stat-icon">💰</div>
+                    <div class="stat-icon">[$]</div>
                     <div class="stat-content">
                         <h3 id="revenue-count">$0</h3>
                         <p>Daily Revenue</p>
                     </div>
                 </div>
                 <div class="stat-card utilization">
-                    <div class="stat-icon">📈</div>
+                    <div class="stat-icon">[↑]</div>
                     <div class="stat-content">
                         <h3 id="utilization-count">0%</h3>
                         <p>Fleet Utilization</p>
                     </div>
                 </div>
                 <div class="stat-card bookings">
-                    <div class="stat-icon">📅</div>
+                    <div class="stat-icon">[Date]</div>
                     <div class="stat-content">
                         <h3 id="today-bookings">0</h3>
                         <p>Today's Bookings</p>
@@ -193,22 +193,22 @@
                     </div>
                     <div class="action-buttons">
                         <button class="btn btn-primary" onclick="showModal('booking-modal')">
-                            📅 New Booking
+                            [Booking] New Booking
                         </button>
                         <a class="btn btn-primary action-link" href="scanner.html">
-                            👤 Customer Service Portal
+                            [Portal] Customer Service Portal
                         </a>
                         <button class="btn btn-secondary" onclick="showModal('car-modal')">
-                            🚗 Add Vehicle
+                            [Car] Add Vehicle
                         </button>
                         <button class="btn btn-secondary" onclick="reimportFromRecords()">
-                            🔄 Re-import Records
+                            [Sync] Re-import Records
                         </button>
                         <button class="btn btn-secondary" onclick="exportData()">
-                            📥 Export Data
+                            [Export] Export Data
                         </button>
                         <button class="btn btn-secondary" onclick="showDailyReport()">
-                            📊 Daily Report
+                            [Report] Daily Report
                         </button>
                     </div>
                 </section>
@@ -605,13 +605,13 @@
                 <div class="qr-info">
                     <p><strong>How to use:</strong></p>
                     <ul>
-                        <li>📱 Send to customer via SMS/Email</li>
-                        <li>📸 Customer scans for check-in/out</li>
-                        <li>📍 Opens inspection form with GPS</li>
-                        <li>📸 Photos automatically timestamped</li>
+                        <li>[SMS] Send to customer via SMS/Email</li>
+                        <li>[Camera] Customer scans for check-in/out</li>
+                        <li>[Location] Opens inspection form with GPS</li>
+                        <li>[Photos] Photos automatically timestamped</li>
                     </ul>
                     <button class="btn btn-primary btn-block" onclick="printQR()">
-                        🖨️ Print QR Code
+                        [Print] Print QR Code
                     </button>
                 </div>
             </div>
@@ -641,7 +641,7 @@
             <div id="invoice-content" class="invoice-grid"></div>
             <div class="form-actions form-actions-compact">
                 <button type="button" class="btn btn-secondary" onclick="closeModal('invoice-modal')">Close</button>
-                <button type="button" class="btn btn-primary" onclick="window.print()">🖨️ Print Invoice</button>
+                <button type="button" class="btn btn-primary" onclick="window.print()">[Print] Print Invoice</button>
             </div>
         </div>
     </div>
