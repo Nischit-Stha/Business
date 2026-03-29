@@ -2,9 +2,11 @@
 let fleet = [];
 
 let rentals = [];
+let invoices = [];
 
 const DEFAULT_RATE = 250;
 const BOOKING_REQUESTS_KEY = 'booking-requests-data';
+const INVOICES_KEY = 'rentals-invoices-data';
 let activeFleetFilter = 'all';
 let fleetSearchQuery = '';
 let fleetSortMode = 'name-asc';
@@ -71,6 +73,7 @@ async function importSeedDataFromRecords() {
     if (Array.isArray(seedData.rentals) && seedData.rentals.length > 0) {
         rentals = normalizeRentalDates(seedData.rentals);
     }
+    invoices = [];
 
     saveData();
     localStorage.setItem('records-imported-v1', 'true');
@@ -102,6 +105,7 @@ async function loadData() {
     const savedFleet = localStorage.getItem('fleet-data');
     const savedRentals = localStorage.getItem('rentals-data');
     const importedFlag = localStorage.getItem('records-imported-v1') === 'true';
+    const savedInvoices = localStorage.getItem(INVOICES_KEY);
 
     if (!importedFlag) {
         try {
@@ -118,6 +122,14 @@ async function loadData() {
     if (savedRentals) {
         rentals = normalizeRentalDates(JSON.parse(savedRentals));
     }
+    if (savedInvoices) {
+        try {
+            const parsedInvoices = JSON.parse(savedInvoices);
+            invoices = Array.isArray(parsedInvoices) ? parsedInvoices : [];
+        } catch {
+            invoices = [];
+        }
+    }
 
     if (normalizeFleetRates()) {
         saveData();
@@ -127,6 +139,7 @@ async function loadData() {
 function saveData() {
     localStorage.setItem('fleet-data', JSON.stringify(fleet));
     localStorage.setItem('rentals-data', JSON.stringify(rentals));
+    localStorage.setItem(INVOICES_KEY, JSON.stringify(invoices));
 }
 
 function showToast(message, type = 'info') {
@@ -296,6 +309,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     renderRentals();
     renderRentedCarsDetails();
     renderServiceHistory();
+    renderInvoiceCenter();
     populateCarSelect();
     initializeBookingDateInputs();
     initializeNavLinks();
@@ -379,6 +393,7 @@ function updateStats() {
         }, 0);
     
     const analytics = getAnalytics();
+    const finance = getInvoiceFinanceSummary();
     
     document.getElementById('available-count').textContent = available;
     document.getElementById('rented-count').textContent = rented;
@@ -411,6 +426,16 @@ function updateStats() {
     if (avgRentalEl) {
         avgRentalEl.textContent = analytics.averageRentalDays;
     }
+
+    const invoicedMonthEl = document.getElementById('invoiced-month');
+    if (invoicedMonthEl) {
+        invoicedMonthEl.textContent = `$${finance.invoicedThisMonth.toFixed(2)}`;
+    }
+
+    const unpaidTotalEl = document.getElementById('unpaid-total');
+    if (unpaidTotalEl) {
+        unpaidTotalEl.textContent = `$${finance.totalUnpaid.toFixed(2)}`;
+    }
 }
 
 function hasMeaningfulValue(value) {
@@ -426,6 +451,111 @@ function getBookingReferenceDate(rental) {
         return new Date(0);
     }
     return parsedDate;
+}
+
+function getInvoiceFinanceSummary() {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    return invoices.reduce((summary, invoice) => {
+        const issuedOn = new Date(invoice.issueDate || invoice.createdAt || 0);
+        const totalAmount = Number(invoice.totalAmount || 0);
+        const paidAmount = Number(invoice.paidAmount || 0);
+        const unpaidAmount = Math.max(0, totalAmount - paidAmount);
+
+        if (!Number.isNaN(issuedOn.getTime()) && issuedOn >= monthStart) {
+            summary.invoicedThisMonth += totalAmount;
+        }
+
+        summary.totalUnpaid += unpaidAmount;
+        return summary;
+    }, { invoicedThisMonth: 0, totalUnpaid: 0 });
+}
+
+function calculateRentalAmount(rental, car) {
+    const pickupDate = new Date(rental.pickupDate);
+    const returnDate = new Date(rental.returnDate);
+    const totalDays = Math.max(1, Math.ceil((returnDate - pickupDate) / (1000 * 60 * 60 * 24)));
+    const dailyRate = Number(car?.rate || 0);
+    const subTotal = totalDays * dailyRate;
+    const taxRate = 0.13;
+    const taxAmount = subTotal * taxRate;
+    const totalAmount = subTotal + taxAmount;
+
+    return {
+        pickupDate,
+        returnDate,
+        totalDays,
+        dailyRate,
+        subTotal,
+        taxRate,
+        taxAmount,
+        totalAmount
+    };
+}
+
+function getRentalInvoice(rentalId) {
+    return invoices.find(invoice => Number(invoice.rentalId) === Number(rentalId));
+}
+
+function generateInvoiceFromRental(rentalId) {
+    const rental = rentals.find(item => Number(item.id) === Number(rentalId));
+    if (!rental) {
+        showToast('Rental not found for invoice generation.', 'warning');
+        return null;
+    }
+
+    const existingInvoice = getRentalInvoice(rentalId);
+    if (existingInvoice) {
+        return existingInvoice;
+    }
+
+    const car = fleet.find(item => Number(item.id) === Number(rental.carId));
+    const amount = calculateRentalAmount(rental, car);
+    const sequenceNumber = String(invoices.length + 1).padStart(5, '0');
+    const issueDate = new Date().toISOString();
+
+    const newInvoice = {
+        id: Date.now(),
+        invoiceNumber: `INV-${new Date().getFullYear()}-${sequenceNumber}`,
+        rentalId: rental.id,
+        customer: rental.customer || 'Customer',
+        customerPhone: rental.phone || 'N/A',
+        customerEmail: rental.email || 'N/A',
+        carId: rental.carId,
+        carName: rental.car || car?.name || 'Vehicle',
+        status: rental.status === 'completed' ? 'closed' : 'open',
+        issueDate,
+        dueDate: rental.returnDate ? new Date(rental.returnDate).toISOString() : issueDate,
+        pickupDate: amount.pickupDate.toISOString(),
+        returnDate: amount.returnDate.toISOString(),
+        totalDays: amount.totalDays,
+        dailyRate: amount.dailyRate,
+        subTotal: amount.subTotal,
+        taxRate: amount.taxRate,
+        taxAmount: amount.taxAmount,
+        totalAmount: amount.totalAmount,
+        paidAmount: 0,
+        notes: rental.notes || '',
+        createdAt: issueDate,
+        updatedAt: issueDate
+    };
+
+    invoices.unshift(newInvoice);
+    saveData();
+    updateStats();
+    renderInvoiceCenter();
+
+    return newInvoice;
+}
+
+function syncInvoiceWithRentalStatus(rental) {
+    const invoice = getRentalInvoice(rental.id);
+    if (!invoice) return;
+
+    invoice.status = rental.status === 'completed' ? 'closed' : 'open';
+    invoice.updatedAt = new Date().toISOString();
+    saveData();
 }
 
 // ===== RENDER FLEET =====
@@ -497,8 +627,10 @@ function renderFleet() {
             secondaryDetails.push(`⛽ ${car.fuel}`);
         }
 
+        const isRented = statusText === 'rented';
+
         return `
-        <div class="fleet-card" data-id="${car.id}">
+        <div class="fleet-card" data-id="${car.id}" ${isRented ? `onclick="openRentedCarDetails(${car.id})" style="cursor: pointer;"` : ''}>
             <div class="car-header">
                 <div>
                     <div class="car-name">${primaryName}</div>
@@ -519,6 +651,7 @@ function renderFleet() {
                 <button class="btn-small btn-edit" onclick="editCar(${car.id})">
                     ✏️ Edit
                 </button>
+                ${isRented ? `<button class="btn-small btn-primary" onclick="event.stopPropagation(); openRentedCarDetails(${car.id});">📋 Details</button>` : ''}
             </div>
         </div>
     `;
@@ -615,6 +748,9 @@ function renderRentals() {
                     <button class="btn-small btn-primary" onclick="showRentalDetails(${rental.id})">
                         View Details
                     </button>
+                    <button class="btn-small btn-qr" onclick="openInvoiceForRental(${rental.id})">
+                        🧾 Invoice
+                    </button>
                     ${isActive ? `
                         <button class="btn-small btn-edit" onclick="completeRental(${rental.id})">
                             ✅ Complete
@@ -676,6 +812,10 @@ function renderRentedCarsDetails() {
                     <p style="margin:0; color:#374151;"><strong>Email:</strong> ${customerEmail}</p>
                     <p style="margin:0; color:#374151;"><strong>Pickup:</strong> ${pickupDate.toLocaleString()}</p>
                     <p style="margin:0; color:#374151;"><strong>Return:</strong> ${returnDate.toLocaleString()}</p>
+                </div>
+                <div style="display:flex; gap:0.5rem; margin-top:0.85rem; flex-wrap:wrap;">
+                    <button class="btn-small btn-primary" onclick="showRentalDetails(${Number(rental.id)})">📋 Full Details</button>
+                    <button class="btn-small btn-qr" onclick="openInvoiceForRental(${Number(rental.id)})">🧾 Invoice</button>
                 </div>
             </div>
         `;
@@ -763,6 +903,7 @@ function approveBookingRequest(requestId) {
 
     rentals.push(newRental);
     car.status = 'rented';
+    generateInvoiceFromRental(newRental.id);
 
     const updatedRequests = requests.filter(item => Number(item.id) !== Number(requestId));
     saveBookingRequests(updatedRequests);
@@ -773,6 +914,7 @@ function approveBookingRequest(requestId) {
     renderBookingRequests();
     renderRentals();
     renderRentedCarsDetails();
+    renderInvoiceCenter();
     populateCarSelect();
 
     showToast(`Booking approved for ${newRental.customer}`, 'success');
@@ -1107,6 +1249,7 @@ function handleNewBooking(e) {
     
     // Add rental
     rentals.push(newRental);
+    const generatedInvoice = generateInvoiceFromRental(newRental.id);
     
     // Save and update
     saveData();
@@ -1116,6 +1259,7 @@ function handleNewBooking(e) {
     renderRentals();
     renderRentedCarsDetails();
     renderServiceHistory();
+    renderInvoiceCenter();
     
     // Close modal and reset form
     closeModal('booking-modal');
@@ -1125,7 +1269,7 @@ function handleNewBooking(e) {
     // Show booking summary
     const days = Math.ceil((returnDate - pickupDate) / (1000 * 60 * 60 * 24));
     const total = car.rate * days;
-    const summaryMessage = `✅ Booking Created!\n\nCustomer: ${customerName}\nVehicle: ${car.name}\nDays: ${days}\nTotal: $${total}\n\nQR code generated. Ready for pickup!`;
+    const summaryMessage = `✅ Booking Created!\n\nCustomer: ${customerName}\nVehicle: ${car.name}\nDays: ${days}\nTotal: $${total}\nInvoice: ${generatedInvoice ? generatedInvoice.invoiceNumber : 'Not generated'}\n\nQR code generated. Ready for pickup!`;
     
     setTimeout(() => {
         showToast(`✅ ${customerName}'s booking confirmed!`, 'success');
@@ -1221,22 +1365,177 @@ function handleEditCar(e) {
 }
 
 function showRentalDetails(rentalId) {
-    const rental = rentals.find(r => r.id === rentalId);
-    if (!rental) return;
-    
-    const car = fleet.find(c => c.id === rental.carId);
-    const days = Math.ceil((rental.returnDate - rental.pickupDate) / (1000 * 60 * 60 * 24));
-    const total = car ? car.rate * days : 0;
-    
-    alert(`Rental Details:\n\n` +
-          `Customer: ${rental.customer}\n` +
-          `Phone: ${rental.phone}\n` +
-          `Car: ${rental.car}\n` +
-          `Pickup: ${rental.pickupDate.toLocaleString()}\n` +
-          `Return: ${rental.returnDate.toLocaleString()}\n` +
-          `Days: ${days}\n` +
-          `Total: $${total}\n\n` +
-          `QR actions available for pickup/dropoff`);
+    const rental = rentals.find(item => Number(item.id) === Number(rentalId));
+    if (!rental) {
+        showToast('Rental details not found.', 'warning');
+        return;
+    }
+
+    const car = fleet.find(item => Number(item.id) === Number(rental.carId));
+    const amount = calculateRentalAmount(rental, car);
+    const detailContainer = document.getElementById('rental-detail-content');
+
+    if (!detailContainer) {
+        showToast('Detail modal is not available in this view.', 'warning');
+        return;
+    }
+
+    const bookingDate = getBookingReferenceDate(rental);
+    const invoice = getRentalInvoice(rental.id);
+
+    detailContainer.innerHTML = `
+        <div style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:10px; padding:0.9rem 1rem;">
+            <h3 style="margin:0 0 0.35rem 0; color:#111827;">Booking #${rental.id} • ${rental.status || 'active'}</h3>
+            <p style="margin:0; color:#6b7280;">Created: ${bookingDate.toLocaleString()}</p>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0.65rem;">
+            <div style="background:#ffffff; border:1px solid #e5e7eb; border-radius:10px; padding:0.85rem;">
+                <strong style="color:#111827;">Customer</strong>
+                <p style="margin:0.35rem 0 0; color:#374151;">${rental.customer || 'N/A'}</p>
+                <p style="margin:0.2rem 0 0; color:#6b7280;">📞 ${rental.phone || 'N/A'}</p>
+                <p style="margin:0.2rem 0 0; color:#6b7280;">✉️ ${rental.email || 'N/A'}</p>
+            </div>
+            <div style="background:#ffffff; border:1px solid #e5e7eb; border-radius:10px; padding:0.85rem;">
+                <strong style="color:#111827;">Vehicle</strong>
+                <p style="margin:0.35rem 0 0; color:#374151;">${rental.car || car?.name || 'Vehicle'}</p>
+                <p style="margin:0.2rem 0 0; color:#6b7280;">🚗 ${car?.license || car?.rego || 'N/A'}</p>
+                <p style="margin:0.2rem 0 0; color:#6b7280;">Status: ${(car?.status || 'unknown').toUpperCase()}</p>
+            </div>
+            <div style="background:#ffffff; border:1px solid #e5e7eb; border-radius:10px; padding:0.85rem;">
+                <strong style="color:#111827;">Rental Timeline</strong>
+                <p style="margin:0.35rem 0 0; color:#374151;">Pickup: ${new Date(rental.pickupDate).toLocaleString()}</p>
+                <p style="margin:0.2rem 0 0; color:#374151;">Return: ${new Date(rental.returnDate).toLocaleString()}</p>
+                <p style="margin:0.2rem 0 0; color:#6b7280;">Duration: ${amount.totalDays} day(s)</p>
+            </div>
+            <div style="background:#ffffff; border:1px solid #e5e7eb; border-radius:10px; padding:0.85rem;">
+                <strong style="color:#111827;">Financials</strong>
+                <p style="margin:0.35rem 0 0; color:#374151;">Rate: $${amount.dailyRate.toFixed(2)} / day</p>
+                <p style="margin:0.2rem 0 0; color:#374151;">Subtotal: $${amount.subTotal.toFixed(2)}</p>
+                <p style="margin:0.2rem 0 0; color:#374151;">Tax: $${amount.taxAmount.toFixed(2)}</p>
+                <p style="margin:0.2rem 0 0; font-weight:700; color:#111827;">Total: $${amount.totalAmount.toFixed(2)}</p>
+                <p style="margin:0.2rem 0 0; color:#6b7280;">Invoice: ${invoice ? invoice.invoiceNumber : 'Not generated'}</p>
+            </div>
+        </div>
+        ${rental.notes ? `<div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; padding:0.85rem;"><strong>Notes:</strong> ${rental.notes}</div>` : ''}
+    `;
+
+    const invoiceButton = document.getElementById('rental-detail-invoice-btn');
+    if (invoiceButton) {
+        invoiceButton.onclick = () => openInvoiceForRental(rental.id);
+    }
+
+    showModal('rental-detail-modal');
+}
+
+function openRentedCarDetails(carId) {
+    const activeRental = rentals.find(rental => Number(rental.carId) === Number(carId) && rental.status === 'active');
+
+    if (activeRental) {
+        showRentalDetails(activeRental.id);
+        return;
+    }
+
+    const latestRental = [...rentals]
+        .filter(rental => Number(rental.carId) === Number(carId))
+        .sort((first, second) => getBookingReferenceDate(second) - getBookingReferenceDate(first))[0];
+
+    if (!latestRental) {
+        showToast('No renter information found for this vehicle.', 'warning');
+        return;
+    }
+
+    showRentalDetails(latestRental.id);
+}
+
+function renderInvoiceCenter() {
+    const list = document.getElementById('invoice-list');
+    const count = document.getElementById('invoice-count');
+    if (!list || !count) return;
+
+    count.textContent = invoices.length;
+
+    if (invoices.length === 0) {
+        list.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">No invoices generated yet</p>';
+        return;
+    }
+
+    list.innerHTML = invoices.map(invoice => {
+        const unpaid = Math.max(0, Number(invoice.totalAmount || 0) - Number(invoice.paidAmount || 0));
+        return `
+            <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:1rem 1.1rem; display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+                <div>
+                    <h4 style="margin:0 0 0.35rem 0; color:#111827;">${invoice.invoiceNumber}</h4>
+                    <p style="margin:0; color:#4b5563;">${invoice.customer} • ${invoice.carName}</p>
+                    <p style="margin:0.2rem 0 0; color:#6b7280; font-size:0.9rem;">Issued: ${new Date(invoice.issueDate).toLocaleDateString()} • Due: ${new Date(invoice.dueDate).toLocaleDateString()}</p>
+                </div>
+                <div style="text-align:right;">
+                    <p style="margin:0; font-weight:700; color:#111827;">$${Number(invoice.totalAmount || 0).toFixed(2)}</p>
+                    <p style="margin:0.2rem 0 0; color:${unpaid > 0 ? '#dc2626' : '#059669'}; font-weight:600;">${unpaid > 0 ? `Unpaid $${unpaid.toFixed(2)}` : 'Paid'}</p>
+                    <button class="btn-small btn-primary" style="margin-top:0.45rem;" onclick="openInvoiceByNumber('${invoice.invoiceNumber}')">View</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderInvoiceModal(invoice) {
+    const content = document.getElementById('invoice-content');
+    if (!content) return;
+
+    const unpaid = Math.max(0, Number(invoice.totalAmount || 0) - Number(invoice.paidAmount || 0));
+    content.innerHTML = `
+        <div style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem; background:#fff;">
+            <div style="display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+                <div>
+                    <h3 style="margin:0 0 0.25rem 0; color:#111827;">${invoice.invoiceNumber}</h3>
+                    <p style="margin:0; color:#6b7280;">Issue Date: ${new Date(invoice.issueDate).toLocaleDateString()}</p>
+                    <p style="margin:0.2rem 0 0; color:#6b7280;">Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}</p>
+                </div>
+                <div style="text-align:right;">
+                    <p style="margin:0; color:#6b7280;">Status</p>
+                    <p style="margin:0.25rem 0 0; font-weight:700; color:${unpaid > 0 ? '#dc2626' : '#059669'};">${unpaid > 0 ? 'OPEN' : 'PAID'}</p>
+                </div>
+            </div>
+        </div>
+        <div style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem; background:#fff;">
+            <p style="margin:0; color:#374151;"><strong>Customer:</strong> ${invoice.customer}</p>
+            <p style="margin:0.2rem 0 0; color:#374151;"><strong>Phone:</strong> ${invoice.customerPhone || 'N/A'}</p>
+            <p style="margin:0.2rem 0 0; color:#374151;"><strong>Email:</strong> ${invoice.customerEmail || 'N/A'}</p>
+            <p style="margin:0.2rem 0 0; color:#374151;"><strong>Vehicle:</strong> ${invoice.carName}</p>
+        </div>
+        <div style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem; background:#fff;">
+            <p style="margin:0; color:#374151;"><strong>Rental Period:</strong> ${new Date(invoice.pickupDate).toLocaleString()} → ${new Date(invoice.returnDate).toLocaleString()}</p>
+            <p style="margin:0.2rem 0 0; color:#374151;"><strong>Days:</strong> ${invoice.totalDays}</p>
+            <p style="margin:0.2rem 0 0; color:#374151;"><strong>Rate:</strong> $${Number(invoice.dailyRate || 0).toFixed(2)} / day</p>
+        </div>
+        <div style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem; background:#fff;">
+            <p style="margin:0; color:#374151;"><strong>Subtotal:</strong> $${Number(invoice.subTotal || 0).toFixed(2)}</p>
+            <p style="margin:0.2rem 0 0; color:#374151;"><strong>Tax:</strong> $${Number(invoice.taxAmount || 0).toFixed(2)}</p>
+            <p style="margin:0.2rem 0 0; color:#374151;"><strong>Total:</strong> $${Number(invoice.totalAmount || 0).toFixed(2)}</p>
+            <p style="margin:0.2rem 0 0; color:#374151;"><strong>Paid:</strong> $${Number(invoice.paidAmount || 0).toFixed(2)}</p>
+            <p style="margin:0.2rem 0 0; font-weight:700; color:${unpaid > 0 ? '#dc2626' : '#059669'};"><strong>Outstanding:</strong> $${unpaid.toFixed(2)}</p>
+        </div>
+    `;
+
+    showModal('invoice-modal');
+}
+
+function openInvoiceByNumber(invoiceNumber) {
+    const invoice = invoices.find(item => item.invoiceNumber === invoiceNumber);
+    if (!invoice) {
+        showToast('Invoice not found.', 'warning');
+        return;
+    }
+    renderInvoiceModal(invoice);
+}
+
+function openInvoiceForRental(rentalId) {
+    const invoice = generateInvoiceFromRental(rentalId);
+    if (!invoice) return;
+
+    renderInvoiceCenter();
+    renderInvoiceModal(invoice);
+    showToast(`Invoice ready: ${invoice.invoiceNumber}`, 'success');
 }
 
 function completeRental(rentalId) {
@@ -1251,6 +1550,7 @@ function completeRental(rentalId) {
 
     rental.status = 'completed';
     rental.completedAt = new Date();
+    syncInvoiceWithRentalStatus(rental);
 
     const car = fleet.find(c => c.id === rental.carId);
     if (car) {
@@ -1263,6 +1563,7 @@ function completeRental(rentalId) {
     renderBookingRequests();
     renderRentals();
     renderRentedCarsDetails();
+    renderInvoiceCenter();
     populateCarSelect();
 
     showToast(`Rental #${rental.id} marked as completed`, 'success');
@@ -1366,6 +1667,7 @@ function showDailyReport() {
     const available = fleet.filter(c => c.status === 'available').length;
     const rented = fleet.filter(c => c.status === 'rented').length;
     const utilization = ((rented / fleet.length) * 100).toFixed(1);
+    const finance = getInvoiceFinanceSummary();
     
     const reportHTML = `
         📊 DAILY REPORT - ${new Date().toLocaleDateString()}
@@ -1382,6 +1684,10 @@ function showDailyReport() {
         REVENUE:
         Today: $${revenue}
         This Month: $${analytics.monthRevenue}
+
+        INVOICES:
+        Invoiced This Month: $${finance.invoicedThisMonth.toFixed(2)}
+        Unpaid Outstanding: $${finance.totalUnpaid.toFixed(2)}
         
         STATISTICS:
         Completed Rentals: ${analytics.completedRentals}
@@ -1391,7 +1697,7 @@ function showDailyReport() {
     alert(reportHTML);
     
     // Option to download CSV
-    const csvContent = `Date,Metric,Value\n${new Date().toLocaleDateString()},Today Bookings,${analytics.todayBookings}\n${new Date().toLocaleDateString()},Daily Revenue,$${revenue}\n${new Date().toLocaleDateString()},Fleet Utilization,${utilization}%`;
+    const csvContent = `Date,Metric,Value\n${new Date().toLocaleDateString()},Today Bookings,${analytics.todayBookings}\n${new Date().toLocaleDateString()},Daily Revenue,$${revenue}\n${new Date().toLocaleDateString()},Fleet Utilization,${utilization}%\n${new Date().toLocaleDateString()},Invoiced This Month,$${finance.invoicedThisMonth.toFixed(2)}\n${new Date().toLocaleDateString()},Outstanding Unpaid,$${finance.totalUnpaid.toFixed(2)}`;
     
     const downloadLink = document.createElement('a');
     downloadLink.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvContent);
@@ -1403,15 +1709,17 @@ function exportData() {
     const data = {
         fleet: fleet,
         rentals: rentals,
+        invoices: invoices,
         exportDate: new Date().toISOString(),
         analytics: getAnalytics()
     };
     
-    const csv = 'Rental,Customer,Car,Pickup,Return,Status,Days,Amount\n' + rentals.map(r => {
+    const csv = 'Rental,Customer,Car,Pickup,Return,Status,Days,Amount,Invoice\n' + rentals.map(r => {
         const car = fleet.find(c => c.id === r.carId);
+        const invoice = getRentalInvoice(r.id);
         const days = Math.ceil((new Date(r.returnDate) - new Date(r.pickupDate)) / (1000 * 60 * 60 * 24));
         const amount = car ? car.rate * days : 0;
-        return `${r.id},"${r.customer}","${r.car}","${new Date(r.pickupDate).toLocaleDateString()}","${new Date(r.returnDate).toLocaleDateString()}","${r.status}",${days},$${amount}`;
+        return `${r.id},"${r.customer}","${r.car}","${new Date(r.pickupDate).toLocaleDateString()}","${new Date(r.returnDate).toLocaleDateString()}","${r.status}",${days},$${amount},"${invoice?.invoiceNumber || ''}"`;
     }).join('\n');
     
     const link = document.createElement('a');
@@ -1428,4 +1736,5 @@ setInterval(() => {
     renderBookingRequests();
     renderRentals();
     renderRentedCarsDetails();
+    renderInvoiceCenter();
 }, 60000);

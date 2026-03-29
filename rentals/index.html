@@ -34,8 +34,8 @@
                 <a href="#fleet" class="nav-link" data-tab="fleet">Fleet</a>
                 <a href="#reports" class="nav-link" data-tab="reports">Reports</a>
             </nav>
-            <div style="display: flex; justify-content: flex-end; margin-top: 0.75rem;">
-                <a href="#" onclick="adminLogout(event)" style="color:#ffd700; text-decoration:none; font-weight:600;">Logout</a>
+            <div class="header-actions">
+                <a href="#" onclick="adminLogout(event)" class="logout-link">Logout</a>
             </div>
         </div>
     </header>
@@ -45,22 +45,30 @@
         <div class="container">
             <div data-tab-panel="dashboard">
             <!-- Quick Stats Cards -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
-                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1.5rem; border-radius: 12px; text-align: center;">
-                    <div style="font-size: 2rem; font-weight: 700; margin-bottom: 0.25rem;" id="month-bookings">0</div>
-                    <div style="font-size: 0.85rem; opacity: 0.9;">This Month</div>
+            <div class="kpi-grid">
+                <div class="kpi-card kpi-bookings">
+                    <div class="kpi-value" id="month-bookings">0</div>
+                    <div class="kpi-label">This Month</div>
                 </div>
-                <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 1.5rem; border-radius: 12px; text-align: center;">
-                    <div style="font-size: 2rem; font-weight: 700; margin-bottom: 0.25rem;" id="month-revenue">$0</div>
-                    <div style="font-size: 0.85rem; opacity: 0.9;">Month Revenue</div>
+                <div class="kpi-card kpi-revenue">
+                    <div class="kpi-value" id="month-revenue">$0</div>
+                    <div class="kpi-label">Month Revenue</div>
                 </div>
-                <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 1.5rem; border-radius: 12px; text-align: center;">
-                    <div style="font-size: 2rem; font-weight: 700; margin-bottom: 0.25rem;" id="completed-rentals">0</div>
-                    <div style="font-size: 0.85rem; opacity: 0.9;">Completed</div>
+                <div class="kpi-card kpi-completed">
+                    <div class="kpi-value" id="completed-rentals">0</div>
+                    <div class="kpi-label">Completed</div>
                 </div>
-                <div style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: white; padding: 1.5rem; border-radius: 12px; text-align: center;">
-                    <div style="font-size: 2rem; font-weight: 700; margin-bottom: 0.25rem;" id="avg-rental-days">0</div>
-                    <div style="font-size: 0.85rem; opacity: 0.9;">Avg Days/Rental</div>
+                <div class="kpi-card kpi-average">
+                    <div class="kpi-value" id="avg-rental-days">0</div>
+                    <div class="kpi-label">Avg Days/Rental</div>
+                </div>
+                <div class="kpi-card kpi-invoiced">
+                    <div class="kpi-value" id="invoiced-month">$0</div>
+                    <div class="kpi-label">Invoiced This Month</div>
+                </div>
+                <div class="kpi-card kpi-unpaid">
+                    <div class="kpi-value" id="unpaid-total">$0</div>
+                    <div class="kpi-label">Total Unpaid</div>
                 </div>
             </div>
             <section class="stats-grid" id="dashboard">
@@ -119,7 +127,7 @@
                         <button class="btn btn-primary" onclick="showModal('booking-modal')">
                             📅 New Booking
                         </button>
-                        <a class="btn btn-primary" href="scanner.html" style="text-decoration: none;">
+                        <a class="btn btn-primary action-link" href="scanner.html">
                             👤 Customer Service Portal
                         </a>
                         <button class="btn btn-secondary" onclick="showModal('car-modal')">
@@ -142,10 +150,20 @@
                     <div class="section-header">
                         <h2>Recent Service Activity</h2>
                     </div>
-                    <div id="service-history-list" style="display: grid; gap: 1rem;">
+                    <div id="service-history-list" class="stack-list">
                         <div style="padding: 2rem; text-align: center; color: #999;">
                             <p>Service records will appear here (pickups, drop-offs, swaps)</p>
                         </div>
+                    </div>
+                </section>
+
+                <section class="rentals-section" id="invoice-center">
+                    <div class="section-header">
+                        <h2>Invoice Center</h2>
+                        <span class="badge" id="invoice-count">0</span>
+                    </div>
+                    <div id="invoice-list" class="stack-list">
+                        <p style="text-align: center; color: #6b7280; padding: 2rem;">No invoices generated yet</p>
                     </div>
                 </section>
             </div>
@@ -162,9 +180,9 @@
                             <button class="filter-btn" data-filter="maintenance">Maintenance</button>
                         </div>
                     </div>
-                    <div class="filters" style="margin-bottom: 1rem; flex-wrap: wrap;">
-                        <input type="text" id="fleet-search" placeholder="Search by car, make, model, plate..." style="max-width: 340px;">
-                        <select id="fleet-sort" style="max-width: 220px;">
+                    <div class="filters control-bar">
+                        <input type="text" id="fleet-search" placeholder="Search by car, make, model, plate...">
+                        <select id="fleet-sort">
                             <option value="name-asc">Sort: Name (A-Z)</option>
                             <option value="rate-high">Sort: Rate High → Low</option>
                             <option value="rate-low">Sort: Rate Low → High</option>
@@ -184,7 +202,7 @@
                         <h2>Booking Requests</h2>
                         <span class="badge" id="booking-requests-count">0</span>
                     </div>
-                    <div id="booking-requests-list" style="display: grid; gap: 1rem;">
+                    <div id="booking-requests-list" class="stack-list">
                         <p style="text-align: center; color: #6b7280; padding: 2rem;">No pending booking requests</p>
                     </div>
                 </section>
@@ -194,14 +212,14 @@
                         <h2>Bookings List</h2>
                         <span class="badge" id="active-rental-count">0</span>
                     </div>
-                    <div class="filters" style="margin-bottom: 1rem; flex-wrap: wrap;">
-                        <input type="text" id="booking-search" placeholder="Search by customer, phone, car..." style="max-width: 320px;">
-                        <select id="booking-status-filter" style="max-width: 200px;">
+                    <div class="filters control-bar">
+                        <input type="text" id="booking-search" placeholder="Search by customer, phone, car...">
+                        <select id="booking-status-filter">
                             <option value="active">Status: Active</option>
                             <option value="completed">Status: Completed</option>
                             <option value="all">Status: All</option>
                         </select>
-                        <select id="booking-sort" style="max-width: 220px;">
+                        <select id="booking-sort">
                             <option value="recent">Sort: Newest First</option>
                             <option value="return-soon">Sort: Return Soonest</option>
                             <option value="customer-asc">Sort: Customer (A-Z)</option>
@@ -218,7 +236,7 @@
                         <h2>Rented Cars Details</h2>
                         <span class="badge" id="rented-cars-count">0</span>
                     </div>
-                    <div id="rented-cars-list" style="display: grid; gap: 1rem;">
+                    <div id="rented-cars-list" class="stack-list">
                         <p style="text-align: center; color: #6b7280; padding: 2rem;">No rented cars to show</p>
                     </div>
                 </section>
@@ -406,10 +424,38 @@
                         <li>📍 Opens inspection form with GPS</li>
                         <li>📸 Photos automatically timestamped</li>
                     </ul>
-                    <button class="btn btn-primary" style="width: 100%; margin-top: 1rem;" onclick="printQR()">
+                    <button class="btn btn-primary btn-block" onclick="printQR()">
                         🖨️ Print QR Code
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="rental-detail-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Rental & Vehicle Details</h2>
+                <button class="close-btn" onclick="closeModal('rental-detail-modal')">&times;</button>
+            </div>
+            <div id="rental-detail-content" class="detail-grid"></div>
+            <div class="form-actions form-actions-compact">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('rental-detail-modal')">Close</button>
+                <button type="button" class="btn btn-primary" id="rental-detail-invoice-btn">Generate Invoice</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="invoice-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Invoice Preview</h2>
+                <button class="close-btn" onclick="closeModal('invoice-modal')">&times;</button>
+            </div>
+            <div id="invoice-content" class="invoice-grid"></div>
+            <div class="form-actions form-actions-compact">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('invoice-modal')">Close</button>
+                <button type="button" class="btn btn-primary" onclick="window.print()">🖨️ Print Invoice</button>
             </div>
         </div>
     </div>
