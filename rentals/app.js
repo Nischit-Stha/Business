@@ -1331,12 +1331,17 @@ function renderRentals() {
 
     const searchedRentals = statusFilteredRentals.filter(rental => {
         if (!bookingSearchQuery) return true;
+        const linkedCar = fleet.find(car => Number(car.id) === Number(rental.carId));
         const searchableText = [
             rental.customer,
             rental.phone,
             rental.car,
             rental.email,
-            rental.status
+            rental.status,
+            linkedCar?.license,
+            linkedCar?.rego,
+            linkedCar?.plateNumber,
+            linkedCar?.plate
         ].filter(hasMeaningfulValue).join(' ').toLowerCase();
         return searchableText.includes(bookingSearchQuery);
     });
@@ -1509,12 +1514,17 @@ function renderBookingRequests() {
 
     const searchedRequests = requests.filter(request => {
         if (!requestSearchQuery) return true;
+        const linkedCar = fleet.find(car => Number(car.id) === Number(request.carId));
         const searchable = [
             request.customer,
             request.phone,
             request.email,
             request.car,
-            request.notes
+            request.notes,
+            linkedCar?.license,
+            linkedCar?.rego,
+            linkedCar?.plateNumber,
+            linkedCar?.plate
         ].filter(hasMeaningfulValue).join(' ').toLowerCase();
         return searchable.includes(requestSearchQuery);
     });
