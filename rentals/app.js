@@ -3,6 +3,31 @@ let fleet = [];
 
 let rentals = [];
 
+const DEFAULT_MIN_RATE = 80;
+const DEFAULT_MAX_RATE = 250;
+const DEFAULT_RATE = 80;
+
+function normalizeCarRate(rate) {
+    const numericRate = Number(rate);
+    if (!Number.isFinite(numericRate)) {
+        return DEFAULT_RATE;
+    }
+    return Math.min(DEFAULT_MAX_RATE, Math.max(DEFAULT_MIN_RATE, numericRate));
+}
+
+function normalizeFleetRates() {
+    let changed = false;
+    fleet = fleet.map(car => {
+        const normalizedRate = normalizeCarRate(car.rate);
+        if (Number(car.rate) !== normalizedRate) {
+            changed = true;
+            return { ...car, rate: normalizedRate };
+        }
+        return car;
+    });
+    return changed;
+}
+
 function normalizeRentalDates(rentalList = []) {
     return rentalList.map(r => ({
         ...r,
@@ -19,7 +44,10 @@ async function importSeedDataFromRecords() {
 
     const seedData = await response.json();
     if (Array.isArray(seedData.fleet) && seedData.fleet.length > 0) {
-        fleet = seedData.fleet;
+        fleet = seedData.fleet.map(car => ({
+            ...car,
+            rate: normalizeCarRate(car.rate)
+        }));
     }
     if (Array.isArray(seedData.rentals) && seedData.rentals.length > 0) {
         rentals = normalizeRentalDates(seedData.rentals);
@@ -69,6 +97,10 @@ async function loadData() {
     }
     if (savedRentals) {
         rentals = normalizeRentalDates(JSON.parse(savedRentals));
+    }
+
+    if (normalizeFleetRates()) {
+        saveData();
     }
 }
 
@@ -523,16 +555,18 @@ function handleAddCar(e) {
     const vin = document.getElementById('car-vin')?.value || 'N/A';
     
     if (!carName || !carModel || !license || !Number.isFinite(rate) || rate <= 0) {
-        showToast('Please fill all required fields with a valid daily rate', 'warning');
+        showToast('Please fill all required fields with a valid daily rate.', 'warning');
         return;
     }
+
+    const normalizedRate = normalizeCarRate(rate);
     
     const newCar = {
         id: Math.max(...fleet.map(c => c.id), 0) + 1,
         name: carName,
         model: carModel,
         status: 'available',
-        rate: rate,
+        rate: normalizedRate,
         mileage: mileage,
         fuel: fuel,
         license: license,
@@ -796,7 +830,7 @@ function editCar(carId) {
     document.getElementById('edit-car-status').value = car.status || 'available';
     document.getElementById('edit-car-license').value = car.license || '';
     document.getElementById('edit-car-rego').value = car.rego || car.license || '';
-    document.getElementById('edit-car-rate').value = Number(car.rate || 0);
+    document.getElementById('edit-car-rate').value = normalizeCarRate(car.rate);
     document.getElementById('edit-car-mileage').value = Number(car.mileage || 0);
     document.getElementById('edit-car-fuel').value = car.fuel || 'N/A';
     document.getElementById('edit-car-color').value = car.color || '';
@@ -836,7 +870,7 @@ function handleEditCar(e) {
         return;
     }
     if (!Number.isFinite(rateInput) || rateInput <= 0) {
-        showToast('Daily rate must be greater than 0.', 'warning');
+        showToast(`Daily rate must be between $${DEFAULT_MIN_RATE} and $${DEFAULT_MAX_RATE}.`, 'warning');
         return;
     }
     if (!Number.isFinite(mileageInput) || mileageInput < 0) {
@@ -850,7 +884,7 @@ function handleEditCar(e) {
     car.status = statusInput;
     car.license = licenseInput;
     car.rego = regoInput || licenseInput;
-    car.rate = rateInput;
+    car.rate = normalizeCarRate(rateInput);
     car.mileage = mileageInput;
     car.fuel = fuelInput || 'N/A';
     car.color = colorInput;
