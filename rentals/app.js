@@ -16,6 +16,8 @@ let bookingStatusFilter = 'active';
 let bookingSortMode = 'recent';
 let revenueRangeDays = 14;
 let bookingQuickFilterMode = 'all';
+let requestSearchQuery = '';
+let requestSortMode = 'newest';
 
 function normalizeCarRate(rate) {
     const numericRate = Number(rate);
@@ -422,6 +424,11 @@ function getOperationalInsights() {
 
     const activeRentals = rentals.filter(rental => (rental.status || 'active') === 'active');
     const overdueReturns = activeRentals.filter(rental => new Date(rental.returnDate) < now).length;
+    const dueSoonReturns = activeRentals.filter(rental => {
+        const returnDate = new Date(rental.returnDate);
+        const hours = (returnDate - now) / (1000 * 60 * 60);
+        return hours >= 0 && hours <= 24;
+    }).length;
     const returnsToday = activeRentals.filter(rental => isSameCalendarDate(new Date(rental.returnDate), now)).length;
     const pendingApprovals = bookingRequests.length;
     const pendingBargains = priceOffers.filter(offer => String(offer.status || 'pending').toLowerCase() === 'pending').length;
@@ -431,6 +438,7 @@ function getOperationalInsights() {
         pendingApprovals,
         pendingBargains,
         overdueReturns,
+        dueSoonReturns,
         returnsToday,
         unpaidInvoices,
         riskScore: overdueReturns + unpaidInvoices + pendingBargains
@@ -502,6 +510,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         bookingStatusSelect.addEventListener('change', (event) => {
             bookingStatusFilter = event.target.value || 'active';
             bookingQuickFilterMode = 'all';
+            setActiveTrackerFilterButton('all');
             renderRentals();
         });
     }
@@ -513,6 +522,31 @@ document.addEventListener('DOMContentLoaded', async function() {
             renderRentals();
         });
     }
+
+    const requestSearchInput = document.getElementById('request-search');
+    if (requestSearchInput) {
+        requestSearchInput.addEventListener('input', (event) => {
+            requestSearchQuery = (event.target.value || '').trim().toLowerCase();
+            renderBookingRequests();
+        });
+    }
+
+    const requestSortSelect = document.getElementById('request-sort');
+    if (requestSortSelect) {
+        requestSortSelect.addEventListener('change', (event) => {
+            requestSortMode = event.target.value || 'newest';
+            renderBookingRequests();
+        });
+    }
+
+    document.querySelectorAll('.tracker-btn[data-track]').forEach(button => {
+        button.addEventListener('click', () => {
+            const mode = button.dataset.track || 'all';
+            bookingQuickFilterMode = mode;
+            setActiveTrackerFilterButton(mode);
+            renderRentals();
+        });
+    });
 
     const revenueRangeSelect = document.getElementById('revenue-range');
     if (revenueRangeSelect) {
@@ -659,12 +693,35 @@ function updateStats() {
         actionRiskEl.textContent = `Risk: ${insights.riskScore}`;
     }
 
+    const managerPending = document.getElementById('bm-pending');
+    if (managerPending) managerPending.textContent = insights.pendingApprovals;
+
+    const managerActive = document.getElementById('bm-active');
+    if (managerActive) managerActive.textContent = rentals.filter(rental => (rental.status || 'active') === 'active').length;
+
+    const managerOverdue = document.getElementById('bm-overdue');
+    if (managerOverdue) managerOverdue.textContent = insights.overdueReturns;
+
+    const managerDueSoon = document.getElementById('bm-due-soon');
+    if (managerDueSoon) managerDueSoon.textContent = insights.dueSoonReturns;
+
+    const managerHealth = document.getElementById('booking-manager-health');
+    if (managerHealth) {
+        managerHealth.textContent = insights.overdueReturns > 0 ? 'Attention Needed' : 'On Track';
+    }
+
     const updatedEl = document.getElementById('overview-last-updated');
     if (updatedEl) {
         updatedEl.textContent = `Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     }
 
     renderRevenueGraph();
+}
+
+function setActiveTrackerFilterButton(mode = 'all') {
+    document.querySelectorAll('.tracker-btn[data-track]').forEach(button => {
+        button.classList.toggle('active', button.dataset.track === mode);
+    });
 }
 
 function formatChartLabel(date) {
@@ -1136,8 +1193,12 @@ function renderRentals() {
         if (bookingQuickFilterMode === 'all') return true;
         const now = new Date();
         const returnDate = new Date(rental.returnDate);
+        const hoursUntilReturn = (returnDate - now) / (1000 * 60 * 60);
         if (bookingQuickFilterMode === 'overdue') {
             return returnDate < now;
+        }
+        if (bookingQuickFilterMode === 'due-soon') {
+            return returnDate >= now && hoursUntilReturn <= 24;
         }
         if (bookingQuickFilterMode === 'return-today') {
             return isSameCalendarDate(returnDate, now);
@@ -1209,6 +1270,9 @@ function renderRentals() {
                     </div>
                     <button class="btn-small btn-primary" onclick="showRentalDetails(${rental.id})">
                         View Details
+                    </button>
+                    <button class="btn-small btn-edit" onclick="showRentalCustomerProfile(${rental.id})">
+                        👤 Customer
                     </button>
                     <button class="btn-small btn-qr" onclick="openInvoiceForRental(${rental.id})">
                         🧾 Invoice
@@ -1289,17 +1353,38 @@ function renderBookingRequests() {
     const count = document.getElementById('booking-requests-count');
     if (!list || !count) return;
 
-    const requests = getBookingRequests()
-        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    const requests = getBookingRequests();
 
-    count.textContent = requests.length;
+    const searchedRequests = requests.filter(request => {
+        if (!requestSearchQuery) return true;
+        const searchable = [
+            request.customer,
+            request.phone,
+            request.email,
+            request.car,
+            request.notes
+        ].filter(hasMeaningfulValue).join(' ').toLowerCase();
+        return searchable.includes(requestSearchQuery);
+    });
 
-    if (requests.length === 0) {
+    const sortedRequests = [...searchedRequests].sort((a, b) => {
+        if (requestSortMode === 'pickup-soon') {
+            return new Date(a.pickupDate) - new Date(b.pickupDate);
+        }
+        if (requestSortMode === 'customer') {
+            return String(a.customer || '').localeCompare(String(b.customer || ''));
+        }
+        return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    });
+
+    count.textContent = sortedRequests.length;
+
+    if (sortedRequests.length === 0) {
         list.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">No pending booking requests</p>';
         return;
     }
 
-    list.innerHTML = requests.map(request => {
+    list.innerHTML = sortedRequests.map(request => {
         const requestedCar = fleet.find(car => car.id === Number(request.carId));
         const carName = request.car || requestedCar?.name || 'Requested Vehicle';
         const plate = requestedCar?.license || requestedCar?.rego || 'N/A';
@@ -1316,6 +1401,7 @@ function renderBookingRequests() {
                         <p style="margin:0; color:#6b7280; font-size:0.9rem;">📅 Requested: ${createdAt.toLocaleString()} • ${statusHint}</p>
                     </div>
                     <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                        <button class="btn-small btn-edit" onclick="showRequestCustomerProfile(${Number(request.id)})">👤 Customer</button>
                         <button class="btn-small btn-primary" onclick="approveBookingRequest(${Number(request.id)})">✅ Approve</button>
                         <button class="btn-small btn-edit" onclick="rejectBookingRequest(${Number(request.id)})">❌ Reject</button>
                     </div>
@@ -1331,6 +1417,76 @@ function renderBookingRequests() {
             </div>
         `;
     }).join('');
+}
+
+function showRequestCustomerProfile(requestId) {
+    const request = getBookingRequests().find(item => Number(item.id) === Number(requestId));
+    if (!request) {
+        showToast('Customer profile not found for this request.', 'warning');
+        return;
+    }
+
+    const content = document.getElementById('customer-profile-content');
+    if (!content) return;
+
+    const createdAt = new Date(request.createdAt || Date.now());
+    content.innerHTML = `
+        <div style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:10px; padding:0.9rem 1rem;">
+            <h3 style="margin:0 0 0.35rem 0; color:#111827;">${request.customer || 'Customer'}</h3>
+            <p style="margin:0; color:#6b7280;">Request #${request.id} • ${createdAt.toLocaleString()}</p>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0.65rem;">
+            <div style="background:#ffffff; border:1px solid #e5e7eb; border-radius:10px; padding:0.85rem;">
+                <strong style="color:#111827;">Contact</strong>
+                <p style="margin:0.35rem 0 0; color:#374151;">📞 ${request.phone || 'N/A'}</p>
+                <p style="margin:0.2rem 0 0; color:#374151;">✉️ ${request.email || 'N/A'}</p>
+            </div>
+            <div style="background:#ffffff; border:1px solid #e5e7eb; border-radius:10px; padding:0.85rem;">
+                <strong style="color:#111827;">Requested Booking</strong>
+                <p style="margin:0.35rem 0 0; color:#374151;">🚗 ${request.car || 'Vehicle'}</p>
+                <p style="margin:0.2rem 0 0; color:#374151;">Pickup: ${new Date(request.pickupDate).toLocaleString()}</p>
+                <p style="margin:0.2rem 0 0; color:#374151;">Return: ${new Date(request.returnDate).toLocaleString()}</p>
+            </div>
+        </div>
+        ${request.notes ? `<div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; padding:0.85rem;"><strong>Notes:</strong> ${request.notes}</div>` : ''}
+    `;
+
+    showModal('customer-profile-modal');
+}
+
+function showRentalCustomerProfile(rentalId) {
+    const rental = rentals.find(item => Number(item.id) === Number(rentalId));
+    if (!rental) {
+        showToast('Customer profile not found for this rental.', 'warning');
+        return;
+    }
+
+    const content = document.getElementById('customer-profile-content');
+    if (!content) return;
+
+    const bookingDate = getBookingReferenceDate(rental);
+    content.innerHTML = `
+        <div style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:10px; padding:0.9rem 1rem;">
+            <h3 style="margin:0 0 0.35rem 0; color:#111827;">${rental.customer || 'Customer'}</h3>
+            <p style="margin:0; color:#6b7280;">Rental #${rental.id} • ${bookingDate.toLocaleString()}</p>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0.65rem;">
+            <div style="background:#ffffff; border:1px solid #e5e7eb; border-radius:10px; padding:0.85rem;">
+                <strong style="color:#111827;">Contact</strong>
+                <p style="margin:0.35rem 0 0; color:#374151;">📞 ${rental.phone || 'N/A'}</p>
+                <p style="margin:0.2rem 0 0; color:#374151;">✉️ ${rental.email || 'N/A'}</p>
+            </div>
+            <div style="background:#ffffff; border:1px solid #e5e7eb; border-radius:10px; padding:0.85rem;">
+                <strong style="color:#111827;">Active Rental</strong>
+                <p style="margin:0.35rem 0 0; color:#374151;">🚗 ${rental.car || 'Vehicle'}</p>
+                <p style="margin:0.2rem 0 0; color:#374151;">Pickup: ${new Date(rental.pickupDate).toLocaleString()}</p>
+                <p style="margin:0.2rem 0 0; color:#374151;">Return: ${new Date(rental.returnDate).toLocaleString()}</p>
+            </div>
+        </div>
+        ${rental.notes ? `<div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; padding:0.85rem;"><strong>Notes:</strong> ${rental.notes}</div>` : ''}
+    `;
+
+    showModal('customer-profile-modal');
 }
 
 function renderBargainOffers() {

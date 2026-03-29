@@ -265,10 +265,43 @@
 
             <!-- Active Rentals -->
             <div data-tab-panel="bookings" id="bookings">
+                <section class="rentals-section" id="booking-manager-overview">
+                    <div class="section-header">
+                        <h2>Booking Manager Console</h2>
+                        <span class="badge" id="booking-manager-health">Live</span>
+                    </div>
+                    <div class="booking-manager-grid">
+                        <article class="manager-metric">
+                            <p>Pending Requests</p>
+                            <h3 id="bm-pending">0</h3>
+                        </article>
+                        <article class="manager-metric">
+                            <p>Active Rentals</p>
+                            <h3 id="bm-active">0</h3>
+                        </article>
+                        <article class="manager-metric risk">
+                            <p>Overdue Returns</p>
+                            <h3 id="bm-overdue">0</h3>
+                        </article>
+                        <article class="manager-metric warn">
+                            <p>Due Next 24h</p>
+                            <h3 id="bm-due-soon">0</h3>
+                        </article>
+                    </div>
+                </section>
+
                 <section class="rentals-section" id="booking-requests-section">
                     <div class="section-header">
                         <h2>Booking Requests</h2>
                         <span class="badge" id="booking-requests-count">0</span>
+                    </div>
+                    <div class="filters control-bar">
+                        <input type="text" id="request-search" placeholder="Search requests by customer, phone, email, car...">
+                        <select id="request-sort">
+                            <option value="newest">Sort: Newest</option>
+                            <option value="pickup-soon">Sort: Pickup Soonest</option>
+                            <option value="customer">Sort: Customer (A-Z)</option>
+                        </select>
                     </div>
                     <div id="booking-requests-list" class="stack-list">
                         <p style="text-align: center; color: #6b7280; padding: 2rem;">No pending booking requests</p>
@@ -289,6 +322,12 @@
                     <div class="section-header">
                         <h2>Bookings List</h2>
                         <span class="badge" id="active-rental-count">0</span>
+                    </div>
+                    <div class="tracker-filters">
+                        <button class="tracker-btn active" data-track="all">All Active</button>
+                        <button class="tracker-btn" data-track="overdue">Overdue</button>
+                        <button class="tracker-btn" data-track="due-soon">Due 24h</button>
+                        <button class="tracker-btn" data-track="return-today">Return Today</button>
                     </div>
                     <div class="filters control-bar">
                         <input type="text" id="booking-search" placeholder="Search by customer, phone, car...">
@@ -575,6 +614,19 @@
             <div class="form-actions form-actions-compact">
                 <button type="button" class="btn btn-secondary" onclick="closeModal('invoice-modal')">Close</button>
                 <button type="button" class="btn btn-primary" onclick="window.print()">🖨️ Print Invoice</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="customer-profile-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Customer Profile</h2>
+                <button class="close-btn" onclick="closeModal('customer-profile-modal')">&times;</button>
+            </div>
+            <div id="customer-profile-content" class="detail-grid"></div>
+            <div class="form-actions form-actions-compact">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('customer-profile-modal')">Close</button>
             </div>
         </div>
     </div>

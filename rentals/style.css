@@ -522,6 +522,72 @@ body {
     font-weight: 600;
 }
 
+.booking-manager-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.75rem;
+}
+
+.manager-metric {
+    border: 1px solid #dbe5f5;
+    border-radius: 12px;
+    padding: 0.75rem 0.85rem;
+    background: linear-gradient(180deg, #ffffff, #f8fbff);
+}
+
+.manager-metric p {
+    margin: 0;
+    font-size: 0.77rem;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.35px;
+    font-weight: 700;
+}
+
+.manager-metric h3 {
+    margin: 0.2rem 0 0;
+    font-size: 1.45rem;
+    color: #0f172a;
+}
+
+.manager-metric.risk {
+    border-color: #fecaca;
+    background: linear-gradient(180deg, #fff, #fff1f2);
+}
+
+.manager-metric.warn {
+    border-color: #fed7aa;
+    background: linear-gradient(180deg, #fff, #fffbeb);
+}
+
+.tracker-filters {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+}
+
+.tracker-btn {
+    border: 1px solid #d9e3f4;
+    background: #f8fbff;
+    color: #334155;
+    padding: 0.45rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.tracker-btn:hover {
+    border-color: #93c5fd;
+}
+
+.tracker-btn.active {
+    background: linear-gradient(135deg, #2563eb, #0ea5e9);
+    border-color: #2563eb;
+    color: #fff;
+}
+
 .filters input,
 .filters select {
     border: 1px solid #dbe4f2;
