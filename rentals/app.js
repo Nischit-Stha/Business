@@ -212,6 +212,57 @@ function normalizeRentalDates(rentalList = []) {
     }));
 }
 
+function getSupabaseClient() {
+    if (typeof window.getVeeraSupabaseClient === 'function') {
+        return window.getVeeraSupabaseClient();
+    }
+    return null;
+}
+
+function mapSupabaseVehicleToLocal(vehicle) {
+    return normalizeCarRecord({
+        id: Number(vehicle.id),
+        name: vehicle.name,
+        make: vehicle.make,
+        model: vehicle.model,
+        license: vehicle.plate,
+        rego: vehicle.plate,
+        status: vehicle.status || 'available',
+        rate: Number(vehicle.rate_day || DEFAULT_RATE),
+        priceDay: Number(vehicle.rate_day || DEFAULT_RATE),
+        priceWeek: Number(vehicle.rate_week || 0),
+        location: vehicle.location || 'Main Branch',
+        images: Array.isArray(vehicle.images) ? vehicle.images : [],
+        availabilityCalendar: Array.isArray(vehicle.availability) ? vehicle.availability : []
+    });
+}
+
+async function loadFleetFromSupabase() {
+    const client = getSupabaseClient();
+    if (!client) return null;
+
+    try {
+        const { data, error } = await client
+            .from('vehicles')
+            .select('id,name,make,model,plate,status,rate_day,rate_week,location,images,availability')
+            .order('id', { ascending: true });
+
+        if (error) {
+            console.warn('Supabase vehicles read failed:', error.message || error);
+            return null;
+        }
+
+        if (!Array.isArray(data) || !data.length) {
+            return [];
+        }
+
+        return data.map(mapSupabaseVehicleToLocal);
+    } catch (error) {
+        console.warn('Supabase vehicles read exception:', error);
+        return null;
+    }
+}
+
 async function importSeedDataFromRecords() {
     const response = await fetch('records-seed.json', { cache: 'no-store' });
     if (!response.ok) {
@@ -291,6 +342,13 @@ async function loadData() {
         saveData();
     }
     normalizeFleetRecords();
+
+    const supabaseFleet = await loadFleetFromSupabase();
+    if (Array.isArray(supabaseFleet) && supabaseFleet.length > 0) {
+        fleet = supabaseFleet;
+        normalizeFleetRecords();
+        saveData();
+    }
 }
 
 function saveData() {

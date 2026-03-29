@@ -489,6 +489,8 @@
         </div>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
     <script>
         const USERS_KEY = 'customer-users-data';
         const SESSION_KEY = 'customer-session-v1';
@@ -505,6 +507,59 @@
         };
 
         let selectedCarId = null;
+
+        function getSupabaseClient() {
+            if (typeof window.getVeeraSupabaseClient === 'function') {
+                return window.getVeeraSupabaseClient();
+            }
+            return null;
+        }
+
+        function mapSupabaseVehicleToLocal(vehicle) {
+            return {
+                id: Number(vehicle.id),
+                name: vehicle.name,
+                make: vehicle.make,
+                model: vehicle.model,
+                license: vehicle.plate,
+                rego: vehicle.plate,
+                status: vehicle.status || 'available',
+                rate: Number(vehicle.rate_day || 250),
+                priceDay: Number(vehicle.rate_day || 250),
+                priceWeek: Number(vehicle.rate_week || 0),
+                location: vehicle.location || 'Central Depot',
+                images: Array.isArray(vehicle.images) ? vehicle.images : [],
+                availabilityCalendar: Array.isArray(vehicle.availability) ? vehicle.availability : []
+            };
+        }
+
+        async function syncFleetFromSupabase() {
+            const client = getSupabaseClient();
+            if (!client) return false;
+
+            try {
+                const { data, error } = await client
+                    .from('vehicles')
+                    .select('id,name,make,model,plate,status,rate_day,rate_week,location,images,availability')
+                    .order('id', { ascending: true });
+
+                if (error) {
+                    console.warn('Customer Supabase vehicles read failed:', error.message || error);
+                    return false;
+                }
+
+                if (!Array.isArray(data) || !data.length) {
+                    return false;
+                }
+
+                const mappedFleet = data.map(mapSupabaseVehicleToLocal);
+                setData('fleet-data', mappedFleet);
+                return true;
+            } catch (error) {
+                console.warn('Customer Supabase vehicles read exception:', error);
+                return false;
+            }
+        }
 
         function getData(key, fallback) {
             try {
@@ -1132,7 +1187,7 @@
             renderPaymentHistory();
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('tab-login').addEventListener('click', () => setAuthTab('login'));
             document.getElementById('tab-signup').addEventListener('click', () => setAuthTab('signup'));
             document.getElementById('signup-form').addEventListener('submit', handleSignup);
@@ -1143,6 +1198,7 @@
             initializePaymentPanel();
             document.getElementById('offer-form').addEventListener('submit', handleOfferSubmit);
             document.getElementById('booking-form').addEventListener('submit', handleBookingSubmit);
+            await syncFleetFromSupabase();
             initializePortal();
         });
     </script>
