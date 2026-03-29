@@ -790,7 +790,7 @@
         </form>
         
         <div id="success-msg" class="success-message">
-            <h3>[Success] Service Submitted Successfully!</h3>
+            <h3>✅ Service Submitted Successfully!</h3>
             <p>Your service reference: <strong id="ref-display"></strong></p>
         </div>
     </div>
@@ -1262,11 +1262,11 @@
             const summaryCompareButton = summaryDiv ? summaryDiv.querySelector('[onclick*="openCompareModal"]') : null;
 
             if (topButton) {
-                topButton.textContent = `[Compare] Compare (${compareCount})`;
+                topButton.textContent = `🔍 Compare (${compareCount})`;
                 topButton.classList.toggle('active', compareCount > 0);
             }
             if (stickyButton) {
-                stickyButton.textContent = `[Compare] Compare (${compareCount})`;
+                stickyButton.textContent = `🔍 Compare (${compareCount})`;
                 stickyButton.classList.toggle('active', compareCount > 0);
             }
             if (summaryCompareButton) {
