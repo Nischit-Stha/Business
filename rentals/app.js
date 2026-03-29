@@ -18,6 +18,7 @@ let revenueRangeDays = 14;
 let bookingQuickFilterMode = 'all';
 let requestSearchQuery = '';
 let requestSortMode = 'newest';
+let activeNegotiationOfferId = null;
 
 function normalizeCarRate(rate) {
     const numericRate = Number(rate);
@@ -168,6 +169,39 @@ function getPriceOffers() {
 
 function savePriceOffers(offers) {
     localStorage.setItem(PRICE_OFFERS_KEY, JSON.stringify(offers));
+}
+
+function ensureOfferConversation(offer) {
+    if (!offer || typeof offer !== 'object') return offer;
+
+    if (!Array.isArray(offer.negotiationMessages)) {
+        offer.negotiationMessages = [];
+    }
+
+    if (!offer.negotiationMessages.length) {
+        const openingMessage = offer.note || `Initial offer: $${Number(offer.offeredRate || 0).toFixed(2)}/day against listed $${Number(offer.listedRate || 0).toFixed(2)}/day`;
+        offer.negotiationMessages.push({
+            id: `msg-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            sender: 'customer',
+            type: 'offer',
+            text: openingMessage,
+            timestamp: offer.createdAt || new Date().toISOString()
+        });
+    }
+
+    return offer;
+}
+
+function addOfferMessage(offer, sender, text, type = 'message') {
+    if (!offer || !text) return;
+    ensureOfferConversation(offer);
+    offer.negotiationMessages.push({
+        id: `msg-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
+        sender,
+        type,
+        text,
+        timestamp: new Date().toISOString()
+    });
 }
 
 function normalizeRentalDates(rentalList = []) {
@@ -575,6 +609,39 @@ document.addEventListener('DOMContentLoaded', async function() {
             deleteCar(editingCarId);
         });
     }
+
+    const negotiationForm = document.getElementById('offer-negotiation-form');
+    if (negotiationForm) {
+        negotiationForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            sendNegotiationMessage();
+        });
+    }
+
+    const counterButton = document.getElementById('offer-send-counter-btn');
+    if (counterButton) {
+        counterButton.addEventListener('click', () => sendCounterFromNegotiation());
+    }
+
+    const acceptButton = document.getElementById('offer-accept-btn');
+    if (acceptButton) {
+        acceptButton.addEventListener('click', () => {
+            if (!activeNegotiationOfferId) return;
+            acceptPriceOffer(activeNegotiationOfferId);
+            openOfferNegotiation(activeNegotiationOfferId);
+        });
+    }
+
+    const rejectButton = document.getElementById('offer-reject-btn');
+    if (rejectButton) {
+        rejectButton.addEventListener('click', () => {
+            if (!activeNegotiationOfferId) return;
+            rejectPriceOffer(activeNegotiationOfferId);
+            openOfferNegotiation(activeNegotiationOfferId);
+        });
+    }
+
+    renderRevenueAnalytics();
 });
 
 // ===== UPDATE STATS =====
@@ -716,6 +783,7 @@ function updateStats() {
     }
 
     renderRevenueGraph();
+    renderRevenueAnalytics();
 }
 
 function setActiveTrackerFilterButton(mode = 'all') {
@@ -884,6 +952,90 @@ function renderRevenueGraph() {
             deltaEl.textContent = `Down ${Math.abs(deltaPercent).toFixed(1)}% (-$${Math.abs(delta).toFixed(2)}) vs previous ${revenueRangeDays}-day period.`;
         }
     }
+}
+
+function renderRevenueAnalytics() {
+    const dailyEl = document.getElementById('earnings-daily');
+    const weeklyEl = document.getElementById('earnings-weekly');
+    const monthlyEl = document.getElementById('earnings-monthly');
+    const performanceCountEl = document.getElementById('car-performance-count');
+    const performanceListEl = document.getElementById('car-performance-list');
+    const badgeEl = document.getElementById('revenue-analytics-badge');
+
+    if (!dailyEl || !weeklyEl || !monthlyEl || !performanceCountEl || !performanceListEl) return;
+
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    const dailyRevenue = getRevenueTotalForDaysEnding(today, 1);
+    const weeklyRevenue = getRevenueTotalForDaysEnding(today, 7);
+
+    const revenueForMonth = (Array.isArray(invoices) && invoices.length > 0)
+        ? invoices.reduce((sum, invoice) => {
+            const issueDate = new Date(invoice.issueDate || invoice.createdAt || 0);
+            if (Number.isNaN(issueDate.getTime()) || issueDate < monthStart) return sum;
+            const amount = Number(invoice.totalAmount || 0);
+            return sum + (Number.isFinite(amount) ? amount : 0);
+        }, 0)
+        : rentals.reduce((sum, rental) => {
+            const referenceDate = getBookingReferenceDate(rental);
+            if (Number.isNaN(referenceDate.getTime()) || referenceDate < monthStart) return sum;
+            const car = fleet.find(item => Number(item.id) === Number(rental.carId));
+            return sum + calculateRentalAmount(rental, car).totalAmount;
+        }, 0);
+
+    dailyEl.textContent = `$${dailyRevenue.toFixed(2)}`;
+    weeklyEl.textContent = `$${weeklyRevenue.toFixed(2)}`;
+    monthlyEl.textContent = `$${revenueForMonth.toFixed(2)}`;
+
+    if (badgeEl) {
+        badgeEl.textContent = `Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    }
+
+    const carPerformance = fleet.map(car => {
+        const carRentals = rentals.filter(rental => Number(rental.carId) === Number(car.id));
+        const completed = carRentals.filter(rental => (rental.status || '').toLowerCase() === 'completed').length;
+        const active = carRentals.filter(rental => (rental.status || '').toLowerCase() === 'active').length;
+        const revenue = carRentals.reduce((sum, rental) => {
+            return sum + calculateRentalAmount(rental, car).totalAmount;
+        }, 0);
+
+        return {
+            carName: car.name || car.model || 'Vehicle',
+            license: car.license || car.rego || 'N/A',
+            bookings: carRentals.length,
+            completed,
+            active,
+            revenue
+        };
+    }).sort((first, second) => second.revenue - first.revenue);
+
+    performanceCountEl.textContent = carPerformance.length;
+
+    if (carPerformance.length === 0) {
+        performanceListEl.innerHTML = '<p style="color:#6b7280; margin:0;">No vehicle performance data yet.</p>';
+        return;
+    }
+
+    const rows = carPerformance.slice(0, 10).map(item => `
+        <div class="performance-row">
+            <span><strong>${item.carName}</strong><br><small style="color:#64748b;">${item.license}</small></span>
+            <span>${item.bookings}</span>
+            <span>${item.active}</span>
+            <span>$${item.revenue.toFixed(2)}</span>
+        </div>
+    `).join('');
+
+    performanceListEl.innerHTML = `
+        <div class="performance-row header">
+            <span>Vehicle</span>
+            <span>Bookings</span>
+            <span>Active</span>
+            <span>Revenue</span>
+        </div>
+        ${rows}
+    `;
 }
 
 function handleActionCenter(actionKey) {
@@ -1495,7 +1647,10 @@ function renderBargainOffers() {
     if (!list || !count) return;
 
     const offers = getPriceOffers()
+        .map(ensureOfferConversation)
         .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+    savePriceOffers(offers);
 
     count.textContent = offers.length;
 
@@ -1510,6 +1665,9 @@ function renderBargainOffers() {
         const offeredRate = Number(offer.offeredRate || 0);
         const statusClass = status === 'accepted' ? 'status-available' : status === 'rejected' ? 'status-rented' : 'status-maintenance';
         const createdDate = new Date(offer.createdAt || Date.now());
+        const lastMessage = Array.isArray(offer.negotiationMessages) && offer.negotiationMessages.length
+            ? offer.negotiationMessages[offer.negotiationMessages.length - 1]
+            : null;
 
         return `
             <div style="background:white; border:1px solid #e5e7eb; border-radius:12px; padding:1rem 1.25rem; box-shadow:0 2px 8px rgba(0,0,0,0.04);">
@@ -1520,6 +1678,7 @@ function renderBargainOffers() {
                     </div>
                     <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
                         <span class="status-badge ${statusClass}" style="text-transform: capitalize;">${status}</span>
+                        <button class="btn-small btn-edit" onclick="openOfferNegotiation(${Number(offer.id)})">💬 Negotiate</button>
                         <button class="btn-small btn-primary" onclick="acceptPriceOffer(${Number(offer.id)})">✅ Accept</button>
                         <button class="btn-small btn-edit" onclick="counterPriceOffer(${Number(offer.id)})">↔️ Counter</button>
                         <button class="btn-small btn-edit" onclick="rejectPriceOffer(${Number(offer.id)})">❌ Reject</button>
@@ -1530,14 +1689,54 @@ function renderBargainOffers() {
                     <p style="margin:0; color:#374151;"><strong>Phone:</strong> ${offer.customerPhone || 'N/A'}</p>
                     <p style="margin:0; color:#374151;"><strong>Car Model:</strong> ${offer.carModel || 'N/A'}</p>
                     ${offer.ownerResponse ? `<p style="margin:0; color:#374151;"><strong>Owner response:</strong> ${offer.ownerResponse}</p>` : ''}
-                    ${offer.note ? `<p style="margin:0; color:#374151;"><strong>Customer note:</strong> ${offer.note}</p>` : ''}
+                    ${lastMessage ? `<p style="margin:0; color:#374151;"><strong>Latest message:</strong> ${lastMessage.text}</p>` : ''}
                 </div>
             </div>
         `;
     }).join('');
 }
 
-function acceptPriceOffer(offerId) {
+function applyOfferDecision(offerId, decision, options = {}) {
+    const { counterRate = null, note = '' } = options;
+    const offers = getPriceOffers();
+    const offer = offers.find(item => Number(item.id) === Number(offerId));
+    if (!offer) {
+        showToast('Offer not found.', 'warning');
+        return false;
+    }
+
+    ensureOfferConversation(offer);
+
+    if (decision === 'accept') {
+        offer.status = 'accepted';
+        offer.ownerResponse = `Accepted at $${Number(offer.offeredRate || 0).toFixed(2)}/day`;
+        addOfferMessage(offer, 'owner', note || offer.ownerResponse, 'decision');
+    } else if (decision === 'reject') {
+        offer.status = 'rejected';
+        offer.ownerResponse = 'Rejected by owner';
+        addOfferMessage(offer, 'owner', note || offer.ownerResponse, 'decision');
+    } else if (decision === 'counter') {
+        if (!Number.isFinite(Number(counterRate)) || Number(counterRate) <= 0) {
+            showToast('Please enter a valid counter amount.', 'warning');
+            return false;
+        }
+        offer.status = 'countered';
+        offer.counterRate = Number(counterRate);
+        offer.ownerResponse = `Countered at $${Number(counterRate).toFixed(2)}/day`;
+        addOfferMessage(offer, 'owner', note || offer.ownerResponse, 'counter');
+    } else {
+        return false;
+    }
+
+    offer.updatedAt = new Date().toISOString();
+    savePriceOffers(offers);
+    renderBargainOffers();
+    updateStats();
+    renderRevenueAnalytics();
+    return true;
+}
+
+function openOfferNegotiation(offerId) {
     const offers = getPriceOffers();
     const offer = offers.find(item => Number(item.id) === Number(offerId));
     if (!offer) {
@@ -1545,29 +1744,90 @@ function acceptPriceOffer(offerId) {
         return;
     }
 
-    offer.status = 'accepted';
-    offer.ownerResponse = `Accepted at $${Number(offer.offeredRate || 0).toFixed(2)}/day`;
+    ensureOfferConversation(offer);
+    savePriceOffers(offers);
+
+    activeNegotiationOfferId = Number(offerId);
+    const meta = document.getElementById('offer-negotiation-meta');
+    const chat = document.getElementById('offer-negotiation-chat');
+    if (!meta || !chat) return;
+
+    const status = String(offer.status || 'pending').toLowerCase();
+    meta.innerHTML = `
+        <div style="background:#f8fbff; border:1px solid #dbe7f8; border-radius:10px; padding:0.8rem;">
+            <h3 style="margin:0 0 0.3rem 0; color:#0f172a;">${offer.customerName || offer.customerEmail || 'Customer'} • ${offer.carName || 'Vehicle'}</h3>
+            <p style="margin:0; color:#475569; font-size:0.88rem;">Listed $${Number(offer.listedRate || 0).toFixed(2)} /day • Offered $${Number(offer.offeredRate || 0).toFixed(2)} /day • Status: ${status}</p>
+        </div>
+    `;
+
+    chat.innerHTML = offer.negotiationMessages.map(message => {
+        const bubbleClass = message.sender === 'owner' ? 'owner' : 'customer';
+        return `
+            <div class="negotiation-bubble ${bubbleClass}">
+                <div>${message.text}</div>
+                <div class="negotiation-meta">${message.sender === 'owner' ? 'Owner' : 'Customer'} • ${new Date(message.timestamp).toLocaleString()}</div>
+            </div>
+        `;
+    }).join('');
+
+    chat.scrollTop = chat.scrollHeight;
+    const messageInput = document.getElementById('offer-negotiation-message');
+    if (messageInput) messageInput.value = '';
+    const counterInput = document.getElementById('offer-counter-rate');
+    if (counterInput) counterInput.value = '';
+
+    showModal('offer-negotiation-modal');
+}
+
+function sendNegotiationMessage() {
+    if (!activeNegotiationOfferId) return;
+    const messageInput = document.getElementById('offer-negotiation-message');
+    if (!messageInput) return;
+
+    const text = messageInput.value.trim();
+    if (!text) {
+        showToast('Type a message first.', 'warning');
+        return;
+    }
+
+    const offers = getPriceOffers();
+    const offer = offers.find(item => Number(item.id) === Number(activeNegotiationOfferId));
+    if (!offer) return;
+
+    addOfferMessage(offer, 'owner', text, 'message');
     offer.updatedAt = new Date().toISOString();
     savePriceOffers(offers);
+    messageInput.value = '';
+    openOfferNegotiation(activeNegotiationOfferId);
     renderBargainOffers();
-    updateStats();
+    showToast('Negotiation message sent.', 'success');
+}
+
+function sendCounterFromNegotiation() {
+    if (!activeNegotiationOfferId) return;
+    const counterInput = document.getElementById('offer-counter-rate');
+    const messageInput = document.getElementById('offer-negotiation-message');
+    const counterRate = Number(counterInput?.value || 0);
+    const note = (messageInput?.value || '').trim();
+
+    const success = applyOfferDecision(activeNegotiationOfferId, 'counter', { counterRate, note });
+    if (!success) return;
+
+    if (counterInput) counterInput.value = '';
+    if (messageInput) messageInput.value = '';
+    openOfferNegotiation(activeNegotiationOfferId);
+    showToast('Counter offer sent.', 'success');
+}
+
+function acceptPriceOffer(offerId) {
+    const ok = applyOfferDecision(offerId, 'accept');
+    if (!ok) return;
     showToast(`Offer #${offerId} accepted.`, 'success');
 }
 
 function rejectPriceOffer(offerId) {
-    const offers = getPriceOffers();
-    const offer = offers.find(item => Number(item.id) === Number(offerId));
-    if (!offer) {
-        showToast('Offer not found.', 'warning');
-        return;
-    }
-
-    offer.status = 'rejected';
-    offer.ownerResponse = 'Rejected by owner';
-    offer.updatedAt = new Date().toISOString();
-    savePriceOffers(offers);
-    renderBargainOffers();
-    updateStats();
+    const ok = applyOfferDecision(offerId, 'reject');
+    if (!ok) return;
     showToast(`Offer #${offerId} rejected.`, 'info');
 }
 
@@ -1585,19 +1845,8 @@ function counterPriceOffer(offerId) {
         return;
     }
 
-    const counterRate = Number(counterInput);
-    if (!Number.isFinite(counterRate) || counterRate <= 0) {
-        showToast('Please enter a valid counter amount.', 'warning');
-        return;
-    }
-
-    offer.status = 'countered';
-    offer.counterRate = counterRate;
-    offer.ownerResponse = `Countered at $${counterRate.toFixed(2)}/day`;
-    offer.updatedAt = new Date().toISOString();
-    savePriceOffers(offers);
-    renderBargainOffers();
-    updateStats();
+    const ok = applyOfferDecision(offerId, 'counter', { counterRate: Number(counterInput) });
+    if (!ok) return;
     showToast(`Counter sent for offer #${offerId}.`, 'success');
 }
 

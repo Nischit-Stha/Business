@@ -588,6 +588,126 @@ body {
     color: #fff;
 }
 
+.analytics-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 0.75rem;
+}
+
+.analytics-kpi {
+    border: 1px solid #dbe7f8;
+    border-radius: 12px;
+    padding: 0.8rem 0.9rem;
+    background: linear-gradient(180deg, #ffffff, #f8fbff);
+}
+
+.analytics-kpi p {
+    margin: 0;
+    font-size: 0.77rem;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.35px;
+    font-weight: 700;
+}
+
+.analytics-kpi h3 {
+    margin: 0.25rem 0 0;
+    font-size: 1.4rem;
+    color: #0f172a;
+}
+
+.performance-list {
+    display: grid;
+    gap: 0.6rem;
+}
+
+.performance-row {
+    display: grid;
+    grid-template-columns: 1.8fr repeat(3, 1fr);
+    gap: 0.65rem;
+    align-items: center;
+    border: 1px solid #e2e8f4;
+    border-radius: 10px;
+    background: #fff;
+    padding: 0.7rem 0.8rem;
+}
+
+.performance-row.header {
+    background: #f8fbff;
+    border-color: #dbe7f8;
+    font-weight: 700;
+    color: #334155;
+}
+
+.negotiation-chat {
+    margin: 0.75rem 1.75rem 0;
+    border: 1px solid #dbe7f8;
+    border-radius: 12px;
+    background: #f8fbff;
+    padding: 0.85rem;
+    max-height: 280px;
+    overflow-y: auto;
+    display: grid;
+    gap: 0.55rem;
+}
+
+.negotiation-bubble {
+    max-width: 80%;
+    border-radius: 12px;
+    padding: 0.6rem 0.7rem;
+    font-size: 0.84rem;
+    line-height: 1.4;
+    border: 1px solid transparent;
+}
+
+.negotiation-bubble.owner {
+    margin-left: auto;
+    background: #dbeafe;
+    border-color: #93c5fd;
+    color: #1e3a8a;
+}
+
+.negotiation-bubble.customer {
+    margin-right: auto;
+    background: #ffffff;
+    border-color: #dbe7f8;
+    color: #334155;
+}
+
+.negotiation-meta {
+    margin-top: 0.3rem;
+    font-size: 0.7rem;
+    opacity: 0.72;
+}
+
+.negotiation-form {
+    padding: 0.9rem 1.75rem 0;
+}
+
+.negotiation-form textarea {
+    width: 100%;
+    min-height: 76px;
+    border: 1px solid #d6dfed;
+    border-radius: 10px;
+    padding: 0.7rem;
+    font-family: inherit;
+    resize: vertical;
+    background: #fff;
+}
+
+.negotiation-actions-row {
+    margin-top: 0.65rem;
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 0.5rem;
+}
+
+.negotiation-actions-row input {
+    border: 1px solid #d6dfed;
+    border-radius: 10px;
+    padding: 0.6rem 0.7rem;
+}
+
 .filters input,
 .filters select {
     border: 1px solid #dbe4f2;

@@ -214,6 +214,34 @@
                 </section>
 
                 <!-- Service History -->
+                <section class="rentals-section" id="revenue-analytics-section">
+                    <div class="section-header">
+                        <h2>Revenue Analytics</h2>
+                        <span class="badge" id="revenue-analytics-badge">Live</span>
+                    </div>
+                    <div class="analytics-kpi-grid">
+                        <article class="analytics-kpi">
+                            <p>Daily Earnings</p>
+                            <h3 id="earnings-daily">$0.00</h3>
+                        </article>
+                        <article class="analytics-kpi">
+                            <p>Weekly Earnings</p>
+                            <h3 id="earnings-weekly">$0.00</h3>
+                        </article>
+                        <article class="analytics-kpi">
+                            <p>Monthly Earnings</p>
+                            <h3 id="earnings-monthly">$0.00</h3>
+                        </article>
+                    </div>
+                    <div class="section-header" style="margin-top: 1rem;">
+                        <h2>Car-wise Performance</h2>
+                        <span class="badge" id="car-performance-count">0 Cars</span>
+                    </div>
+                    <div id="car-performance-list" class="performance-list">
+                        <p style="text-align: center; color: #6b7280; padding: 2rem;">No performance data yet</p>
+                    </div>
+                </section>
+
                 <section class="rentals-section" id="service-history">
                     <div class="section-header">
                         <h2>Recent Service Activity</h2>
@@ -627,6 +655,30 @@
             <div id="customer-profile-content" class="detail-grid"></div>
             <div class="form-actions form-actions-compact">
                 <button type="button" class="btn btn-secondary" onclick="closeModal('customer-profile-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="offer-negotiation-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Bargain Negotiation</h2>
+                <button class="close-btn" onclick="closeModal('offer-negotiation-modal')">&times;</button>
+            </div>
+            <div id="offer-negotiation-meta" class="detail-grid"></div>
+            <div id="offer-negotiation-chat" class="negotiation-chat"></div>
+            <form id="offer-negotiation-form" class="negotiation-form">
+                <textarea id="offer-negotiation-message" placeholder="Write your message to customer..." required></textarea>
+                <div class="negotiation-actions-row">
+                    <input type="number" id="offer-counter-rate" min="1" step="0.01" placeholder="Counter rate ($/day)">
+                    <button type="button" class="btn btn-secondary" id="offer-send-counter-btn">Send Counter</button>
+                    <button type="submit" class="btn btn-primary">Send Message</button>
+                </div>
+            </form>
+            <div class="form-actions form-actions-compact">
+                <button type="button" class="btn btn-secondary" id="offer-accept-btn">Accept Offer</button>
+                <button type="button" class="btn btn-secondary" id="offer-reject-btn">Reject Offer</button>
+                <button type="button" class="btn btn-primary" onclick="closeModal('offer-negotiation-modal')">Done</button>
             </div>
         </div>
     </div>
