@@ -279,10 +279,6 @@
                         <input type="text" id="edit-car-name" required>
                     </div>
                     <div class="form-group">
-                        <label>Make</label>
-                        <input type="text" id="edit-car-make" placeholder="e.g., Toyota">
-                    </div>
-                    <div class="form-group">
                         <label>Model *</label>
                         <input type="text" id="edit-car-model" required>
                     </div>
@@ -306,21 +302,32 @@
                         <label>Daily Rate ($) *</label>
                         <input type="number" id="edit-car-rate" min="0" step="0.01" required>
                     </div>
-                    <div class="form-group">
-                        <label>Mileage (km)</label>
-                        <input type="number" id="edit-car-mileage" min="0" step="1">
-                    </div>
-                    <div class="form-group">
-                        <label>Fuel</label>
-                        <input type="text" id="edit-car-fuel" placeholder="e.g., Full">
-                    </div>
-                    <div class="form-group">
-                        <label>Color</label>
-                        <input type="text" id="edit-car-color" placeholder="e.g., Black">
-                    </div>
-                    <div class="form-group full-width">
-                        <label>VIN / Chassis Number</label>
-                        <input type="text" id="edit-car-vin" placeholder="Vehicle Identification Number">
+                    <div class="form-group full-width" style="margin-top: 0.25rem;">
+                        <details style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 0.75rem 1rem;">
+                            <summary style="cursor: pointer; font-weight: 600; color: #374151;">More options</summary>
+                            <div class="form-grid" style="margin-top: 0.75rem;">
+                                <div class="form-group">
+                                    <label>Make</label>
+                                    <input type="text" id="edit-car-make" placeholder="e.g., Toyota">
+                                </div>
+                                <div class="form-group">
+                                    <label>Mileage (km)</label>
+                                    <input type="number" id="edit-car-mileage" min="0" step="1">
+                                </div>
+                                <div class="form-group">
+                                    <label>Fuel</label>
+                                    <input type="text" id="edit-car-fuel" placeholder="e.g., Full">
+                                </div>
+                                <div class="form-group">
+                                    <label>Color</label>
+                                    <input type="text" id="edit-car-color" placeholder="e.g., Black">
+                                </div>
+                                <div class="form-group full-width">
+                                    <label>VIN / Chassis Number</label>
+                                    <input type="text" id="edit-car-vin" placeholder="Vehicle Identification Number">
+                                </div>
+                            </div>
+                        </details>
                     </div>
                 </div>
                 <div class="form-actions">
