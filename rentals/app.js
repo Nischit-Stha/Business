@@ -153,6 +153,26 @@ async function importSeedDataFromRecords() {
     localStorage.setItem('records-imported-v1', 'true');
 }
 
+async function reimportFromRecords() {
+    const confirmed = window.confirm('Re-importing will replace current fleet and rental data with Records seed data. Continue?');
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+        await importSeedDataFromRecords();
+        updateStats();
+        renderFleet();
+        renderRentals();
+        renderServiceHistory();
+        populateCarSelect();
+        showToast('Records data re-imported successfully.', 'success');
+    } catch (error) {
+        console.error('Re-import failed:', error);
+        showToast('Re-import failed. Please check records-seed.json.', 'error');
+    }
+}
+
 // Load from localStorage if available
 async function loadData() {
     const savedFleet = localStorage.getItem('fleet-data');
