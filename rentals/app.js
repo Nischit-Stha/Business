@@ -7,6 +7,7 @@ let invoices = [];
 const DEFAULT_RATE = 250;
 const BOOKING_REQUESTS_KEY = 'booking-requests-data';
 const INVOICES_KEY = 'rentals-invoices-data';
+const PRICE_OFFERS_KEY = 'price-offers-data';
 let activeFleetFilter = 'all';
 let fleetSearchQuery = '';
 let fleetSortMode = 'name-asc';
@@ -47,6 +48,20 @@ function getBookingRequests() {
 
 function saveBookingRequests(requests) {
     localStorage.setItem(BOOKING_REQUESTS_KEY, JSON.stringify(requests));
+}
+
+function getPriceOffers() {
+    try {
+        const raw = localStorage.getItem(PRICE_OFFERS_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+}
+
+function savePriceOffers(offers) {
+    localStorage.setItem(PRICE_OFFERS_KEY, JSON.stringify(offers));
 }
 
 function normalizeRentalDates(rentalList = []) {
@@ -306,6 +321,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     updateStats();
     renderFleet();
     renderBookingRequests();
+    renderBargainOffers();
     renderRentals();
     renderRentedCarsDetails();
     renderServiceHistory();
@@ -871,6 +887,115 @@ function renderBookingRequests() {
     }).join('');
 }
 
+function renderBargainOffers() {
+    const list = document.getElementById('bargain-offers-list');
+    const count = document.getElementById('bargain-offers-count');
+    if (!list || !count) return;
+
+    const offers = getPriceOffers()
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+    count.textContent = offers.length;
+
+    if (!offers.length) {
+        list.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">No bargain offers yet</p>';
+        return;
+    }
+
+    list.innerHTML = offers.map(offer => {
+        const status = hasMeaningfulValue(offer.status) ? String(offer.status).toLowerCase() : 'pending';
+        const listedRate = Number(offer.listedRate || 0);
+        const offeredRate = Number(offer.offeredRate || 0);
+        const statusClass = status === 'accepted' ? 'status-available' : status === 'rejected' ? 'status-rented' : 'status-maintenance';
+        const createdDate = new Date(offer.createdAt || Date.now());
+
+        return `
+            <div style="background:white; border:1px solid #e5e7eb; border-radius:12px; padding:1rem 1.25rem; box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+                <div style="display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap; align-items:flex-start;">
+                    <div>
+                        <h4 style="margin:0 0 0.35rem 0; color:#111827;">${offer.customerName || offer.customerEmail || 'Customer'} — ${offer.carName || 'Vehicle'}</h4>
+                        <p style="margin:0; color:#6b7280; font-size:0.9rem;">📅 ${createdDate.toLocaleString()} • Listed $${listedRate.toFixed(2)} • Offered $${offeredRate.toFixed(2)}</p>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                        <span class="status-badge ${statusClass}" style="text-transform: capitalize;">${status}</span>
+                        <button class="btn-small btn-primary" onclick="acceptPriceOffer(${Number(offer.id)})">✅ Accept</button>
+                        <button class="btn-small btn-edit" onclick="counterPriceOffer(${Number(offer.id)})">↔️ Counter</button>
+                        <button class="btn-small btn-edit" onclick="rejectPriceOffer(${Number(offer.id)})">❌ Reject</button>
+                    </div>
+                </div>
+                <div style="margin-top:0.75rem; display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0.5rem 1rem;">
+                    <p style="margin:0; color:#374151;"><strong>Email:</strong> ${offer.customerEmail || 'N/A'}</p>
+                    <p style="margin:0; color:#374151;"><strong>Phone:</strong> ${offer.customerPhone || 'N/A'}</p>
+                    <p style="margin:0; color:#374151;"><strong>Car Model:</strong> ${offer.carModel || 'N/A'}</p>
+                    ${offer.ownerResponse ? `<p style="margin:0; color:#374151;"><strong>Owner response:</strong> ${offer.ownerResponse}</p>` : ''}
+                    ${offer.note ? `<p style="margin:0; color:#374151;"><strong>Customer note:</strong> ${offer.note}</p>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function acceptPriceOffer(offerId) {
+    const offers = getPriceOffers();
+    const offer = offers.find(item => Number(item.id) === Number(offerId));
+    if (!offer) {
+        showToast('Offer not found.', 'warning');
+        return;
+    }
+
+    offer.status = 'accepted';
+    offer.ownerResponse = `Accepted at $${Number(offer.offeredRate || 0).toFixed(2)}/day`;
+    offer.updatedAt = new Date().toISOString();
+    savePriceOffers(offers);
+    renderBargainOffers();
+    showToast(`Offer #${offerId} accepted.`, 'success');
+}
+
+function rejectPriceOffer(offerId) {
+    const offers = getPriceOffers();
+    const offer = offers.find(item => Number(item.id) === Number(offerId));
+    if (!offer) {
+        showToast('Offer not found.', 'warning');
+        return;
+    }
+
+    offer.status = 'rejected';
+    offer.ownerResponse = 'Rejected by owner';
+    offer.updatedAt = new Date().toISOString();
+    savePriceOffers(offers);
+    renderBargainOffers();
+    showToast(`Offer #${offerId} rejected.`, 'info');
+}
+
+function counterPriceOffer(offerId) {
+    const offers = getPriceOffers();
+    const offer = offers.find(item => Number(item.id) === Number(offerId));
+    if (!offer) {
+        showToast('Offer not found.', 'warning');
+        return;
+    }
+
+    const defaultCounter = Number(offer.listedRate || offer.offeredRate || 0).toFixed(2);
+    const counterInput = window.prompt('Enter counter offer per day:', defaultCounter);
+    if (counterInput === null) {
+        return;
+    }
+
+    const counterRate = Number(counterInput);
+    if (!Number.isFinite(counterRate) || counterRate <= 0) {
+        showToast('Please enter a valid counter amount.', 'warning');
+        return;
+    }
+
+    offer.status = 'countered';
+    offer.counterRate = counterRate;
+    offer.ownerResponse = `Countered at $${counterRate.toFixed(2)}/day`;
+    offer.updatedAt = new Date().toISOString();
+    savePriceOffers(offers);
+    renderBargainOffers();
+    showToast(`Counter sent for offer #${offerId}.`, 'success');
+}
+
 function approveBookingRequest(requestId) {
     const requests = getBookingRequests();
     const request = requests.find(item => Number(item.id) === Number(requestId));
@@ -1353,6 +1478,7 @@ function handleEditCar(e) {
     updateStats();
     renderFleet();
     renderBookingRequests();
+    renderBargainOffers();
     renderRentals();
     renderRentedCarsDetails();
     populateCarSelect();
