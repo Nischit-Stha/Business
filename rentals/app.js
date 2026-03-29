@@ -66,6 +66,7 @@ async function reimportFromRecords() {
         updateStats();
         renderFleet();
         renderRentals();
+        renderRentedCarsDetails();
         renderServiceHistory();
         populateCarSelect();
         showToast('Records data re-imported successfully.', 'success');
@@ -269,6 +270,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     updateStats();
     renderFleet();
     renderRentals();
+    renderRentedCarsDetails();
     renderServiceHistory();
     populateCarSelect();
     initializeBookingDateInputs();
@@ -472,6 +474,62 @@ function renderRentals() {
                     <button class="btn-small btn-edit" onclick="completeRental(${rental.id})">
                         ✅ Complete
                     </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderRentedCarsDetails() {
+    const container = document.getElementById('rented-cars-list');
+    const countBadge = document.getElementById('rented-cars-count');
+    if (!container || !countBadge) return;
+
+    const activeRentals = rentals
+        .filter(rental => rental.status === 'active')
+        .sort((a, b) => new Date(b.pickupDate) - new Date(a.pickupDate));
+
+    countBadge.textContent = activeRentals.length;
+
+    if (activeRentals.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">No rented cars to show</p>';
+        return;
+    }
+
+    container.innerHTML = activeRentals.map(rental => {
+        const car = fleet.find(item => item.id === rental.carId) || {};
+        const customerName = hasMeaningfulValue(rental.customer) ? rental.customer : 'Customer';
+        const customerPhone = hasMeaningfulValue(rental.phone) ? rental.phone : 'N/A';
+        const customerEmail = hasMeaningfulValue(rental.email) ? rental.email : 'N/A';
+
+        const carName = hasMeaningfulValue(rental.car) ? rental.car : (hasMeaningfulValue(car.name) ? car.name : 'Assigned Vehicle');
+        const plate = hasMeaningfulValue(car.license) ? car.license : (hasMeaningfulValue(car.rego) ? car.rego : 'N/A');
+        const status = hasMeaningfulValue(car.status) ? car.status : 'rented';
+        const rate = Number.isFinite(Number(car.rate)) ? Number(car.rate) : 0;
+
+        const pickupDate = new Date(rental.pickupDate);
+        const returnDate = new Date(rental.returnDate);
+        const totalDays = Math.max(1, Math.ceil((returnDate - pickupDate) / (1000 * 60 * 60 * 24)));
+        const totalCost = rate > 0 ? rate * totalDays : 0;
+
+        return `
+            <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem 1.25rem; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; flex-wrap:wrap;">
+                    <div>
+                        <h4 style="margin:0 0 0.35rem 0; color:#111827;">${carName}</h4>
+                        <p style="margin:0; color:#6b7280; font-size:0.9rem;">🚗 Plate: ${plate} • Status: ${status}</p>
+                    </div>
+                    <div style="text-align:right;">
+                        <p style="margin:0; font-weight:600; color:#111827;">$${totalCost.toFixed(2)}</p>
+                        <p style="margin:0; color:#6b7280; font-size:0.85rem;">$${rate.toFixed(2)}/day • ${totalDays} day(s)</p>
+                    </div>
+                </div>
+                <div style="margin-top:0.75rem; display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0.5rem 1rem;">
+                    <p style="margin:0; color:#374151;"><strong>Customer:</strong> ${customerName}</p>
+                    <p style="margin:0; color:#374151;"><strong>Phone:</strong> ${customerPhone}</p>
+                    <p style="margin:0; color:#374151;"><strong>Email:</strong> ${customerEmail}</p>
+                    <p style="margin:0; color:#374151;"><strong>Pickup:</strong> ${pickupDate.toLocaleString()}</p>
+                    <p style="margin:0; color:#374151;"><strong>Return:</strong> ${returnDate.toLocaleString()}</p>
                 </div>
             </div>
         `;
@@ -798,6 +856,7 @@ function handleNewBooking(e) {
     updateStats();
     renderFleet();
     renderRentals();
+    renderRentedCarsDetails();
     renderServiceHistory();
     
     // Close modal and reset form
@@ -892,6 +951,7 @@ function handleEditCar(e) {
     updateStats();
     renderFleet();
     renderRentals();
+    renderRentedCarsDetails();
     populateCarSelect();
 
     closeModal('edit-car-modal');
@@ -942,6 +1002,7 @@ function completeRental(rentalId) {
     updateStats();
     renderFleet();
     renderRentals();
+    renderRentedCarsDetails();
     populateCarSelect();
 
     showToast(`Rental #${rental.id} marked as completed`, 'success');
@@ -1105,4 +1166,5 @@ function exportData() {
 // Update time-sensitive displays every minute
 setInterval(() => {
     renderRentals();
+    renderRentedCarsDetails();
 }, 60000);
