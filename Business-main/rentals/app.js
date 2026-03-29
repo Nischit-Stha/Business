@@ -170,6 +170,7 @@ function getPriceOffers() {
 
 function savePriceOffers(offers) {
     localStorage.setItem(PRICE_OFFERS_KEY, JSON.stringify(offers));
+    void syncPriceOffersToSupabase(offers);
 }
 
 function ensureOfferConversation(offer) {
@@ -253,6 +254,164 @@ function mapSupabaseBookingRequestToLocal(request) {
         source: request.source || 'customer-portal',
         createdAt: request.created_at || new Date().toISOString()
     };
+}
+
+function mapSupabaseOfferToLocal(offer) {
+    return {
+        id: Number(offer.id),
+        customerId: Number(offer.customer_id || 0) || null,
+        customerName: offer.customer_name || 'Customer',
+        customerEmail: offer.customer_email || '',
+        customerPhone: offer.customer_phone || '',
+        carId: Number(offer.vehicle_id || 0) || null,
+        carName: offer.car_name || `Vehicle #${Number(offer.vehicle_id || 0) || ''}`.trim(),
+        carModel: offer.car_model || '',
+        listedRate: Number(offer.listed_rate || 0),
+        offeredRate: Number(offer.offered_rate || 0),
+        note: offer.note || '',
+        status: offer.status || 'pending',
+        ownerResponse: offer.owner_response || '',
+        counterRate: Number(offer.counter_rate || 0) || null,
+        createdAt: offer.created_at || new Date().toISOString(),
+        updatedAt: offer.updated_at || null,
+        negotiationMessages: []
+    };
+}
+
+function mapLocalOfferToSupabase(offer) {
+    return {
+        id: Number(offer.id),
+        customer_id: Number(offer.customerId || 0) || null,
+        customer_name: offer.customerName || null,
+        customer_email: offer.customerEmail || null,
+        customer_phone: offer.customerPhone || null,
+        vehicle_id: Number(offer.carId || 0) || null,
+        car_name: offer.carName || null,
+        car_model: offer.carModel || null,
+        listed_rate: Number(offer.listedRate || 0),
+        offered_rate: Number(offer.offeredRate || 0),
+        note: offer.note || null,
+        status: offer.status || 'pending',
+        owner_response: offer.ownerResponse || null,
+        counter_rate: Number(offer.counterRate || 0) || null,
+        created_at: offer.createdAt ? new Date(offer.createdAt).toISOString() : new Date().toISOString(),
+        updated_at: offer.updatedAt ? new Date(offer.updatedAt).toISOString() : new Date().toISOString()
+    };
+}
+
+function mapLocalOfferMessageToSupabase(offerId, message) {
+    return {
+        offer_id: Number(offerId),
+        sender_role: message.sender || 'customer',
+        message: message.text || '',
+        message_type: message.type || 'message',
+        created_at: message.timestamp ? new Date(message.timestamp).toISOString() : new Date().toISOString()
+    };
+}
+
+async function loadPriceOffersFromSupabase() {
+    const client = getSupabaseClient();
+    if (!client) return null;
+
+    try {
+        const { data: offersData, error: offersError } = await client
+            .from('offers')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (offersError) {
+            console.warn('Supabase offers read failed:', offersError.message || offersError);
+            return null;
+        }
+
+        if (!Array.isArray(offersData)) {
+            return null;
+        }
+
+        const localOffers = offersData.map(mapSupabaseOfferToLocal);
+        const offerIds = localOffers.map(offer => Number(offer.id)).filter(Boolean);
+
+        if (offerIds.length) {
+            const { data: messageRows, error: messageError } = await client
+                .from('offer_messages')
+                .select('*')
+                .in('offer_id', offerIds)
+                .order('created_at', { ascending: true });
+
+            if (!messageError && Array.isArray(messageRows)) {
+                const grouped = new Map();
+                messageRows.forEach(row => {
+                    const list = grouped.get(Number(row.offer_id)) || [];
+                    list.push({
+                        id: `msg-${Number(row.id || 0)}-${Number(row.offer_id || 0)}`,
+                        sender: row.sender_role || 'customer',
+                        type: row.message_type || 'message',
+                        text: row.message || '',
+                        timestamp: row.created_at || new Date().toISOString()
+                    });
+                    grouped.set(Number(row.offer_id), list);
+                });
+
+                localOffers.forEach(offer => {
+                    offer.negotiationMessages = grouped.get(Number(offer.id)) || [];
+                    ensureOfferConversation(offer);
+                });
+            }
+        }
+
+        return localOffers;
+    } catch (error) {
+        console.warn('Supabase offers read exception:', error);
+        return null;
+    }
+}
+
+async function syncPriceOffersToSupabase(offers) {
+    const client = getSupabaseClient();
+    if (!client || !Array.isArray(offers)) return;
+
+    try {
+        const payload = offers.map(mapLocalOfferToSupabase);
+        const { error: offersError } = await client
+            .from('offers')
+            .upsert(payload, { onConflict: 'id' });
+
+        if (offersError) {
+            console.warn('Supabase offers upsert failed:', offersError.message || offersError);
+            return;
+        }
+
+        for (const offer of offers) {
+            const offerId = Number(offer.id);
+            if (!offerId) continue;
+
+            const { error: deleteError } = await client
+                .from('offer_messages')
+                .delete()
+                .eq('offer_id', offerId);
+
+            if (deleteError) {
+                console.warn(`Supabase offer_messages delete failed for offer ${offerId}:`, deleteError.message || deleteError);
+                continue;
+            }
+
+            const messages = (Array.isArray(offer.negotiationMessages) ? offer.negotiationMessages : [])
+                .map(message => mapLocalOfferMessageToSupabase(offerId, message))
+                .filter(message => message.message);
+
+            if (!messages.length) continue;
+
+            const { error: insertError } = await client
+                .from('offer_messages')
+                .insert(messages);
+
+            if (insertError) {
+                console.warn(`Supabase offer_messages insert failed for offer ${offerId}:`, insertError.message || insertError);
+            }
+        }
+    } catch (error) {
+        console.warn('Supabase offers upsert exception:', error);
+    }
 }
 
 function mapLocalBookingRequestToSupabase(request) {
@@ -432,6 +591,11 @@ async function loadData() {
     const supabaseRequests = await loadBookingRequestsFromSupabase();
     if (Array.isArray(supabaseRequests) && supabaseRequests.length > 0) {
         localStorage.setItem(BOOKING_REQUESTS_KEY, JSON.stringify(supabaseRequests));
+    }
+
+    const supabaseOffers = await loadPriceOffersFromSupabase();
+    if (Array.isArray(supabaseOffers) && supabaseOffers.length > 0) {
+        localStorage.setItem(PRICE_OFFERS_KEY, JSON.stringify(supabaseOffers));
     }
 }
 

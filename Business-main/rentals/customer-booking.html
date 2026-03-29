@@ -654,6 +654,173 @@
             }
         }
 
+        async function createOfferInSupabase(offer, user) {
+            const client = getSupabaseClient();
+            if (!client) return null;
+
+            const payload = {
+                customer_id: Number(user?.id || 0) || null,
+                customer_name: user?.name || null,
+                customer_email: user?.email || null,
+                customer_phone: user?.phone || null,
+                vehicle_id: Number(offer.carId || 0) || null,
+                car_name: offer.carName || null,
+                car_model: offer.carModel || null,
+                listed_rate: Number(offer.listedRate || 0),
+                offered_rate: Number(offer.offeredRate || 0),
+                note: offer.note || null,
+                status: offer.status || 'pending',
+                owner_response: offer.ownerResponse || null,
+                created_at: offer.createdAt || new Date().toISOString(),
+                updated_at: offer.updatedAt || new Date().toISOString()
+            };
+
+            try {
+                const { data, error } = await client
+                    .from('offers')
+                    .insert(payload)
+                    .select('*')
+                    .single();
+
+                if (error) {
+                    console.warn('Supabase offer insert failed:', error.message || error);
+                    return null;
+                }
+
+                if (data?.id) {
+                    const openingText = offer.note || `Initial offer: $${Number(offer.offeredRate || 0).toFixed(2)}/day against listed $${Number(offer.listedRate || 0).toFixed(2)}/day`;
+                    await client.from('offer_messages').insert({
+                        offer_id: Number(data.id),
+                        sender_role: 'customer',
+                        message: openingText,
+                        message_type: 'offer',
+                        created_at: offer.createdAt || new Date().toISOString()
+                    });
+                }
+
+                return data;
+            } catch (error) {
+                console.warn('Supabase offer insert exception:', error);
+                return null;
+            }
+        }
+
+        async function syncMyOffersFromSupabase() {
+            const user = getCurrentUser();
+            const client = getSupabaseClient();
+            if (!user || !client) return false;
+
+            try {
+                const { data, error } = await client
+                    .from('offers')
+                    .select('*')
+                    .or(`customer_email.eq.${user.email},customer_id.eq.${Number(user.id || 0)}`)
+                    .order('created_at', { ascending: false });
+
+                if (error || !Array.isArray(data)) {
+                    if (error) console.warn('Supabase offers read failed:', error.message || error);
+                    return false;
+                }
+
+                const mapped = data.map(item => ({
+                    id: Number(item.id),
+                    customerId: Number(item.customer_id || 0) || null,
+                    customerName: item.customer_name || user.name,
+                    customerEmail: item.customer_email || user.email,
+                    customerPhone: item.customer_phone || user.phone,
+                    carId: Number(item.vehicle_id || 0) || null,
+                    carName: item.car_name || 'Vehicle',
+                    carModel: item.car_model || '',
+                    listedRate: Number(item.listed_rate || 0),
+                    offeredRate: Number(item.offered_rate || 0),
+                    note: item.note || '',
+                    status: item.status || 'pending',
+                    ownerResponse: item.owner_response || '',
+                    createdAt: item.created_at || new Date().toISOString(),
+                    updatedAt: item.updated_at || null
+                }));
+
+                setData(OFFERS_KEY, mapped);
+                return true;
+            } catch (error) {
+                console.warn('Supabase offers read exception:', error);
+                return false;
+            }
+        }
+
+        async function createPaymentIntentInSupabase(intent, user) {
+            const client = getSupabaseClient();
+            if (!client) return null;
+
+            try {
+                const payload = {
+                    user_id: Number(user?.id || 0) || null,
+                    customer_email: user?.email || null,
+                    customer_name: user?.name || null,
+                    method: intent.method,
+                    amount: Number(intent.amount || 0),
+                    reference: intent.reference,
+                    status: intent.status || 'pending-verification',
+                    note: intent.note || null,
+                    created_at: intent.createdAt || new Date().toISOString()
+                };
+
+                const { data, error } = await client
+                    .from('payment_intents')
+                    .insert(payload)
+                    .select('*')
+                    .single();
+
+                if (error) {
+                    console.warn('Supabase payment intent insert failed:', error.message || error);
+                    return null;
+                }
+
+                return data;
+            } catch (error) {
+                console.warn('Supabase payment intent insert exception:', error);
+                return null;
+            }
+        }
+
+        async function syncMyPaymentIntentsFromSupabase() {
+            const user = getCurrentUser();
+            const client = getSupabaseClient();
+            if (!user || !client) return false;
+
+            try {
+                const { data, error } = await client
+                    .from('payment_intents')
+                    .select('*')
+                    .or(`customer_email.eq.${user.email},user_id.eq.${Number(user.id || 0)}`)
+                    .order('created_at', { ascending: false });
+
+                if (error || !Array.isArray(data)) {
+                    if (error) console.warn('Supabase payment intents read failed:', error.message || error);
+                    return false;
+                }
+
+                const mapped = data.map(item => ({
+                    id: Number(item.id),
+                    customerId: Number(item.user_id || 0) || null,
+                    customerName: item.customer_name || user.name,
+                    customerEmail: item.customer_email || user.email,
+                    method: item.method || 'bank-transfer',
+                    amount: Number(item.amount || 0),
+                    reference: item.reference || '',
+                    note: item.note || '',
+                    status: item.status || 'pending-verification',
+                    createdAt: item.created_at || new Date().toISOString()
+                }));
+
+                setData(PAYMENT_INTENTS_KEY, mapped);
+                return true;
+            } catch (error) {
+                console.warn('Supabase payment intents read exception:', error);
+                return false;
+            }
+        }
+
         function getData(key, fallback) {
             try {
                 const value = localStorage.getItem(key);
@@ -983,7 +1150,7 @@
             `).join('');
         }
 
-        function handlePaymentConfirm(event) {
+        async function handlePaymentConfirm(event) {
             event.preventDefault();
             const user = getCurrentUser();
             if (!user) {
@@ -1002,7 +1169,7 @@
             }
 
             const intents = getData(PAYMENT_INTENTS_KEY, []);
-            intents.push({
+            const intent = {
                 id: intents.length ? Math.max(...intents.map(item => Number(item.id) || 0)) + 1 : 1,
                 customerId: user.id,
                 customerName: user.name,
@@ -1013,7 +1180,14 @@
                 note,
                 status: 'pending-verification',
                 createdAt: new Date().toISOString()
-            });
+            };
+
+            const supabaseIntent = await createPaymentIntentInSupabase(intent, user);
+            if (supabaseIntent && Number(supabaseIntent.id)) {
+                intent.id = Number(supabaseIntent.id);
+            }
+
+            intents.push(intent);
 
             setData(PAYMENT_INTENTS_KEY, intents);
             document.getElementById('payment-confirm-form').reset();
@@ -1043,7 +1217,7 @@
             }
         }
 
-        function handleOfferSubmit(event) {
+        async function handleOfferSubmit(event) {
             event.preventDefault();
             const user = getCurrentUser();
             if (!user) return;
@@ -1081,6 +1255,11 @@
                 ownerResponse: '',
                 createdAt: new Date().toISOString()
             };
+
+            const supabaseOffer = await createOfferInSupabase(offer, user);
+            if (supabaseOffer && Number(supabaseOffer.id)) {
+                offer.id = Number(supabaseOffer.id);
+            }
 
             offers.push(offer);
             setData(OFFERS_KEY, offers);
@@ -1280,8 +1459,10 @@
             buildFilterOptions(cars);
             renderCars();
             updateBookingSummary();
-            renderOffers();
             await syncMyBookingRequestsFromSupabase();
+            await syncMyOffersFromSupabase();
+            await syncMyPaymentIntentsFromSupabase();
+            renderOffers();
             renderHistory();
             renderPaymentHistory();
         }
