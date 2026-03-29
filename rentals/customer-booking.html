@@ -561,6 +561,99 @@
             }
         }
 
+        function mapSupabaseRequestToLocal(request) {
+            return {
+                id: Number(request.id),
+                customer: request.customer || request.customer_name || 'Customer',
+                phone: request.phone || request.customer_phone || 'N/A',
+                email: request.email || request.customer_email || 'N/A',
+                car: request.car || request.car_name || `Vehicle #${Number(request.vehicle_id || 0) || ''}`.trim(),
+                carId: Number(request.vehicle_id || request.car_id || 0) || null,
+                pickupDate: request.pickup_at ? new Date(request.pickup_at) : new Date(),
+                returnDate: request.return_at ? new Date(request.return_at) : new Date(),
+                notes: request.notes || '',
+                status: request.status || 'pending',
+                source: request.source || 'customer-portal',
+                createdAt: request.created_at || new Date().toISOString()
+            };
+        }
+
+        async function createBookingRequestInSupabase(request, user) {
+            const client = getSupabaseClient();
+            if (!client) return null;
+
+            const payload = {
+                customer: request.customer,
+                phone: request.phone,
+                email: request.email,
+                car: request.car,
+                vehicle_id: Number(request.carId || 0) || null,
+                pickup_at: new Date(request.pickupDate).toISOString(),
+                return_at: new Date(request.returnDate).toISOString(),
+                notes: request.notes || null,
+                status: request.status || 'pending',
+                source: request.source || 'customer-portal',
+                created_at: request.createdAt || new Date().toISOString(),
+                customer_email: user?.email || null,
+                customer_name: user?.name || null,
+                customer_phone: user?.phone || null
+            };
+
+            try {
+                const { data, error } = await client
+                    .from('booking_requests')
+                    .insert(payload)
+                    .select('*')
+                    .single();
+
+                if (error) {
+                    console.warn('Supabase customer booking insert failed:', error.message || error);
+                    return null;
+                }
+
+                return data;
+            } catch (error) {
+                console.warn('Supabase customer booking insert exception:', error);
+                return null;
+            }
+        }
+
+        async function syncMyBookingRequestsFromSupabase() {
+            const user = getCurrentUser();
+            const client = getSupabaseClient();
+            if (!user || !client) return false;
+
+            try {
+                const { data, error } = await client
+                    .from('booking_requests')
+                    .select('*')
+                    .or(`email.eq.${user.email},customer_email.eq.${user.email}`)
+                    .order('created_at', { ascending: false });
+
+                if (error) {
+                    console.warn('Supabase customer booking read failed:', error.message || error);
+                    return false;
+                }
+
+                if (!Array.isArray(data)) {
+                    return false;
+                }
+
+                const localRequests = getData(REQUESTS_KEY, []);
+                const mappedRequests = data.map(mapSupabaseRequestToLocal);
+
+                const mergedMap = new Map();
+                localRequests.forEach(item => mergedMap.set(String(item.id), item));
+                mappedRequests.forEach(item => mergedMap.set(String(item.id), item));
+
+                setData(REQUESTS_KEY, Array.from(mergedMap.values()));
+                return true;
+            } catch (error) {
+                console.warn('Supabase customer booking read exception:', error);
+                return false;
+            }
+        }
+
         function getData(key, fallback) {
             try {
                 const value = localStorage.getItem(key);
@@ -996,7 +1089,7 @@
             renderOffers();
         }
 
-        function handleBookingSubmit(event) {
+        async function handleBookingSubmit(event) {
             event.preventDefault();
             const user = getCurrentUser();
             if (!user) {
@@ -1043,13 +1136,18 @@
                 createdAt: new Date().toISOString()
             };
 
+            const supabaseRequest = await createBookingRequestInSupabase(request, user);
+            if (supabaseRequest && Number(supabaseRequest.id)) {
+                request.id = Number(supabaseRequest.id);
+            }
+
             requests.push(request);
             setData(REQUESTS_KEY, requests);
 
             document.getElementById('booking-form').reset();
             initializeDateFields();
             updateBookingSummary();
-            showSuccess('booking-success', `Booking request #${requestId} submitted successfully.`);
+            showSuccess('booking-success', `Booking request #${request.id} submitted successfully.`);
             renderHistory();
         }
 
@@ -1169,7 +1267,7 @@
             });
         }
 
-        function initializePortal() {
+        async function initializePortal() {
             const user = getCurrentUser();
             const authenticated = Boolean(user && user.email);
             setPortalAuthenticatedState(authenticated);
@@ -1183,6 +1281,7 @@
             renderCars();
             updateBookingSummary();
             renderOffers();
+            await syncMyBookingRequestsFromSupabase();
             renderHistory();
             renderPaymentHistory();
         }

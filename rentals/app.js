@@ -155,6 +155,7 @@ function getBookingRequests() {
 
 function saveBookingRequests(requests) {
     localStorage.setItem(BOOKING_REQUESTS_KEY, JSON.stringify(requests));
+    void syncBookingRequestsToSupabase(requests);
 }
 
 function getPriceOffers() {
@@ -235,6 +236,84 @@ function mapSupabaseVehicleToLocal(vehicle) {
         images: Array.isArray(vehicle.images) ? vehicle.images : [],
         availabilityCalendar: Array.isArray(vehicle.availability) ? vehicle.availability : []
     });
+}
+
+function mapSupabaseBookingRequestToLocal(request) {
+    return {
+        id: Number(request.id),
+        customer: request.customer || request.customer_name || 'Customer',
+        phone: request.phone || request.customer_phone || 'N/A',
+        email: request.email || request.customer_email || 'N/A',
+        car: request.car || request.car_name || `Vehicle #${Number(request.vehicle_id || 0) || ''}`.trim(),
+        carId: Number(request.vehicle_id || request.car_id || 0) || null,
+        pickupDate: request.pickup_at ? new Date(request.pickup_at) : new Date(),
+        returnDate: request.return_at ? new Date(request.return_at) : new Date(),
+        notes: request.notes || '',
+        status: request.status || 'pending',
+        source: request.source || 'customer-portal',
+        createdAt: request.created_at || new Date().toISOString()
+    };
+}
+
+function mapLocalBookingRequestToSupabase(request) {
+    return {
+        id: Number(request.id),
+        customer: request.customer || null,
+        phone: request.phone || null,
+        email: request.email || null,
+        car: request.car || null,
+        vehicle_id: Number(request.carId || 0) || null,
+        pickup_at: request.pickupDate ? new Date(request.pickupDate).toISOString() : null,
+        return_at: request.returnDate ? new Date(request.returnDate).toISOString() : null,
+        notes: request.notes || null,
+        status: request.status || 'pending',
+        source: request.source || 'customer-portal',
+        created_at: request.createdAt ? new Date(request.createdAt).toISOString() : new Date().toISOString()
+    };
+}
+
+async function loadBookingRequestsFromSupabase() {
+    const client = getSupabaseClient();
+    if (!client) return null;
+
+    try {
+        const { data, error } = await client
+            .from('booking_requests')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.warn('Supabase booking requests read failed:', error.message || error);
+            return null;
+        }
+
+        if (!Array.isArray(data)) {
+            return null;
+        }
+
+        return data.map(mapSupabaseBookingRequestToLocal);
+    } catch (error) {
+        console.warn('Supabase booking requests read exception:', error);
+        return null;
+    }
+}
+
+async function syncBookingRequestsToSupabase(requests) {
+    const client = getSupabaseClient();
+    if (!client || !Array.isArray(requests)) return;
+
+    try {
+        const payload = requests.map(mapLocalBookingRequestToSupabase);
+        const { error } = await client
+            .from('booking_requests')
+            .upsert(payload, { onConflict: 'id' });
+
+        if (error) {
+            console.warn('Supabase booking requests upsert failed:', error.message || error);
+        }
+    } catch (error) {
+        console.warn('Supabase booking requests upsert exception:', error);
+    }
 }
 
 async function loadFleetFromSupabase() {
@@ -348,6 +427,11 @@ async function loadData() {
         fleet = supabaseFleet;
         normalizeFleetRecords();
         saveData();
+    }
+
+    const supabaseRequests = await loadBookingRequestsFromSupabase();
+    if (Array.isArray(supabaseRequests) && supabaseRequests.length > 0) {
+        localStorage.setItem(BOOKING_REQUESTS_KEY, JSON.stringify(supabaseRequests));
     }
 }
 
