@@ -3,16 +3,14 @@ let fleet = [];
 
 let rentals = [];
 
-const DEFAULT_MIN_RATE = 80;
-const DEFAULT_MAX_RATE = 250;
-const DEFAULT_RATE = 80;
+const DEFAULT_RATE = 250;
 
 function normalizeCarRate(rate) {
     const numericRate = Number(rate);
-    if (!Number.isFinite(numericRate)) {
+    if (!Number.isFinite(numericRate) || numericRate <= 0) {
         return DEFAULT_RATE;
     }
-    return Math.min(DEFAULT_MAX_RATE, Math.max(DEFAULT_MIN_RATE, numericRate));
+    return numericRate;
 }
 
 function normalizeFleetRates() {
@@ -870,7 +868,7 @@ function handleEditCar(e) {
         return;
     }
     if (!Number.isFinite(rateInput) || rateInput <= 0) {
-        showToast(`Daily rate must be between $${DEFAULT_MIN_RATE} and $${DEFAULT_MAX_RATE}.`, 'warning');
+        showToast('Daily rate must be greater than 0.', 'warning');
         return;
     }
     if (!Number.isFinite(mileageInput) || mileageInput < 0) {
