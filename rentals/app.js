@@ -781,17 +781,74 @@ function handleNewBooking(e) {
 function editCar(carId) {
     const car = fleet.find(c => c.id === carId);
     if (!car) return;
-    
-    const newStatus = prompt(`Update status for ${car.name}:\n\navailable / rented / maintenance`, car.status);
-    
-    if (newStatus && ['available', 'rented', 'maintenance'].includes(newStatus)) {
-        car.status = newStatus;
-        saveData();
-        updateStats();
-        renderFleet();
-        renderRentals();
-        showToast(`Updated ${car.name} to ${newStatus}`, 'success');
+
+    const originalName = car.name || `Vehicle ${car.id}`;
+    const nameInput = prompt('Vehicle Name', car.name || '');
+    if (nameInput === null) return;
+
+    const makeInput = prompt('Make', car.make || '');
+    if (makeInput === null) return;
+
+    const modelInput = prompt('Model', car.model || '');
+    if (modelInput === null) return;
+
+    const statusInputRaw = prompt('Status (available / rented / maintenance)', car.status || 'available');
+    if (statusInputRaw === null) return;
+    const statusInput = statusInputRaw.trim().toLowerCase();
+    if (!['available', 'rented', 'maintenance'].includes(statusInput)) {
+        showToast('Invalid status. Use available, rented, or maintenance.', 'warning');
+        return;
     }
+
+    const licenseInput = prompt('License Plate', car.license || '');
+    if (licenseInput === null) return;
+
+    const regoInput = prompt('Rego', car.rego || car.license || '');
+    if (regoInput === null) return;
+
+    const colorInput = prompt('Color', car.color || '');
+    if (colorInput === null) return;
+
+    const rateInputRaw = prompt('Daily Rate ($)', String(car.rate ?? '0'));
+    if (rateInputRaw === null) return;
+    const rateInput = parseFloat(rateInputRaw);
+    if (!Number.isFinite(rateInput) || rateInput <= 0) {
+        showToast('Daily rate must be a valid number greater than 0.', 'warning');
+        return;
+    }
+
+    const mileageInputRaw = prompt('Mileage (km)', String(car.mileage ?? '0'));
+    if (mileageInputRaw === null) return;
+    const mileageInput = parseInt(mileageInputRaw, 10);
+    if (!Number.isFinite(mileageInput) || mileageInput < 0) {
+        showToast('Mileage must be a valid non-negative number.', 'warning');
+        return;
+    }
+
+    const fuelInput = prompt('Fuel', car.fuel || 'N/A');
+    if (fuelInput === null) return;
+
+    const vinInput = prompt('VIN / Chassis Number', car.vin || '');
+    if (vinInput === null) return;
+
+    car.name = nameInput.trim() || originalName;
+    car.make = makeInput.trim() || car.make || '';
+    car.model = modelInput.trim() || car.model || '';
+    car.status = statusInput;
+    car.license = licenseInput.trim() || car.license || '';
+    car.rego = regoInput.trim() || car.license;
+    car.color = colorInput.trim() || car.color || '';
+    car.rate = rateInput;
+    car.mileage = mileageInput;
+    car.fuel = fuelInput.trim() || 'N/A';
+    car.vin = vinInput.trim() || car.vin || '';
+
+    saveData();
+    updateStats();
+    renderFleet();
+    renderRentals();
+    populateCarSelect();
+    showToast(`Updated vehicle: ${car.name}`, 'success');
 }
 
 function showRentalDetails(rentalId) {
