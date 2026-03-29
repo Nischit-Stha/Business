@@ -206,6 +206,18 @@ function setActiveNavLink(targetId) {
     });
 }
 
+function showTabSection(targetId) {
+    const validTabs = new Set(['dashboard', 'bookings', 'fleet', 'reports']);
+    const activeTab = validTabs.has(targetId) ? targetId : 'dashboard';
+
+    document.querySelectorAll('[data-tab-panel]').forEach(panel => {
+        panel.hidden = panel.getAttribute('data-tab-panel') !== activeTab;
+    });
+
+    setActiveNavLink(activeTab);
+    window.history.replaceState(null, '', `#${activeTab}`);
+}
+
 function initializeNavLinks() {
     const navLinks = document.querySelectorAll('.nav-link');
     if (!navLinks.length) return;
@@ -217,18 +229,12 @@ function initializeNavLinks() {
             if (!targetHash || !targetHash.startsWith('#')) return;
 
             const targetId = targetHash.slice(1);
-            const targetSection = document.getElementById(targetId);
-            if (!targetSection) return;
-
-            targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            setActiveNavLink(targetId);
-            window.history.replaceState(null, '', targetHash);
+            showTabSection(targetId);
         });
     });
 
     const initialHash = window.location.hash?.replace('#', '');
-    const initialTarget = initialHash && document.getElementById(initialHash) ? initialHash : 'dashboard';
-    setActiveNavLink(initialTarget);
+    showTabSection(initialHash || 'dashboard');
 }
 
 function setActiveFleetFilterButton(filter) {
@@ -243,12 +249,7 @@ function applyFleetFilter(filter, options = {}) {
     filterFleet(filter);
 
     if (scrollToFleet) {
-        const fleetSection = document.getElementById('fleet');
-        if (fleetSection) {
-            fleetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            setActiveNavLink('fleet');
-            window.history.replaceState(null, '', '#fleet');
-        }
+        showTabSection('fleet');
     }
 }
 

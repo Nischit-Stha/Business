@@ -43,6 +43,7 @@
     <!-- Main Content -->
     <main class="main">
         <div class="container">
+            <div data-tab-panel="dashboard">
             <!-- Quick Stats Cards -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
                 <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1.5rem; border-radius: 12px; text-align: center;">
@@ -106,83 +107,90 @@
                     </div>
                 </div>
             </section>
+            </div>
 
             <!-- Quick Actions -->
-            <section class="quick-actions" id="reports">
-                <div class="section-header">
-                    <h2>Quick Actions</h2>
-                </div>
-                <div class="action-buttons">
-                    <button class="btn btn-primary" onclick="showModal('booking-modal')">
-                        📅 New Booking
-                    </button>
-                    <a class="btn btn-primary" href="scanner.html" style="text-decoration: none;">
-                        👤 Customer Service Portal
-                    </a>
-                    <button class="btn btn-secondary" onclick="showModal('car-modal')">
-                        🚗 Add Vehicle
-                    </button>
-                    <button class="btn btn-secondary" onclick="reimportFromRecords()">
-                        🔄 Re-import Records
-                    </button>
-                    <button class="btn btn-secondary" onclick="exportData()">
-                        📥 Export Data
-                    </button>
-                    <button class="btn btn-secondary" onclick="showDailyReport()">
-                        📊 Daily Report
-                    </button>
-                </div>
-            </section>
+            <div data-tab-panel="reports" id="reports">
+                <section class="quick-actions">
+                    <div class="section-header">
+                        <h2>Quick Actions</h2>
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" onclick="showModal('booking-modal')">
+                            📅 New Booking
+                        </button>
+                        <a class="btn btn-primary" href="scanner.html" style="text-decoration: none;">
+                            👤 Customer Service Portal
+                        </a>
+                        <button class="btn btn-secondary" onclick="showModal('car-modal')">
+                            🚗 Add Vehicle
+                        </button>
+                        <button class="btn btn-secondary" onclick="reimportFromRecords()">
+                            🔄 Re-import Records
+                        </button>
+                        <button class="btn btn-secondary" onclick="exportData()">
+                            📥 Export Data
+                        </button>
+                        <button class="btn btn-secondary" onclick="showDailyReport()">
+                            📊 Daily Report
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Service History -->
+                <section class="rentals-section" id="service-history">
+                    <div class="section-header">
+                        <h2>Recent Service Activity</h2>
+                    </div>
+                    <div id="service-history-list" style="display: grid; gap: 1rem;">
+                        <div style="padding: 2rem; text-align: center; color: #999;">
+                            <p>Service records will appear here (pickups, drop-offs, swaps)</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
 
             <!-- Fleet Overview -->
-            <section class="fleet-section" id="fleet">
-                <div class="section-header">
-                    <h2>Fleet Overview</h2>
-                    <div class="filters">
-                        <button class="filter-btn active" data-filter="all">All</button>
-                        <button class="filter-btn" data-filter="available">Available</button>
-                        <button class="filter-btn" data-filter="rented">Rented</button>
-                        <button class="filter-btn" data-filter="maintenance">Maintenance</button>
+            <div data-tab-panel="fleet" id="fleet">
+                <section class="fleet-section">
+                    <div class="section-header">
+                        <h2>Fleet Overview</h2>
+                        <div class="filters">
+                            <button class="filter-btn active" data-filter="all">All</button>
+                            <button class="filter-btn" data-filter="available">Available</button>
+                            <button class="filter-btn" data-filter="rented">Rented</button>
+                            <button class="filter-btn" data-filter="maintenance">Maintenance</button>
+                        </div>
                     </div>
-                </div>
-                <div class="fleet-grid" id="fleet-grid">
-                    <!-- Fleet cards will be injected here -->
-                </div>
-            </section>
+                    <div class="fleet-grid" id="fleet-grid">
+                        <!-- Fleet cards will be injected here -->
+                    </div>
+                </section>
+            </div>
 
             <!-- Active Rentals -->
-            <section class="rentals-section" id="bookings">
-                <div class="section-header">
-                    <h2>Active Rentals</h2>
-                    <span class="badge" id="active-rental-count">0</span>
-                </div>
-                <div class="rentals-list" id="rentals-list">
-                    <!-- Rental cards will be injected here -->
-                </div>
-            </section>
-
-            <!-- Rented Cars Details -->
-            <section class="rentals-section" id="rented-cars-section">
-                <div class="section-header">
-                    <h2>Rented Cars Details</h2>
-                    <span class="badge" id="rented-cars-count">0</span>
-                </div>
-                <div id="rented-cars-list" style="display: grid; gap: 1rem;">
-                    <p style="text-align: center; color: #6b7280; padding: 2rem;">No rented cars to show</p>
-                </div>
-            </section>
-
-            <!-- Service History -->
-            <section class="rentals-section" id="service-history">
-                <div class="section-header">
-                    <h2>Recent Service Activity</h2>
-                </div>
-                <div id="service-history-list" style="display: grid; gap: 1rem;">
-                    <div style="padding: 2rem; text-align: center; color: #999;">
-                        <p>Service records will appear here (pickups, drop-offs, swaps)</p>
+            <div data-tab-panel="bookings" id="bookings">
+                <section class="rentals-section">
+                    <div class="section-header">
+                        <h2>Active Rentals</h2>
+                        <span class="badge" id="active-rental-count">0</span>
                     </div>
-                </div>
-            </section>
+                    <div class="rentals-list" id="rentals-list">
+                        <!-- Rental cards will be injected here -->
+                    </div>
+                </section>
+
+                <!-- Rented Cars Details -->
+                <section class="rentals-section" id="rented-cars-section">
+                    <div class="section-header">
+                        <h2>Rented Cars Details</h2>
+                        <span class="badge" id="rented-cars-count">0</span>
+                    </div>
+                    <div id="rented-cars-list" style="display: grid; gap: 1rem;">
+                        <p style="text-align: center; color: #6b7280; padding: 2rem;">No rented cars to show</p>
+                    </div>
+                </section>
+            </div>
         </div>
     </main>
 
