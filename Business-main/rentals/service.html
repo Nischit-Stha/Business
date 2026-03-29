@@ -27,6 +27,10 @@
             padding: 2rem;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
         }
+
+        .container.pickup-browse-mode {
+            max-width: 1200px;
+        }
         
         .header {
             text-align: center;
@@ -210,9 +214,49 @@
         
         .car-selection-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
             gap: 1rem;
             margin-bottom: 2rem;
+        }
+
+        .pickup-details-section.hidden {
+            display: none;
+        }
+
+        .selected-car-sticky {
+            display: none;
+            position: sticky;
+            top: 0.75rem;
+            z-index: 30;
+            background: #fffef0;
+            border: 2px solid #ffd700;
+            border-radius: 10px;
+            padding: 0.85rem 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+        }
+
+        .selected-car-sticky.show {
+            display: block;
+        }
+
+        .selected-car-sticky .sticky-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .selected-car-sticky .sticky-title {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin-bottom: 0.2rem;
+        }
+
+        .selected-car-sticky .sticky-value {
+            font-weight: 600;
+            color: #0f172a;
+            font-size: 0.95rem;
         }
         
         .car-option-card {
@@ -286,6 +330,303 @@
             padding-bottom: 0.5rem;
             border-bottom: 2px solid #ffd700;
         }
+
+        .shop-toolbar {
+            display: grid;
+            grid-template-columns: 1fr 180px;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .shop-toolbar input,
+        .shop-toolbar select {
+            margin: 0;
+        }
+
+        .car-option-card {
+            overflow: hidden;
+            padding: 0;
+        }
+
+        .car-photo {
+            width: 100%;
+            height: 165px;
+            object-fit: cover;
+            display: block;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .car-option-content {
+            padding: 1rem 1rem 1.1rem;
+        }
+
+        .car-meta-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-top: 0.7rem;
+        }
+
+        .car-meta-chip {
+            font-size: 0.75rem;
+            background: #f8fafc;
+            color: #334155;
+            border: 1px solid #e2e8f0;
+            border-radius: 999px;
+            padding: 0.2rem 0.6rem;
+        }
+
+        .selected-car-summary {
+            margin-top: 1rem;
+            background: #fffef0;
+            border: 2px solid #ffd700;
+            border-radius: 10px;
+            padding: 0.9rem 1rem;
+            display: none;
+        }
+
+        .selected-car-summary.show {
+            display: block;
+        }
+
+        .selected-car-summary h4 {
+            margin-bottom: 0.35rem;
+            color: #1a1a1a;
+        }
+
+        .selected-car-summary p {
+            color: #475569;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 640px) {
+            .shop-toolbar {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Premium Features */
+        .shop-toolbar-extended {
+            display: grid;
+            grid-template-columns: 2fr 1.5fr 1fr 1fr;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            align-items: center;
+        }
+
+        .shop-toolbar-extended input,
+        .shop-toolbar-extended select,
+        .shop-toolbar-extended button {
+            margin: 0;
+        }
+
+        .premium-btn {
+            padding: 0.65rem 1rem;
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .premium-btn:hover {
+            background: #ffd700;
+            border-color: #ffd700;
+            color: #1a1a1a;
+        }
+
+        .premium-btn.active {
+            background: #ffd700;
+            border-color: #ffd700;
+            color: #1a1a1a;
+        }
+
+        /* Compare Modal */
+        .compare-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .compare-modal.show {
+            display: flex;
+        }
+
+        .compare-modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 900px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .compare-modal-content h2 {
+            margin-bottom: 1.5rem;
+            color: #1a1a1a;
+        }
+
+        .compare-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+        }
+
+        .compare-table th,
+        .compare-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .compare-table th {
+            background: #f8fafc;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        .compare-table td {
+            color: #475569;
+        }
+
+        .compare-table .car-spec {
+            font-weight: 500;
+            color: #1a1a1a;
+        }
+
+        .compare-price {
+            font-size: 1.2rem;
+            color: #ffd700;
+            font-weight: 700;
+        }
+
+        .compare-action {
+            background: #ffd700;
+            color: #1a1a1a;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .compare-action:hover {
+            background: #ffed4e;
+        }
+
+        .compare-close-btn {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .favorite-badge {
+            position: absolute;
+            top: 0.5rem;
+            left: 0.5rem;
+            background: #ff6b6b;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            cursor: pointer;
+            z-index: 10;
+            transition: all 0.2s;
+        }
+
+        .favorite-badge:hover {
+            background: #ff5252;
+            transform: scale(1.1);
+        }
+
+        .favorite-badge.liked {
+            background: #ffd700;
+            color: #1a1a1a;
+        }
+
+        /* Price Range Slider */
+        .price-range-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .price-range-wrapper input[type="range"] {
+            flex: 1;
+            height: 5px;
+            border-radius: 3px;
+            background: #e2e8f0;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .price-range-wrapper input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #ffd700;
+            cursor: pointer;
+        }
+
+        .price-range-wrapper input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #ffd700;
+            cursor: pointer;
+            border: none;
+        }
+
+        .price-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #1a1a1a;
+            min-width: 50px;
+            text-align: right;
+        }
+
+        @media (max-width: 768px) {
+            .shop-toolbar-extended {
+                grid-template-columns: 1fr;
+            }
+
+            .compare-modal-content {
+                padding: 1.5rem;
+            }
+
+            .compare-table {
+                font-size: 0.9rem;
+            }
+
+            .selected-car-sticky .sticky-top {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
     </style>
 </head>
 <body>
@@ -293,6 +634,17 @@
         <div class="header">
             <h1 id="service-title">Vehicle Service</h1>
             <span class="service-type" id="service-badge">PICKUP</span>
+        </div>
+
+        <!-- Progress Indicator -->
+        <div style="background: #f0f4f8; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+            <div style="display: flex; gap: 0.5rem; justify-content: space-between; margin-bottom: 0.5rem;">
+                <span style="font-size: 0.85rem; font-weight: 600; color: #1a1a1a;">Progress</span>
+                <span style="font-size: 0.85rem; color: #666;" id="progress-text">Step 1 of 4</span>
+            </div>
+            <div style="height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden;">
+                <div id="progress-bar" style="height: 100%; background: linear-gradient(90deg, #ffd700, #ffed4e); width: 25%; transition: width 0.3s; border-radius: 3px;"></div>
+            </div>
         </div>
         
         <div class="info-box" id="info-box">
@@ -315,6 +667,67 @@
                 <p><strong>Vehicle:</strong> <span id="display-vehicle-info"></span></p>
             </div>
             
+            <!-- Visual Car Selection (for pickup only) -->
+            <div id="car-cards-section" style="display: none;">
+                <h3 class="section-heading">Shop Cars for Pickup</h3>
+                
+                <!-- Enhanced toolbar with premium features -->
+                <div class="shop-toolbar-extended">
+                    <input type="text" id="car-search" placeholder="Search by make, model, rego, or color">
+                    <div class="price-range-wrapper">
+                        <input type="range" id="price-range" min="10" max="500" value="500" style="margin: 0;">
+                        <span class="price-label">$<span id="price-display">500</span>/day</span>
+                    </div>
+                    <select id="car-sort">
+                        <option value="featured">Sort: Featured</option>
+                        <option value="price-asc">Price: Low to High</option>
+                        <option value="price-desc">Price: High to Low</option>
+                        <option value="mileage-asc">Mileage: Low to High</option>
+                    </select>
+                    <button class="premium-btn" id="favorites-toggle" onclick="toggleFavoritesView()">❤️ Favorites</button>
+                </div>
+                <div style="display: flex; justify-content: flex-end; margin-bottom: 0.75rem;">
+                    <button type="button" class="premium-btn" id="selection-hint-top" onclick="return false;">[Select] Tap any card to select a vehicle</button>
+                </div>
+                
+                <div id="car-selection-grid" class="car-selection-grid"></div>
+                <div id="selected-car-summary" class="selected-car-summary">
+                    <h4>Selected Vehicle</h4>
+                    <p id="selected-car-summary-text"></p>
+                    <button type="button" class="premium-btn" onclick="backToCarSelection(true)" style="margin-top: 0.5rem;">↩ Change Selection</button>
+                </div>
+            </div>
+
+            <!-- Compare Modal -->
+            <div id="compare-modal" class="compare-modal">
+                <div class="compare-modal-content">
+                    <button class="compare-close-btn" onclick="closeCompareModal()">✕</button>
+                    <h2>[Compare] Compare Vehicles</h2>
+                    <table class="compare-table" id="compare-table">
+                        <thead>
+                            <tr id="compare-header-row"></tr>
+                        </thead>
+                        <tbody id="compare-body">
+                        </tbody>
+                    </table>
+                    <p style="text-align: center; color: #666; font-size: 0.9rem;">Select at least 2 cars to compare. Click the compare button next to any vehicle.</p>
+                </div>
+            </div>
+            
+            <!-- Hidden input to store selected vehicle -->
+            <input type="hidden" id="selected-vehicle-data">
+
+            <div id="pickup-details-section" class="pickup-details-section hidden">
+            <div id="selected-car-sticky" class="selected-car-sticky">
+                <div class="sticky-top">
+                    <div>
+                        <p class="sticky-title">Selected car</p>
+                        <p class="sticky-value" id="selected-car-sticky-text"></p>
+                    </div>
+                    <button type="button" class="premium-btn" onclick="backToCarSelection(true)">← Back to car list</button>
+                </div>
+            </div>
+
             <!-- Customer Details (for pickup) -->
             <div id="customer-input-fields">
                 <div class="form-group">
@@ -328,15 +741,6 @@
                 </div>
             </div>
             
-            <!-- Visual Car Selection (for pickup only) -->
-            <div id="car-cards-section" style="display: none;">
-                <h3 class="section-heading">Select Your Vehicle</h3>
-                <div id="car-selection-grid" class="car-selection-grid"></div>
-            </div>
-            
-            <!-- Hidden input to store selected vehicle -->
-            <input type="hidden" id="selected-vehicle-data">
-            
             <!-- Vehicle Selection Dropdown (backup/hidden for pickup) -->
             <div class="form-group" id="vehicle-selection" style="display: none;">
                 <label id="vehicle-label">Select Vehicle</label>
@@ -346,31 +750,18 @@
             </div>
             
             <!-- Odometer Reading -->
-            <div class="form-group">
-                <label>Odometer Reading (km)</label>
-                <input type="number" id="mileage" required placeholder="45000">
-            </div>
-            
-            <!-- Fuel Level -->
-            <div class="form-group">
-                <label>Fuel Level</label>
-                <select id="fuel" required>
-                    <option value="">Select fuel level...</option>
-                    <option value="Full">Full</option>
-                    <option value="3/4">3/4</option>
-                    <option value="1/2">1/2</option>
-                    <option value="1/4">1/4</option>
-                    <option value="Empty">Empty</option>
-                </select>
+            <div class="form-group" id="odometer-group">
+                <label>Odometer Reading (Admin Only)</label>
+                <input type="number" id="mileage" required placeholder="Auto-filled by system" readonly>
             </div>
             
             <!-- Photo Upload -->
             <div class="form-group">
-                <label>Vehicle Photos</label>
+                <label id="upload-label">Vehicle Photos</label>
                 <div class="photo-upload" onclick="document.getElementById('photo-input').click()">
                     <div class="photo-upload-icon">[+]</div>
-                    <p><strong>Tap to take photos</strong></p>
-                    <small>Front, Back, Interior, Fuel Gauge</small>
+                    <p><strong id="upload-title">Tap to take photos</strong></p>
+                    <small id="upload-hint">Front, Back, Interior, Vehicle condition</small>
                 </div>
                 <input type="file" id="photo-input" accept="image/*" capture="environment" multiple style="display: none;">
                 <div class="photo-preview" id="photo-preview"></div>
@@ -380,6 +771,7 @@
             <div class="form-group">
                 <label>Additional Notes</label>
                 <textarea id="notes" placeholder="Any damage or issues to report..."></textarea>
+            </div>
             </div>
             
             <!-- GPS Location (hidden from customer, captured in background) -->
@@ -391,21 +783,36 @@
                 <input type="text" id="service-ref" readonly style="background: #f7fafc; font-weight: 600;">
             </div>
             
-            <button type="submit" class="btn btn-primary">Submit Service</button>
-            <button type="button" class="btn btn-secondary" onclick="window.location.href='scanner.html'">Cancel</button>
+            <div id="form-action-buttons">
+                <button type="submit" class="btn btn-primary">Submit Service</button>
+                <button type="button" class="btn btn-secondary" onclick="window.location.href='scanner.html'">Cancel</button>
+            </div>
         </form>
         
         <div id="success-msg" class="success-message">
-            <h3>✅ Service Submitted Successfully!</h3>
+            <h3>[Success] Service Submitted Successfully!</h3>
             <p>Your service reference: <strong id="ref-display"></strong></p>
         </div>
     </div>
     
+    <script src="supabase-config.js"></script>
     <script>
         let serviceType = 'pickup';
         let photos = [];
         let gpsLocation = null;
         let currentRental = null;
+        let availableVehicles = [];
+        let favoritedVehicles = [];
+        let comparingVehicles = [];
+        let showingFavoritesOnly = false;
+        
+        // Helper to get Supabase client
+        function getSupabaseClient() {
+            if (typeof window.getVeeraSupabaseClient === 'function') {
+                return window.getVeeraSupabaseClient();
+            }
+            return null;
+        }
         
         // Get service type from URL
         const params = new URLSearchParams(window.location.search);
@@ -439,20 +846,34 @@
             if (serviceType === 'pickup') {
                 title.textContent = 'Vehicle Pickup';
                 badge.textContent = 'PICKUP';
-                infoText.textContent = 'Select your preferred vehicle from our available fleet.';
+                infoText.textContent = 'Step 1: Choose your vehicle first. Step 2: Enter pickup details.';
+                document.getElementById('upload-label').textContent = 'Driver License Images';
+                document.getElementById('upload-title').textContent = 'Tap to upload license photos';
+                document.getElementById('upload-hint').textContent = 'Front and back of driver license';
                 vehicleLabel.textContent = 'Select Vehicle';
                 regoLookup.style.display = 'none';
                 customerInputs.style.display = 'block';
                 vehicleSelection.style.display = 'none'; // Hide dropdown
                 document.getElementById('car-cards-section').style.display = 'block'; // Show cards
+                document.getElementById('pickup-details-section').classList.add('hidden');
+                document.getElementById('selected-car-sticky').classList.remove('show');
+                document.getElementById('form-action-buttons').style.display = 'none';
+                document.querySelector('.container').classList.add('pickup-browse-mode');
+                document.getElementById('progress-text').textContent = 'Step 1 of 4 - Select Car';
                 loadAvailableVehiclesAsCards();
             } else if (serviceType === 'dropoff') {
                 title.textContent = 'Vehicle Drop-off';
                 badge.textContent = 'DROP-OFF';
                 infoText.textContent = 'Enter your vehicle registration number to begin drop-off process.';
+                document.getElementById('upload-label').textContent = 'Vehicle Photos';
+                document.getElementById('upload-title').textContent = 'Tap to take photos';
+                document.getElementById('upload-hint').textContent = 'Front, Back, Interior, Vehicle condition';
                 regoLookup.style.display = 'block';
                 customerInputs.style.display = 'none';
                 vehicleSelection.style.display = 'none';
+                document.getElementById('pickup-details-section').classList.remove('hidden');
+                document.querySelector('.container').classList.remove('pickup-browse-mode');
+                document.getElementById('form-action-buttons').style.display = 'block';
                 document.getElementById('customer-name').required = false;
                 document.getElementById('customer-phone').required = false;
                 document.getElementById('vehicle-select').required = false;
@@ -460,9 +881,15 @@
                 title.textContent = 'Vehicle Swap';
                 badge.textContent = 'SWAP';
                 infoText.textContent = 'Enter current vehicle rego to begin swap process.';
+                document.getElementById('upload-label').textContent = 'Vehicle Photos';
+                document.getElementById('upload-title').textContent = 'Tap to take photos';
+                document.getElementById('upload-hint').textContent = 'Current condition and key areas';
                 regoLookup.style.display = 'block';
                 customerInputs.style.display = 'none';
                 vehicleSelection.style.display = 'none';
+                document.getElementById('pickup-details-section').classList.remove('hidden');
+                document.querySelector('.container').classList.remove('pickup-browse-mode');
+                document.getElementById('form-action-buttons').style.display = 'block';
             }
             
             generateServiceRef();
@@ -499,6 +926,12 @@
                 
                 // Show customer info box
                 document.getElementById('customer-info-display').classList.add('show');
+
+                // Auto-fill odometer (admin value from vehicle/rental)
+                const odometerInput = document.getElementById('mileage');
+                if (odometerInput) {
+                    odometerInput.value = foundRental.vehicle?.mileage || foundRental.mileage || '';
+                }
                 
                 // Hide rego lookup, enable form
                 document.getElementById('rego-lookup-group').style.display = 'none';
@@ -521,53 +954,381 @@
         // Load available vehicles as visual cards (for pickup)
         function loadAvailableVehiclesAsCards() {
             const fleet = JSON.parse(localStorage.getItem('fleet-data') || '[]');
-            const grid = document.getElementById('car-selection-grid');
-            
-            const available = fleet.filter(v => v.status === 'available');
-            
-            if (available.length === 0) {
-                grid.innerHTML = '<p style=\"text-align: center; color: #666; grid-column: 1/-1;\">No vehicles available at the moment. Please contact us.</p>';
-            } else {
-                grid.innerHTML = available.map(vehicle => `
-                    <div class=\"car-option-card\" onclick=\"selectCar(${vehicle.id})\" data-vehicle-id=\"${vehicle.id}\">
-                        <span class=\"selected-badge\">✓ SELECTED</span>
-                        <div class="car-icon">[CAR]</div>
-                        <h4>${vehicle.name || vehicle.make + ' ' + vehicle.model}</h4>
-                        <p class="car-details">[Plate] ${vehicle.rego || vehicle.license}</p>
-                        <p class="car-details">[Color] ${vehicle.color || 'N/A'}</p>
-                        <p class="car-details">[Mileage] ${vehicle.mileage || 0} km</p>
-                        <p class=\"car-rate\">$${vehicle.rate}/day</p>
-                    </div>
-                `).join('');
-            }
+            availableVehicles = fleet.filter(v => v.status === 'available');
+            renderVehicleCards(availableVehicles);
+            initializeVehicleShopControls();
         }
-        
+
+        function getVehicleName(vehicle) {
+            return vehicle.name || `${vehicle.make || ''} ${vehicle.model || ''}`.trim() || 'Vehicle';
+        }
+
+        function getVehicleImage(vehicle) {
+            if (vehicle.image) return vehicle.image;
+            if (vehicle.photo) return vehicle.photo;
+            const seed = encodeURIComponent(vehicle.rego || vehicle.license || getVehicleName(vehicle));
+            return `https://picsum.photos/seed/veera-${seed}/640/360`;
+        }
+
+        function renderVehicleCards(vehiclesToRender) {
+            const grid = document.getElementById('car-selection-grid');
+            const selectedVehicleData = document.getElementById('selected-vehicle-data').value;
+            const selectedId = selectedVehicleData ? String(JSON.parse(selectedVehicleData).id) : null;
+
+            if (!vehiclesToRender.length) {
+                grid.innerHTML = '<p style="text-align: center; color: #666; grid-column: 1/-1;">No matching vehicles found. Try another search.</p>';
+                return;
+            }
+
+            grid.innerHTML = vehiclesToRender.map(vehicle => {
+                const vehicleId = String(vehicle.id);
+                const isSelected = selectedId === vehicleId;
+                const isFavorited = favoritedVehicles.some(id => String(id) === vehicleId);
+                return `
+                    <div class="car-option-card ${isSelected ? 'selected' : ''}" data-vehicle-id="${vehicleId}" onclick='selectCar(${JSON.stringify(vehicle.id)})'>
+                        <span class="favorite-badge ${isFavorited ? 'liked' : ''}" onclick='toggleFavorite(event, ${JSON.stringify(vehicle.id)})' title="Add to favorites">❤️</span>
+                        <span class="selected-badge">✓ SELECTED</span>
+                        <img class="car-photo" src="${getVehicleImage(vehicle)}" alt="${getVehicleName(vehicle)}" loading="lazy">
+                        <div class="car-option-content">
+                            <h4>${getVehicleName(vehicle)}</h4>
+                            <p class="car-details">[Plate] ${vehicle.rego || vehicle.license || 'N/A'}</p>
+                            <p class="car-details">[Color] ${vehicle.color || 'N/A'} &nbsp;|&nbsp; [Mileage] ${vehicle.mileage || 0} km</p>
+                            <div class="car-meta-row">
+                                <span class="car-meta-chip">Fuel: ${vehicle.fuel || 'N/A'}</span>
+                                <span class="car-meta-chip">Status: Available</span>
+                            </div>
+                            <p class="car-rate">$${vehicle.rate}/day</p>
+                            <button type="button" class="premium-btn" onclick='selectCar(${JSON.stringify(vehicle.id)})' style="width: 100%; margin-top: 0.5rem;">[Car] Select Vehicle</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            updateCompareLaunchButtons();
+        }
+
+        function initializeVehicleShopControls() {
+            const searchInput = document.getElementById('car-search');
+            const sortSelect = document.getElementById('car-sort');
+            const priceRange = document.getElementById('price-range');
+            const priceDisplay = document.getElementById('price-display');
+
+            // Load favorites from localStorage
+            const savedFavorites = JSON.parse(localStorage.getItem('veera-favorites') || '[]');
+            favoritedVehicles = savedFavorites;
+
+            function applyFilters() {
+                const search = (searchInput.value || '').trim().toLowerCase();
+                const sortBy = sortSelect.value;
+                const maxPrice = parseInt(priceRange.value);
+
+                let filtered = availableVehicles.filter(vehicle => {
+                    const haystack = `${getVehicleName(vehicle)} ${vehicle.rego || ''} ${vehicle.license || ''} ${vehicle.color || ''}`.toLowerCase();
+                    const priceCheck = (vehicle.rate || 0) <= maxPrice;
+                    const searchCheck = haystack.includes(search);
+                    const favoritesCheck = !showingFavoritesOnly || favoritedVehicles.includes(vehicle.id);
+                    return searchCheck && priceCheck && favoritesCheck;
+                });
+
+                if (sortBy === 'price-asc') {
+                    filtered = [...filtered].sort((a, b) => (a.rate || 0) - (b.rate || 0));
+                } else if (sortBy === 'price-desc') {
+                    filtered = [...filtered].sort((a, b) => (b.rate || 0) - (a.rate || 0));
+                } else if (sortBy === 'mileage-asc') {
+                    filtered = [...filtered].sort((a, b) => (a.mileage || 0) - (b.mileage || 0));
+                }
+
+                renderVehicleCards(filtered);
+            }
+
+            searchInput.oninput = applyFilters;
+            sortSelect.onchange = applyFilters;
+            priceRange.oninput = () => {
+                priceDisplay.textContent = priceRange.value;
+                applyFilters();
+            };
+        }
+
         // Select a car from the visual cards
         function selectCar(vehicleId) {
-            const fleet = JSON.parse(localStorage.getItem('fleet-data') || '[]');
-            const vehicle = fleet.find(v => v.id === vehicleId);
-            
+            const vehicle = availableVehicles.find(v => String(v.id) === String(vehicleId));
+
             if (!vehicle) return;
-            
+
             // Remove selection from all cards
             document.querySelectorAll('.car-option-card').forEach(card => {
                 card.classList.remove('selected');
             });
-            
+
             // Add selection to clicked card
-            const selectedCard = document.querySelector(`[data-vehicle-id=\"${vehicleId}\"]`);
+            const selectedCard = document.querySelector(`[data-vehicle-id="${String(vehicleId)}"]`);
             if (selectedCard) {
                 selectedCard.classList.add('selected');
             }
-            
+
             // Store selected vehicle data
             document.getElementById('selected-vehicle-data').value = JSON.stringify(vehicle);
-            
+
+            // Auto-fill odometer from vehicle data (admin-controlled)
+            const odometerInput = document.getElementById('mileage');
+            if (odometerInput) {
+                odometerInput.value = vehicle.mileage || '';
+            }
+
             // Also populate the hidden select for form validation
             const select = document.getElementById('vehicle-select');
-            select.innerHTML = `<option value=\"${JSON.stringify(vehicle).replace(/\"/g, '&quot;')}\" selected>${vehicle.name || vehicle.make + ' ' + vehicle.model} - ${vehicle.rego || vehicle.license}</option>`;
+            select.innerHTML = `<option value="${JSON.stringify(vehicle).replace(/"/g, '&quot;')}" selected>${getVehicleName(vehicle)} - ${vehicle.rego || vehicle.license || 'N/A'}</option>`;
+
+            const summary = document.getElementById('selected-car-summary');
+            const summaryText = document.getElementById('selected-car-summary-text');
+            summaryText.textContent = `${getVehicleName(vehicle)} • ${vehicle.rego || vehicle.license || 'N/A'} • ${vehicle.color || 'N/A'} • $${vehicle.rate}/day`;
+            summary.classList.add('show');
+
+            const sticky = document.getElementById('selected-car-sticky');
+            const stickyText = document.getElementById('selected-car-sticky-text');
+            stickyText.textContent = `${getVehicleName(vehicle)} • ${vehicle.rego || vehicle.license || 'N/A'} • $${vehicle.rate}/day`;
+            sticky.classList.add('show');
+
+            const detailsSection = document.getElementById('pickup-details-section');
+            const container = document.querySelector('.container');
+            if (detailsSection && serviceType === 'pickup') {
+                document.getElementById('car-cards-section').style.display = 'none';
+                detailsSection.classList.remove('hidden');
+                container.classList.remove('pickup-browse-mode');
+                document.getElementById('form-action-buttons').style.display = 'block';
+                document.getElementById('progress-text').textContent = 'Step 2 of 4 - Enter Details';
+                detailsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            
+            // Update progress when vehicle is selected
+            updateFormProgress();
         }
-        
+
+        function backToCarSelection(clearSelection = true) {
+            if (serviceType !== 'pickup') return;
+
+            const container = document.querySelector('.container');
+            const carCardsSection = document.getElementById('car-cards-section');
+            const detailsSection = document.getElementById('pickup-details-section');
+            const sticky = document.getElementById('selected-car-sticky');
+            const summary = document.getElementById('selected-car-summary');
+
+            detailsSection.classList.add('hidden');
+            carCardsSection.style.display = 'block';
+            container.classList.add('pickup-browse-mode');
+            document.getElementById('form-action-buttons').style.display = 'none';
+            sticky.classList.remove('show');
+
+            if (clearSelection) {
+                document.getElementById('selected-vehicle-data').value = '';
+                document.getElementById('vehicle-select').innerHTML = '<option value="">Choose vehicle...</option>';
+                document.querySelectorAll('.car-option-card').forEach(card => card.classList.remove('selected'));
+                summary.classList.remove('show');
+                document.getElementById('selected-car-summary-text').textContent = '';
+            }
+
+            document.getElementById('progress-text').textContent = 'Step 1 of 4 - Select Car';
+            document.getElementById('car-cards-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            updateFormProgress();
+        }
+
+        // Update progress bar
+        function updateFormProgress() {
+            const steps = [
+                { selector: '#selected-vehicle-data', complete: false },
+                { selector: '#customer-name, #customer-phone', complete: false },
+                { selector: '#mileage', complete: false },
+                { selector: '#notes', complete: false }
+            ];
+            
+            let completedSteps = 0;
+            
+            // Check vehicle selection
+            if (document.getElementById('selected-vehicle-data').value) {
+                completedSteps++;
+            }
+            
+            // Check customer details
+            const nameVal = document.getElementById('customer-name').value.trim();
+            const phoneVal = document.getElementById('customer-phone').value.trim();
+            if (nameVal && phoneVal) {
+                completedSteps++;
+            }
+            
+            // Check odometer
+            const mileageVal = document.getElementById('mileage').value;
+            if (mileageVal) {
+                completedSteps++;
+            }
+            
+            // Check notes (optional but counts when filled)
+            if (document.getElementById('notes').value.trim()) {
+                completedSteps++;
+            }
+            
+            const progress = ((completedSteps / 4) * 100);
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            
+            if (progressBar) {
+                progressBar.style.width = progress + '%';
+                progressText.textContent = `Step ${Math.ceil((progress / 25))} of 4`;
+            }
+        }
+
+        // Premium Features: Favorites
+        function toggleFavorite(event, vehicleId) {
+            event.stopPropagation();
+            const index = favoritedVehicles.findIndex(id => String(id) === String(vehicleId));
+            if (index > -1) {
+                favoritedVehicles.splice(index, 1);
+            } else {
+                favoritedVehicles.push(vehicleId);
+            }
+            localStorage.setItem('veera-favorites', JSON.stringify(favoritedVehicles));
+            
+            // Re-render to update UI
+            const filtered = getFilteredVehicles();
+            renderVehicleCards(filtered);
+        }
+
+        // Premium Features: Toggle Favorites View
+        function toggleFavoritesView() {
+            showingFavoritesOnly = !showingFavoritesOnly;
+            const btn = document.getElementById('favorites-toggle');
+            
+            if (showingFavoritesOnly) {
+                btn.classList.add('active');
+                btn.textContent = '❤️ Favorites (' + favoritedVehicles.length + ')';
+            } else {
+                btn.classList.remove('active');
+                btn.textContent = '❤️ Favorites';
+            }
+            
+            const filtered = getFilteredVehicles();
+            renderVehicleCards(filtered);
+        }
+
+        function getFilteredVehicles() {
+            const search = (document.getElementById('car-search').value || '').trim().toLowerCase();
+            const sortBy = document.getElementById('car-sort').value;
+            const maxPrice = parseInt(document.getElementById('price-range').value);
+
+            let filtered = availableVehicles.filter(vehicle => {
+                const haystack = `${getVehicleName(vehicle)} ${vehicle.rego || ''} ${vehicle.license || ''} ${vehicle.color || ''}`.toLowerCase();
+                const priceCheck = (vehicle.rate || 0) <= maxPrice;
+                const searchCheck = haystack.includes(search);
+                const favoritesCheck = !showingFavoritesOnly || favoritedVehicles.includes(vehicle.id);
+                return searchCheck && priceCheck && favoritesCheck;
+            });
+
+            if (sortBy === 'price-asc') {
+                filtered = [...filtered].sort((a, b) => (a.rate || 0) - (b.rate || 0));
+            } else if (sortBy === 'price-desc') {
+                filtered = [...filtered].sort((a, b) => (b.rate || 0) - (a.rate || 0));
+            } else if (sortBy === 'mileage-asc') {
+                filtered = [...filtered].sort((a, b) => (a.mileage || 0) - (b.mileage || 0));
+            }
+
+            return filtered;
+        }
+
+        // Premium Features: Compare Cars
+        function addToCompare(event, vehicleId) {
+            event.stopPropagation();
+            const vehicle = availableVehicles.find(v => String(v.id) === String(vehicleId));
+            if (!vehicle) return;
+
+            const index = comparingVehicles.findIndex(v => String(v.id) === String(vehicleId));
+            if (index > -1) {
+                comparingVehicles.splice(index, 1);
+            } else {
+                if (comparingVehicles.length < 5) {
+                    comparingVehicles.push(vehicle);
+                } else {
+                    alert('You can compare up to 5 vehicles');
+                    return;
+                }
+            }
+
+            renderVehicleCards(getFilteredVehicles());
+        }
+
+        function updateCompareLaunchButtons() {
+            const compareCount = comparingVehicles.length;
+            const topButton = document.getElementById('compare-launch-top');
+            const stickyButton = document.getElementById('compare-launch-sticky');
+            const summaryDiv = document.getElementById('selected-car-summary');
+            const summaryCompareButton = summaryDiv ? summaryDiv.querySelector('[onclick*="openCompareModal"]') : null;
+
+            if (topButton) {
+                topButton.textContent = `[Compare] Compare (${compareCount})`;
+                topButton.classList.toggle('active', compareCount > 0);
+            }
+            if (stickyButton) {
+                stickyButton.textContent = `[Compare] Compare (${compareCount})`;
+                stickyButton.classList.toggle('active', compareCount > 0);
+            }
+            if (summaryCompareButton) {
+                summaryCompareButton.textContent = `📊 Compare (${compareCount})`;
+                summaryCompareButton.classList.toggle('active', compareCount > 0);
+            }
+        }
+
+        function openCompareModal() {
+            if (comparingVehicles.length < 2) {
+                alert('Please select at least 2 vehicles to compare');
+                return;
+            }
+
+            const modal = document.getElementById('compare-modal');
+            const headerRow = document.getElementById('compare-header-row');
+            const tbody = document.getElementById('compare-body');
+
+            // Build header
+            let headerHTML = '<th style="width: 120px;">Specification</th>';
+            comparingVehicles.forEach(vehicle => {
+                headerHTML += `<th style="text-align: center;">${getVehicleName(vehicle)}<br><span style="font-size: 0.78rem; color: #64748b; font-weight: 500;">${vehicle.rego || vehicle.license || 'N/A'}</span></th>`;
+            });
+            headerRow.innerHTML = headerHTML;
+
+            // Build comparison rows
+            const specs = [
+                { label: 'Registration', key: 'rego', format: (_, vehicle) => vehicle.rego || vehicle.license || 'N/A' },
+                { label: 'Price/Day', key: 'rate', format: (v) => `$${v}` },
+                { label: 'Mileage', key: 'mileage', format: (v) => `${v} km` },
+                { label: 'Color', key: 'color', format: (v) => v },
+                { label: 'Fuel Level', key: 'fuel', format: (v) => v },
+                { label: 'Transmission', key: 'transmission', format: (v) => v || 'N/A' },
+                { label: 'Seats', key: 'seats', format: (v) => v || 'N/A' },
+            ];
+
+            let bodyHTML = '';
+            specs.forEach(spec => {
+                bodyHTML += `<tr><td class="car-spec">${spec.label}</td>`;
+                comparingVehicles.forEach(vehicle => {
+                    const value = vehicle[spec.key] || 'N/A';
+                    const formatted = spec.format(value, vehicle);
+                    bodyHTML += `<td style="text-align: center;">${formatted}</td>`;
+                });
+                bodyHTML += '</tr>';
+            });
+
+            // Add action row
+            bodyHTML += '<tr><td class="car-spec">Action</td>';
+            comparingVehicles.forEach(vehicle => {
+                bodyHTML += `<td style="text-align: center;"><button class="compare-action" onclick="selectCar(${vehicle.id}); closeCompareModal();">Select</button></td>`;
+            });
+            bodyHTML += '</tr>';
+
+            tbody.innerHTML = bodyHTML;
+            modal.classList.add('show');
+        }
+
+        function closeCompareModal() {
+            document.getElementById('compare-modal').classList.remove('show');
+        }
+
         // Load available vehicles from fleet (old dropdown method - kept for compatibility)
         function loadAvailableVehicles() {
             const fleet = JSON.parse(localStorage.getItem('fleet-data') || '[]');
@@ -588,19 +1349,18 @@
             }
         }
         
-        // Handle photo upload
+        // Handle photo upload - Preview Only (will upload to Supabase on form submit)
         document.getElementById('photo-input').addEventListener('change', function(e) {
             const files = Array.from(e.target.files);
             const preview = document.getElementById('photo-preview');
             
             files.forEach(file => {
+                // Store file object for later upload
+                photos.push(file);
+                
+                // Show preview
                 const reader = new FileReader();
                 reader.onload = (e) => {
-                    photos.push({
-                        data: e.target.result,
-                        timestamp: new Date().toISOString()
-                    });
-                    
                     const img = document.createElement('img');
                     img.src = e.target.result;
                     preview.appendChild(img);
@@ -609,8 +1369,59 @@
             });
         });
         
+        // Upload photos to Supabase Storage
+        async function uploadPhotosToSupabase(rentalId, photoFiles) {
+            if (!photoFiles || photoFiles.length === 0) return [];
+            
+            try {
+                const client = getSupabaseClient();
+                if (!client) {
+                    console.warn('Supabase not available, storing locally');
+                    return photoFiles.map(f => ({ name: f.name, url: 'local' }));
+                }
+                
+                const uploadedUrls = [];
+                const bucket = 'customer-photos';
+                
+                for (let i = 0; i < photoFiles.length; i++) {
+                    const file = photoFiles[i];
+                    const timestamp = Date.now();
+                    const filename = `${serviceType}-${rentalId}-${timestamp}-${i}.jpg`;
+                    const filepath = `${rentalId}/${filename}`;
+                    
+                    const { data, error } = await client.storage
+                        .from(bucket)
+                        .upload(filepath, file);
+                    
+                    if (error) {
+                        console.warn(`Photo upload failed (${filename}):`, error.message);
+                        // Continue with other photos
+                        continue;
+                    }
+                    
+                    if (data) {
+                        // Get public URL
+                        const { data: urlData } = client.storage
+                            .from(bucket)
+                            .getPublicUrl(filepath);
+                        
+                        uploadedUrls.push({
+                            name: filename,
+                            url: urlData?.publicUrl || filepath,
+                            uploadedAt: new Date().toISOString()
+                        });
+                    }
+                }
+                
+                return uploadedUrls;
+            } catch (err) {
+                console.error('Photo upload error:', err);
+                return [];
+            }
+        }
+        
         // Handle form submission
-        document.getElementById('service-form').addEventListener('submit', function(e) {
+        document.getElementById('service-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             let vehicle, customerName, customerPhone;
@@ -622,6 +1433,10 @@
                 
                 if (!vehicleData) {
                     alert('Please select a vehicle');
+                    return;
+                }
+                if (photos.length === 0) {
+                    alert('Please upload driver license photo(s) for pickup');
                     return;
                 }
                 vehicle = JSON.parse(vehicleData);
@@ -638,17 +1453,23 @@
                 customerPhone = currentRental.customerPhone || currentRental.phone;
             }
             
+            // Generate reference ID for photo storage path
+            const serviceRef = document.getElementById('service-ref').value;
+            
+            // Upload photos to Supabase Storage
+            const uploadedPhotos = await uploadPhotosToSupabase(serviceRef, photos);
+            
             const serviceData = {
                 type: serviceType,
-                serviceRef: document.getElementById('service-ref').value,
+                serviceRef: serviceRef,
                 customerName: customerName,
                 customerPhone: customerPhone,
                 vehicle: vehicle,
-                mileage: document.getElementById('mileage').value,
-                fuel: document.getElementById('fuel').value,
+                mileage: document.getElementById('mileage').value || vehicle.mileage || currentRental?.mileage || '',
                 notes: document.getElementById('notes').value,
                 location: gpsLocation,
-                photos: photos,
+                photos: uploadedPhotos,  // Now contains URLs instead of Base64
+                photoCount: uploadedPhotos.length,
                 timestamp: new Date().toISOString()
             };
             
@@ -671,6 +1492,19 @@
         
         // Initialize on page load
         initializePage();
+
+        // Add progress tracking to form inputs
+        document.getElementById('customer-name').addEventListener('input', updateFormProgress);
+        document.getElementById('customer-phone').addEventListener('input', updateFormProgress);
+        document.getElementById('mileage').addEventListener('input', updateFormProgress);
+        document.getElementById('notes').addEventListener('input', updateFormProgress);
+
+        // Close compare modal when clicking outside
+        document.getElementById('compare-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeCompareModal();
+            }
+        });
     </script>
 </body>
 </html>

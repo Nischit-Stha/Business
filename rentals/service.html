@@ -795,6 +795,7 @@
         </div>
     </div>
     
+    <script src="supabase-config.js"></script>
     <script>
         let serviceType = 'pickup';
         let photos = [];
@@ -804,6 +805,14 @@
         let favoritedVehicles = [];
         let comparingVehicles = [];
         let showingFavoritesOnly = false;
+        
+        // Helper to get Supabase client
+        function getSupabaseClient() {
+            if (typeof window.getVeeraSupabaseClient === 'function') {
+                return window.getVeeraSupabaseClient();
+            }
+            return null;
+        }
         
         // Get service type from URL
         const params = new URLSearchParams(window.location.search);
@@ -1340,19 +1349,18 @@
             }
         }
         
-        // Handle photo upload
+        // Handle photo upload - Preview Only (will upload to Supabase on form submit)
         document.getElementById('photo-input').addEventListener('change', function(e) {
             const files = Array.from(e.target.files);
             const preview = document.getElementById('photo-preview');
             
             files.forEach(file => {
+                // Store file object for later upload
+                photos.push(file);
+                
+                // Show preview
                 const reader = new FileReader();
                 reader.onload = (e) => {
-                    photos.push({
-                        data: e.target.result,
-                        timestamp: new Date().toISOString()
-                    });
-                    
                     const img = document.createElement('img');
                     img.src = e.target.result;
                     preview.appendChild(img);
@@ -1361,8 +1369,59 @@
             });
         });
         
+        // Upload photos to Supabase Storage
+        async function uploadPhotosToSupabase(rentalId, photoFiles) {
+            if (!photoFiles || photoFiles.length === 0) return [];
+            
+            try {
+                const client = getSupabaseClient();
+                if (!client) {
+                    console.warn('Supabase not available, storing locally');
+                    return photoFiles.map(f => ({ name: f.name, url: 'local' }));
+                }
+                
+                const uploadedUrls = [];
+                const bucket = 'customer-photos';
+                
+                for (let i = 0; i < photoFiles.length; i++) {
+                    const file = photoFiles[i];
+                    const timestamp = Date.now();
+                    const filename = `${serviceType}-${rentalId}-${timestamp}-${i}.jpg`;
+                    const filepath = `${rentalId}/${filename}`;
+                    
+                    const { data, error } = await client.storage
+                        .from(bucket)
+                        .upload(filepath, file);
+                    
+                    if (error) {
+                        console.warn(`Photo upload failed (${filename}):`, error.message);
+                        // Continue with other photos
+                        continue;
+                    }
+                    
+                    if (data) {
+                        // Get public URL
+                        const { data: urlData } = client.storage
+                            .from(bucket)
+                            .getPublicUrl(filepath);
+                        
+                        uploadedUrls.push({
+                            name: filename,
+                            url: urlData?.publicUrl || filepath,
+                            uploadedAt: new Date().toISOString()
+                        });
+                    }
+                }
+                
+                return uploadedUrls;
+            } catch (err) {
+                console.error('Photo upload error:', err);
+                return [];
+            }
+        }
+        
         // Handle form submission
-        document.getElementById('service-form').addEventListener('submit', function(e) {
+        document.getElementById('service-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             let vehicle, customerName, customerPhone;
@@ -1394,16 +1453,23 @@
                 customerPhone = currentRental.customerPhone || currentRental.phone;
             }
             
+            // Generate reference ID for photo storage path
+            const serviceRef = document.getElementById('service-ref').value;
+            
+            // Upload photos to Supabase Storage
+            const uploadedPhotos = await uploadPhotosToSupabase(serviceRef, photos);
+            
             const serviceData = {
                 type: serviceType,
-                serviceRef: document.getElementById('service-ref').value,
+                serviceRef: serviceRef,
                 customerName: customerName,
                 customerPhone: customerPhone,
                 vehicle: vehicle,
                 mileage: document.getElementById('mileage').value || vehicle.mileage || currentRental?.mileage || '',
                 notes: document.getElementById('notes').value,
                 location: gpsLocation,
-                photos: photos,
+                photos: uploadedPhotos,  // Now contains URLs instead of Base64
+                photoCount: uploadedPhotos.length,
                 timestamp: new Date().toISOString()
             };
             
