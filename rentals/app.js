@@ -200,6 +200,37 @@ function initializeNavLinks() {
     setActiveNavLink(initialTarget);
 }
 
+function setActiveFleetFilterButton(filter) {
+    document.querySelectorAll('.filter-btn').forEach(button => {
+        button.classList.toggle('active', button.dataset.filter === filter);
+    });
+}
+
+function applyFleetFilter(filter, options = {}) {
+    const { scrollToFleet = false } = options;
+    setActiveFleetFilterButton(filter);
+    filterFleet(filter);
+
+    if (scrollToFleet) {
+        const fleetSection = document.getElementById('fleet');
+        if (fleetSection) {
+            fleetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setActiveNavLink('fleet');
+            window.history.replaceState(null, '', '#fleet');
+        }
+    }
+}
+
+function initializeStatsCardFilters() {
+    document.querySelectorAll('.stat-card[data-filter]').forEach(card => {
+        card.addEventListener('click', () => {
+            const filter = card.dataset.filter;
+            if (!filter) return;
+            applyFleetFilter(filter, { scrollToFleet: true });
+        });
+    });
+}
+
 // ===== INITIALIZE =====
 document.addEventListener('DOMContentLoaded', async function() {
     await loadData();
@@ -210,13 +241,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     populateCarSelect();
     initializeBookingDateInputs();
     initializeNavLinks();
+    initializeStatsCardFilters();
     
     // Set up filter buttons
     document.querySelectorAll('.filter-btn').forEach(btn => {
         btn.addEventListener('click', function() {
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            filterFleet(this.dataset.filter);
+            applyFleetFilter(this.dataset.filter);
         });
     });
     
