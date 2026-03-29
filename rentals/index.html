@@ -265,6 +265,72 @@
         </div>
     </div>
 
+    <!-- Edit Vehicle Modal -->
+    <div class="modal" id="edit-car-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Vehicle</h2>
+                <button class="close-btn" onclick="closeModal('edit-car-modal')">&times;</button>
+            </div>
+            <form id="edit-car-form" class="form">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Vehicle Name *</label>
+                        <input type="text" id="edit-car-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Make</label>
+                        <input type="text" id="edit-car-make" placeholder="e.g., Toyota">
+                    </div>
+                    <div class="form-group">
+                        <label>Model *</label>
+                        <input type="text" id="edit-car-model" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Status *</label>
+                        <select id="edit-car-status" required>
+                            <option value="available">Available</option>
+                            <option value="rented">Rented</option>
+                            <option value="maintenance">Maintenance</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>License Plate *</label>
+                        <input type="text" id="edit-car-license" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Rego</label>
+                        <input type="text" id="edit-car-rego" placeholder="e.g., ABC123">
+                    </div>
+                    <div class="form-group">
+                        <label>Daily Rate ($) *</label>
+                        <input type="number" id="edit-car-rate" min="0" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Mileage (km)</label>
+                        <input type="number" id="edit-car-mileage" min="0" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label>Fuel</label>
+                        <input type="text" id="edit-car-fuel" placeholder="e.g., Full">
+                    </div>
+                    <div class="form-group">
+                        <label>Color</label>
+                        <input type="text" id="edit-car-color" placeholder="e.g., Black">
+                    </div>
+                    <div class="form-group full-width">
+                        <label>VIN / Chassis Number</label>
+                        <input type="text" id="edit-car-vin" placeholder="Vehicle Identification Number">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('edit-car-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- QR Code Modal -->
     <div class="modal" id="qr-modal">
         <div class="modal-content modal-sm">

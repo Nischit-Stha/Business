@@ -221,6 +221,8 @@ function applyFleetFilter(filter, options = {}) {
     }
 }
 
+let editingCarId = null;
+
 function initializeStatsCardFilters() {
     document.querySelectorAll('.stat-card[data-filter]').forEach(card => {
         card.addEventListener('click', () => {
@@ -255,6 +257,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     const addVehicleForm = document.getElementById('car-form');
     if (addVehicleForm) {
         addVehicleForm.addEventListener('submit', handleAddCar);
+    }
+
+    const editVehicleForm = document.getElementById('edit-car-form');
+    if (editVehicleForm) {
+        editVehicleForm.addEventListener('submit', handleEditCar);
     }
 });
 
@@ -782,72 +789,83 @@ function editCar(carId) {
     const car = fleet.find(c => c.id === carId);
     if (!car) return;
 
-    const originalName = car.name || `Vehicle ${car.id}`;
-    const nameInput = prompt('Vehicle Name', car.name || '');
-    if (nameInput === null) return;
+    editingCarId = carId;
+    document.getElementById('edit-car-name').value = car.name || '';
+    document.getElementById('edit-car-make').value = car.make || '';
+    document.getElementById('edit-car-model').value = car.model || '';
+    document.getElementById('edit-car-status').value = car.status || 'available';
+    document.getElementById('edit-car-license').value = car.license || '';
+    document.getElementById('edit-car-rego').value = car.rego || car.license || '';
+    document.getElementById('edit-car-rate').value = Number(car.rate || 0);
+    document.getElementById('edit-car-mileage').value = Number(car.mileage || 0);
+    document.getElementById('edit-car-fuel').value = car.fuel || 'N/A';
+    document.getElementById('edit-car-color').value = car.color || '';
+    document.getElementById('edit-car-vin').value = car.vin || '';
 
-    const makeInput = prompt('Make', car.make || '');
-    if (makeInput === null) return;
+    showModal('edit-car-modal');
+}
 
-    const modelInput = prompt('Model', car.model || '');
-    if (modelInput === null) return;
+function handleEditCar(e) {
+    if (e) e.preventDefault();
+    if (!editingCarId) return;
 
-    const statusInputRaw = prompt('Status (available / rented / maintenance)', car.status || 'available');
-    if (statusInputRaw === null) return;
-    const statusInput = statusInputRaw.trim().toLowerCase();
+    const car = fleet.find(c => c.id === editingCarId);
+    if (!car) {
+        showToast('Vehicle not found', 'error');
+        return;
+    }
+
+    const nameInput = document.getElementById('edit-car-name').value.trim();
+    const makeInput = document.getElementById('edit-car-make').value.trim();
+    const modelInput = document.getElementById('edit-car-model').value.trim();
+    const statusInput = document.getElementById('edit-car-status').value.trim().toLowerCase();
+    const licenseInput = document.getElementById('edit-car-license').value.trim();
+    const regoInput = document.getElementById('edit-car-rego').value.trim();
+    const rateInput = parseFloat(document.getElementById('edit-car-rate').value);
+    const mileageInput = parseInt(document.getElementById('edit-car-mileage').value || '0', 10);
+    const fuelInput = document.getElementById('edit-car-fuel').value.trim();
+    const colorInput = document.getElementById('edit-car-color').value.trim();
+    const vinInput = document.getElementById('edit-car-vin').value.trim();
+
+    if (!nameInput || !modelInput || !licenseInput) {
+        showToast('Name, model, and license are required.', 'warning');
+        return;
+    }
     if (!['available', 'rented', 'maintenance'].includes(statusInput)) {
         showToast('Invalid status. Use available, rented, or maintenance.', 'warning');
         return;
     }
-
-    const licenseInput = prompt('License Plate', car.license || '');
-    if (licenseInput === null) return;
-
-    const regoInput = prompt('Rego', car.rego || car.license || '');
-    if (regoInput === null) return;
-
-    const colorInput = prompt('Color', car.color || '');
-    if (colorInput === null) return;
-
-    const rateInputRaw = prompt('Daily Rate ($)', String(car.rate ?? '0'));
-    if (rateInputRaw === null) return;
-    const rateInput = parseFloat(rateInputRaw);
     if (!Number.isFinite(rateInput) || rateInput <= 0) {
-        showToast('Daily rate must be a valid number greater than 0.', 'warning');
+        showToast('Daily rate must be greater than 0.', 'warning');
         return;
     }
-
-    const mileageInputRaw = prompt('Mileage (km)', String(car.mileage ?? '0'));
-    if (mileageInputRaw === null) return;
-    const mileageInput = parseInt(mileageInputRaw, 10);
     if (!Number.isFinite(mileageInput) || mileageInput < 0) {
-        showToast('Mileage must be a valid non-negative number.', 'warning');
+        showToast('Mileage must be a non-negative number.', 'warning');
         return;
     }
 
-    const fuelInput = prompt('Fuel', car.fuel || 'N/A');
-    if (fuelInput === null) return;
-
-    const vinInput = prompt('VIN / Chassis Number', car.vin || '');
-    if (vinInput === null) return;
-
-    car.name = nameInput.trim() || originalName;
-    car.make = makeInput.trim() || car.make || '';
-    car.model = modelInput.trim() || car.model || '';
+    car.name = nameInput;
+    car.make = makeInput;
+    car.model = modelInput;
     car.status = statusInput;
-    car.license = licenseInput.trim() || car.license || '';
-    car.rego = regoInput.trim() || car.license;
-    car.color = colorInput.trim() || car.color || '';
+    car.license = licenseInput;
+    car.rego = regoInput || licenseInput;
     car.rate = rateInput;
     car.mileage = mileageInput;
-    car.fuel = fuelInput.trim() || 'N/A';
-    car.vin = vinInput.trim() || car.vin || '';
+    car.fuel = fuelInput || 'N/A';
+    car.color = colorInput;
+    car.vin = vinInput;
 
     saveData();
     updateStats();
     renderFleet();
     renderRentals();
     populateCarSelect();
+
+    closeModal('edit-car-modal');
+    document.getElementById('edit-car-form').reset();
+    editingCarId = null;
+
     showToast(`Updated vehicle: ${car.name}`, 'success');
 }
 
