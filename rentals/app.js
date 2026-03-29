@@ -14,6 +14,7 @@ let fleetSortMode = 'name-asc';
 let bookingSearchQuery = '';
 let bookingStatusFilter = 'active';
 let bookingSortMode = 'recent';
+let revenueRangeDays = 14;
 
 function normalizeCarRate(rate) {
     const numericRate = Number(rate);
@@ -378,6 +379,14 @@ document.addEventListener('DOMContentLoaded', async function() {
             renderRentals();
         });
     }
+
+    const revenueRangeSelect = document.getElementById('revenue-range');
+    if (revenueRangeSelect) {
+        revenueRangeSelect.addEventListener('change', (event) => {
+            revenueRangeDays = Number(event.target.value) || 14;
+            renderRevenueGraph();
+        });
+    }
     
     // Set up booking form
     document.getElementById('booking-form').addEventListener('submit', handleNewBooking);
@@ -452,6 +461,142 @@ function updateStats() {
     if (unpaidTotalEl) {
         unpaidTotalEl.textContent = `$${finance.totalUnpaid.toFixed(2)}`;
     }
+
+    const totalCarsEl = document.getElementById('overview-total-cars');
+    if (totalCarsEl) {
+        totalCarsEl.textContent = fleet.length;
+    }
+
+    const activeBookingsEl = document.getElementById('overview-active-bookings');
+    if (activeBookingsEl) {
+        activeBookingsEl.textContent = rentals.filter(rental => (rental.status || 'active') === 'active').length;
+    }
+
+    const pendingOffersCount = getPriceOffers().filter(offer => String(offer.status || 'pending').toLowerCase() === 'pending').length;
+    const pendingBargainsEl = document.getElementById('overview-pending-bargains');
+    if (pendingBargainsEl) {
+        pendingBargainsEl.textContent = pendingOffersCount;
+    }
+
+    const updatedEl = document.getElementById('overview-last-updated');
+    if (updatedEl) {
+        updatedEl.textContent = `Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    }
+
+    renderRevenueGraph();
+}
+
+function formatChartLabel(date) {
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function getRevenueSeries(days = 14) {
+    const targetDays = Math.max(1, Number(days) || 14);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const series = [];
+    for (let offset = targetDays - 1; offset >= 0; offset -= 1) {
+        const day = new Date(today);
+        day.setDate(today.getDate() - offset);
+        series.push({
+            date: day,
+            key: day.toISOString().slice(0, 10),
+            value: 0
+        });
+    }
+
+    const indexByKey = new Map(series.map((point, index) => [point.key, index]));
+
+    if (Array.isArray(invoices) && invoices.length > 0) {
+        invoices.forEach(invoice => {
+            const issueDate = new Date(invoice.issueDate || invoice.createdAt || 0);
+            if (Number.isNaN(issueDate.getTime())) return;
+
+            const key = issueDate.toISOString().slice(0, 10);
+            if (!indexByKey.has(key)) return;
+
+            const amount = Number(invoice.totalAmount || 0);
+            series[indexByKey.get(key)].value += Number.isFinite(amount) ? amount : 0;
+        });
+        return series;
+    }
+
+    rentals.forEach(rental => {
+        const referenceDate = getBookingReferenceDate(rental);
+        if (Number.isNaN(referenceDate.getTime())) return;
+
+        const key = referenceDate.toISOString().slice(0, 10);
+        if (!indexByKey.has(key)) return;
+
+        const car = fleet.find(item => Number(item.id) === Number(rental.carId));
+        const amount = calculateRentalAmount(rental, car).totalAmount;
+        series[indexByKey.get(key)].value += Number.isFinite(amount) ? amount : 0;
+    });
+
+    return series;
+}
+
+function renderRevenueGraph() {
+    const chart = document.getElementById('revenue-chart');
+    const startLabel = document.getElementById('chart-start-label');
+    const endLabel = document.getElementById('chart-end-label');
+    const summary = document.getElementById('revenue-chart-summary');
+    if (!chart || !startLabel || !endLabel || !summary) return;
+
+    const series = getRevenueSeries(revenueRangeDays);
+    const maxValue = Math.max(...series.map(item => item.value), 0);
+    const normalizedMax = maxValue > 0 ? maxValue : 1;
+
+    const width = 760;
+    const height = 240;
+    const leftPadding = 24;
+    const rightPadding = 18;
+    const topPadding = 16;
+    const bottomPadding = 28;
+    const graphWidth = width - leftPadding - rightPadding;
+    const graphHeight = height - topPadding - bottomPadding;
+    const step = series.length > 1 ? graphWidth / (series.length - 1) : graphWidth;
+
+    const points = series.map((item, index) => {
+        const x = leftPadding + step * index;
+        const ratio = item.value / normalizedMax;
+        const y = topPadding + graphHeight - (ratio * graphHeight);
+        return { x, y, ...item };
+    });
+
+    const pathLine = points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
+    const areaPath = `${pathLine} L ${leftPadding + graphWidth} ${topPadding + graphHeight} L ${leftPadding} ${topPadding + graphHeight} Z`;
+
+    const guideLines = [0.25, 0.5, 0.75, 1].map(level => {
+        const y = topPadding + graphHeight - (level * graphHeight);
+        return `<line x1="${leftPadding}" y1="${y}" x2="${leftPadding + graphWidth}" y2="${y}" stroke="#e5edf8" stroke-width="1" />`;
+    }).join('');
+
+    const circles = points.map(point => `
+        <circle cx="${point.x}" cy="${point.y}" r="3.2" fill="#2563eb">
+            <title>${formatChartLabel(point.date)} — $${point.value.toFixed(2)}</title>
+        </circle>
+    `).join('');
+
+    chart.innerHTML = `
+        <defs>
+            <linearGradient id="revenueAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.24"></stop>
+                <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.03"></stop>
+            </linearGradient>
+        </defs>
+        ${guideLines}
+        <path d="${areaPath}" fill="url(#revenueAreaGradient)"></path>
+        <path d="${pathLine}" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>
+        ${circles}
+    `;
+
+    startLabel.textContent = formatChartLabel(series[0].date);
+    endLabel.textContent = formatChartLabel(series[series.length - 1].date);
+
+    const totalRevenue = series.reduce((sum, point) => sum + point.value, 0);
+    summary.textContent = `Revenue total for last ${revenueRangeDays} day(s): $${totalRevenue.toFixed(2)}.`;
 }
 
 function hasMeaningfulValue(value) {

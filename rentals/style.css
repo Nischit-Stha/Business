@@ -398,6 +398,78 @@ body {
     gap: 1rem;
 }
 
+.overview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 0.8rem;
+    margin-bottom: 0.9rem;
+}
+
+.overview-card {
+    border: 1px solid #dde7f7;
+    border-radius: 12px;
+    padding: 0.85rem 0.95rem;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    box-shadow: 0 10px 20px -18px rgba(15, 23, 42, 0.8);
+}
+
+.overview-card p {
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.35px;
+}
+
+.overview-card h3 {
+    margin: 0.18rem 0 0;
+    font-size: 1.5rem;
+    color: #0f172a;
+    line-height: 1.1;
+}
+
+.revenue-range-select {
+    border: 1px solid #d6e2f4;
+    border-radius: 10px;
+    padding: 0.5rem 0.72rem;
+    background: #f8fbff;
+    font-size: 0.84rem;
+    color: #334155;
+}
+
+.revenue-range-select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.revenue-chart-wrap {
+    border: 1px solid #dbe5f5;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    padding: 0.7rem 0.8rem 0.5rem;
+}
+
+#revenue-chart {
+    width: 100%;
+    height: 210px;
+    display: block;
+}
+
+.chart-axis {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.74rem;
+    color: #64748b;
+}
+
+.muted-text {
+    color: #64748b;
+    font-size: 0.84rem;
+    margin-top: 0.55rem;
+}
+
 .filters input,
 .filters select {
     border: 1px solid #dbe4f2;

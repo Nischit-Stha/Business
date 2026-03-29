@@ -115,6 +115,45 @@
                     </div>
                 </div>
             </section>
+
+            <section class="rentals-section" id="dashboard-overview">
+                <div class="section-header">
+                    <h2>Dashboard Overview</h2>
+                    <span class="badge" id="overview-last-updated">Live</span>
+                </div>
+                <div class="overview-grid">
+                    <article class="overview-card" title="All vehicles in system">
+                        <p>Total Cars</p>
+                        <h3 id="overview-total-cars">0</h3>
+                    </article>
+                    <article class="overview-card" title="Currently active rental bookings">
+                        <p>Active Bookings</p>
+                        <h3 id="overview-active-bookings">0</h3>
+                    </article>
+                    <article class="overview-card" title="Pending customer bargain offers">
+                        <p>Pending Bargain Requests</p>
+                        <h3 id="overview-pending-bargains">0</h3>
+                    </article>
+                </div>
+
+                <div class="section-header" style="margin-top: 1.1rem;">
+                    <h2>Revenue Graph</h2>
+                    <select id="revenue-range" class="revenue-range-select">
+                        <option value="7">Last 7 Days</option>
+                        <option value="14" selected>Last 14 Days</option>
+                        <option value="30">Last 30 Days</option>
+                    </select>
+                </div>
+
+                <div class="revenue-chart-wrap">
+                    <svg id="revenue-chart" viewBox="0 0 760 240" preserveAspectRatio="none"></svg>
+                    <div class="chart-axis">
+                        <span id="chart-start-label">Start</span>
+                        <span id="chart-end-label">End</span>
+                    </div>
+                </div>
+                <p class="muted-text" id="revenue-chart-summary">Revenue trend for selected period.</p>
+            </section>
             </div>
 
             <!-- Quick Actions -->
