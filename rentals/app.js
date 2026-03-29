@@ -279,30 +279,58 @@ function updateStats() {
     }
 }
 
+function hasMeaningfulValue(value) {
+    if (value === null || value === undefined) return false;
+    const text = String(value).trim().toLowerCase();
+    return text !== '' && text !== 'n/a' && text !== 'na' && text !== 'unknown' && text !== '-';
+}
+
 // ===== RENDER FLEET =====
 function renderFleet(filter = 'all') {
     const grid = document.getElementById('fleet-grid');
     const filtered = filter === 'all' ? fleet : fleet.filter(car => car.status === filter);
     
-    grid.innerHTML = filtered.map(car => `
+    grid.innerHTML = filtered.map(car => {
+        const makeModel = [car.make, car.model].filter(hasMeaningfulValue).join(' ');
+        const statusText = hasMeaningfulValue(car.status) ? car.status : 'available';
+        const primaryName = hasMeaningfulValue(car.name) ? car.name : makeModel || `Vehicle ${car.id}`;
+        const carModelText = hasMeaningfulValue(makeModel) ? makeModel : (hasMeaningfulValue(car.model) ? car.model : 'Vehicle');
+
+        const topDetails = [];
+        const plateValue = hasMeaningfulValue(car.license) ? car.license : car.rego;
+        if (hasMeaningfulValue(plateValue)) {
+            topDetails.push(`🚗 ${plateValue}`);
+        }
+        if (hasMeaningfulValue(car.color)) {
+            topDetails.push(`🎨 ${car.color}`);
+        }
+        if (Number.isFinite(Number(car.rate)) && Number(car.rate) > 0) {
+            topDetails.push(`💰 $${Number(car.rate).toFixed(2)}`);
+        }
+
+        const secondaryDetails = [];
+        if (Number.isFinite(Number(car.mileage)) && Number(car.mileage) > 0) {
+            secondaryDetails.push(`📊 ${Number(car.mileage).toLocaleString()} km`);
+        }
+        if (hasMeaningfulValue(car.fuel) && String(car.fuel).toLowerCase() !== 'full') {
+            secondaryDetails.push(`⛽ ${car.fuel}`);
+        }
+
+        return `
         <div class="fleet-card" data-id="${car.id}">
             <div class="car-header">
                 <div>
-                    <div class="car-name">${car.name}</div>
-                    <div class="car-model">${car.model}</div>
+                    <div class="car-name">${primaryName}</div>
+                    <div class="car-model">${carModelText}</div>
                 </div>
-                <span class="status-badge status-${car.status}">
-                    ${car.status.charAt(0).toUpperCase() + car.status.slice(1)}
+                <span class="status-badge status-${statusText}">
+                    ${statusText.charAt(0).toUpperCase() + statusText.slice(1)}
                 </span>
             </div>
             <div class="car-details">
-                <span>📊 ${car.mileage} km</span>
-                <span>⛽ ${car.fuel}</span>
-                <span>💰 $${car.rate}/day</span>
+                ${topDetails.map(detail => `<span>${detail}</span>`).join('')}
             </div>
-            <div class="car-details">
-                <span>🚗 ${car.license}</span>
-            </div>
+            ${secondaryDetails.length ? `<div class="car-details">${secondaryDetails.map(detail => `<span>${detail}</span>`).join('')}</div>` : ''}
             <div class="car-actions">
                 <button class="btn-small btn-qr" onclick="generateCarQR(${car.id})">
                     📱 Generate QR
@@ -312,7 +340,8 @@ function renderFleet(filter = 'all') {
                 </button>
             </div>
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 function filterFleet(filter) {
@@ -335,6 +364,19 @@ function renderRentals() {
         const timeUntilReturn = rental.returnDate - now;
         const hoursUntil = Math.floor(timeUntilReturn / (1000 * 60 * 60));
         const isOverdue = timeUntilReturn < 0;
+        const customerName = hasMeaningfulValue(rental.customer) ? rental.customer : 'Customer';
+        const carName = hasMeaningfulValue(rental.car) ? rental.car : 'Assigned Vehicle';
+        const showPhone = hasMeaningfulValue(rental.phone);
+        const pendingText = rental.importMeta?.pending;
+        const unpaidText = rental.importMeta?.unpaidTotal;
+
+        const rentalNotes = [];
+        if (hasMeaningfulValue(pendingText) && String(pendingText).toLowerCase() !== 'clear') {
+            rentalNotes.push(`⏳ ${pendingText}`);
+        }
+        if (hasMeaningfulValue(unpaidText) && String(unpaidText).trim() !== '$-' && String(unpaidText).trim() !== '$0.00') {
+            rentalNotes.push(`💳 Unpaid ${unpaidText}`);
+        }
         
         let dueText = '';
         if (isOverdue) {
@@ -348,8 +390,9 @@ function renderRentals() {
         return `
             <div class="rental-card">
                 <div class="rental-info">
-                    <h4>${rental.customer} - ${rental.car}</h4>
-                    <p>${rental.phone}</p>
+                    <h4>${customerName} - ${carName}</h4>
+                    ${showPhone ? `<p>📞 ${rental.phone}</p>` : ''}
+                    ${rentalNotes.length ? `<p>${rentalNotes.join(' • ')}</p>` : ''}
                 </div>
                 <div class="rental-meta">
                     <div class="due-time">
