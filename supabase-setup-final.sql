@@ -12,7 +12,7 @@
 -- Run this in Supabase SQL Editor, or use Supabase Dashboard:
 -- 1. Go to Storage > Buckets
 -- 2. Create new bucket: "customer-photos"
--- 3. Make it PRIVATE
+-- 3. Make it PUBLIC
 -- 4. Add RLS policies below
 
 -- The bucket name is: customer-photos
@@ -24,28 +24,26 @@
 -- Enable RLS on the storage.objects table:
 ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
 
--- Policy: Allow customers to upload their own photos
+DROP POLICY IF EXISTS "customers_upload_own_photos" ON storage.objects;
+DROP POLICY IF EXISTS "customers_view_own_photos" ON storage.objects;
+DROP POLICY IF EXISTS "admins_full_access_photos" ON storage.objects;
+
+-- Policy: Allow app users (anon/authenticated) to upload photos
 CREATE POLICY "customers_upload_own_photos"
 ON storage.objects
 FOR INSERT
 WITH CHECK (
-  bucket_id = 'customer-photos' 
-  AND auth.uid() IS NOT NULL
+  bucket_id = 'customer-photos'
+  AND (auth.role() = 'anon' OR auth.uid() IS NOT NULL)
 );
 
--- Policy: Allow customers to view their own photos
+-- Policy: Allow app users (anon/authenticated) to read photo objects
 CREATE POLICY "customers_view_own_photos"
 ON storage.objects
 FOR SELECT
 USING (
   bucket_id = 'customer-photos'
-  AND (
-    -- Admin can see all photos
-    (SELECT role FROM profiles WHERE id = auth.uid()) = 'admin'
-    OR
-    -- Customer can see photos in folders with their rental_id
-    auth.uid()::text = (storage.foldername(name))[1]
-  )
+  AND (auth.role() = 'anon' OR auth.uid() IS NOT NULL)
 );
 
 -- Policy: Allow admins full access
@@ -228,7 +226,7 @@ WITH CHECK ((SELECT role FROM profiles WHERE id = auth.uid()) = 'admin');
 -- ============================================================================
 -- NOTES:
 -- ============================================================================
--- 1. Storage bucket "customer-photos" must be created via Supabase Dashboard
+-- 1. Storage bucket "customer-photos" must be created via Supabase Dashboard (set to PUBLIC for direct image URLs)
 -- 2. All policies assume customer_id or user_id matches auth.uid()
 -- 3. Admin profile must exist with role = 'admin'
 -- 4. RLS must be ENABLED on all tables (ALTER TABLE ... ENABLE ROW LEVEL SECURITY)

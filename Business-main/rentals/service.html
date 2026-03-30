@@ -580,6 +580,7 @@
             background: #e2e8f0;
             outline: none;
             -webkit-appearance: none;
+            appearance: none;
         }
 
         .price-range-wrapper input[type="range"]::-webkit-slider-thumb {
@@ -795,6 +796,7 @@
         </div>
     </div>
     
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="supabase-config.js"></script>
     <script>
         let serviceType = 'pickup';
@@ -1369,6 +1371,25 @@
             });
         });
         
+        async function convertPhotosToLocalDataUrls(photoFiles) {
+            if (!Array.isArray(photoFiles) || photoFiles.length === 0) return [];
+
+            const toDataUrl = (file) => new Promise(resolve => {
+                const reader = new FileReader();
+                reader.onload = (event) => resolve({
+                    name: file.name,
+                    url: event.target.result,
+                    uploadedAt: new Date().toISOString(),
+                    local: true
+                });
+                reader.onerror = () => resolve(null);
+                reader.readAsDataURL(file);
+            });
+
+            const converted = await Promise.all(photoFiles.map(file => toDataUrl(file)));
+            return converted.filter(Boolean);
+        }
+
         // Upload photos to Supabase Storage
         async function uploadPhotosToSupabase(rentalId, photoFiles) {
             if (!photoFiles || photoFiles.length === 0) return [];
@@ -1377,7 +1398,7 @@
                 const client = getSupabaseClient();
                 if (!client) {
                     console.warn('Supabase not available, storing locally');
-                    return photoFiles.map(f => ({ name: f.name, url: 'local' }));
+                    return await convertPhotosToLocalDataUrls(photoFiles);
                 }
                 
                 const uploadedUrls = [];
@@ -1386,12 +1407,20 @@
                 for (let i = 0; i < photoFiles.length; i++) {
                     const file = photoFiles[i];
                     const timestamp = Date.now();
-                    const filename = `${serviceType}-${rentalId}-${timestamp}-${i}.jpg`;
+                    const extension = String(file.name || '').includes('.')
+                        ? String(file.name).split('.').pop().toLowerCase()
+                        : 'jpg';
+                    const safeExtension = extension.replace(/[^a-z0-9]/g, '') || 'jpg';
+                    const filename = `${serviceType}-${rentalId}-${timestamp}-${i}.${safeExtension}`;
                     const filepath = `${rentalId}/${filename}`;
                     
                     const { data, error } = await client.storage
                         .from(bucket)
-                        .upload(filepath, file);
+                        .upload(filepath, file, {
+                            cacheControl: '3600',
+                            contentType: file.type || 'image/jpeg',
+                            upsert: false
+                        });
                     
                     if (error) {
                         console.warn(`Photo upload failed (${filename}):`, error.message);
@@ -1413,10 +1442,15 @@
                     }
                 }
                 
+                if (!uploadedUrls.length) {
+                    console.warn('All Supabase photo uploads failed, storing local image data instead');
+                    return await convertPhotosToLocalDataUrls(photoFiles);
+                }
+
                 return uploadedUrls;
             } catch (err) {
                 console.error('Photo upload error:', err);
-                return [];
+                return await convertPhotosToLocalDataUrls(photoFiles);
             }
         }
         

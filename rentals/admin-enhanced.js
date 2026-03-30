@@ -1,5 +1,37 @@
 // Enhanced Admin Panel JavaScript for Veera Rentals
 
+const PRIMARY_INVOICES_KEY = 'rentals-invoices-data';
+const LEGACY_INVOICES_KEY = 'veera-rentals-invoices';
+
+function readInvoices() {
+    const primaryRaw = localStorage.getItem(PRIMARY_INVOICES_KEY);
+    const legacyRaw = localStorage.getItem(LEGACY_INVOICES_KEY);
+
+    try {
+        if (primaryRaw) {
+            const parsed = JSON.parse(primaryRaw);
+            if (Array.isArray(parsed)) return parsed;
+        }
+
+        if (legacyRaw) {
+            const parsedLegacy = JSON.parse(legacyRaw);
+            if (Array.isArray(parsedLegacy)) {
+                localStorage.setItem(PRIMARY_INVOICES_KEY, JSON.stringify(parsedLegacy));
+                return parsedLegacy;
+            }
+        }
+    } catch (error) {
+        console.warn('Invoice storage parse failed:', error);
+    }
+
+    return [];
+}
+
+function writeInvoices(invoices) {
+    localStorage.setItem(PRIMARY_INVOICES_KEY, JSON.stringify(invoices));
+    localStorage.setItem(LEGACY_INVOICES_KEY, JSON.stringify(invoices));
+}
+
 // Tab Navigation
 function showTab(tabName) {
     // Hide all sections
@@ -127,7 +159,7 @@ function renderInventory() {
 
 // Render Invoices
 function renderInvoices() {
-    const invoices = JSON.parse(localStorage.getItem('veera-rentals-invoices') || '[]');
+    const invoices = readInvoices();
     const invoicesGrid = document.getElementById('invoices-grid');
     
     const totalRevenue = invoices.reduce((sum, inv) => sum + parseFloat(inv.amount || 0), 0);
@@ -183,7 +215,7 @@ function renderInvoices() {
 function renderReports() {
     const pickups = JSON.parse(localStorage.getItem('veera-rentals-pickups') || '[]');
     const dropoffs = JSON.parse(localStorage.getItem('veera-rentals-dropoffs') || '[]');
-    const invoices = JSON.parse(localStorage.getItem('veera-rentals-invoices') || '[]');
+    const invoices = readInvoices();
     const fleet = JSON.parse(localStorage.getItem('fleet-data') || '[]');
     
     const totalRevenue = invoices.reduce((sum, inv) => sum + parseFloat(inv.amount || 0), 0);
@@ -293,9 +325,9 @@ function saveInvoice(e) {
         date: new Date().toISOString()
     };
     
-    const invoices = JSON.parse(localStorage.getItem('veera-rentals-invoices') || '[]');
+    const invoices = readInvoices();
     invoices.push(invoice);
-    localStorage.setItem('veera-rentals-invoices', JSON.stringify(invoices));
+    writeInvoices(invoices);
     
     closeInvoiceModal();
     renderInvoices();
@@ -303,21 +335,21 @@ function saveInvoice(e) {
 }
 
 function toggleInvoiceStatus(invoiceNumber) {
-    const invoices = JSON.parse(localStorage.getItem('veera-rentals-invoices') || '[]');
+    const invoices = readInvoices();
     const invoice = invoices.find(inv => inv.invoiceNumber === invoiceNumber);
     
     if (invoice) {
         invoice.status = invoice.status === 'paid' ? 'unpaid' : 'paid';
-        localStorage.setItem('veera-rentals-invoices', JSON.stringify(invoices));
+        writeInvoices(invoices);
         renderInvoices();
     }
 }
 
 function deleteInvoice(invoiceNumber) {
     if (confirm('Are you sure you want to delete this invoice?')) {
-        let invoices = JSON.parse(localStorage.getItem('veera-rentals-invoices') || '[]');
+        let invoices = readInvoices();
         invoices = invoices.filter(inv => inv.invoiceNumber !== invoiceNumber);
-        localStorage.setItem('veera-rentals-invoices', JSON.stringify(invoices));
+        writeInvoices(invoices);
         renderInvoices();
     }
 }
@@ -343,7 +375,7 @@ function exportAllData() {
         pickups: JSON.parse(localStorage.getItem('veera-rentals-pickups') || '[]'),
         dropoffs: JSON.parse(localStorage.getItem('veera-rentals-dropoffs') || '[]'),
         swaps: JSON.parse(localStorage.getItem('veera-rentals-swaps') || '[]'),
-        invoices: JSON.parse(localStorage.getItem('veera-rentals-invoices') || '[]')
+        invoices: readInvoices()
     };
     
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
