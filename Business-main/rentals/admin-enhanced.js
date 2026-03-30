@@ -32,6 +32,18 @@ function writeInvoices(invoices) {
     localStorage.setItem(LEGACY_INVOICES_KEY, JSON.stringify(invoices));
 }
 
+function parseStorageArray(key) {
+    try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+        console.warn(`Storage parse failed for ${key}:`, error);
+        return [];
+    }
+}
+
 // Tab Navigation
 function showTab(tabName) {
     // Hide all sections
@@ -70,9 +82,9 @@ function showTab(tabName) {
 
 // Render All Bookings
 function renderAllBookings() {
-    const pickups = JSON.parse(localStorage.getItem('veera-rentals-pickups') || '[]');
-    const dropoffs = JSON.parse(localStorage.getItem('veera-rentals-dropoffs') || '[]');
-    const swaps = JSON.parse(localStorage.getItem('veera-rentals-swaps') || '[]');
+    const pickups = parseStorageArray('veera-rentals-pickups');
+    const dropoffs = parseStorageArray('veera-rentals-dropoffs');
+    const swaps = parseStorageArray('veera-rentals-swaps');
     
     const bookingsGrid = document.getElementById('bookings-grid');
     
@@ -109,7 +121,7 @@ function renderAllBookings() {
 
 // Render Inventory (Fleet)
 function renderInventory() {
-    const fleet = JSON.parse(localStorage.getItem('fleet-data') || '[]');
+    const fleet = parseStorageArray('fleet-data');
     const inventoryGrid = document.getElementById('inventory-grid');
     
     if (fleet.length === 0) {
@@ -213,10 +225,10 @@ function renderInvoices() {
 
 // Render Reports
 function renderReports() {
-    const pickups = JSON.parse(localStorage.getItem('veera-rentals-pickups') || '[]');
-    const dropoffs = JSON.parse(localStorage.getItem('veera-rentals-dropoffs') || '[]');
+    const pickups = parseStorageArray('veera-rentals-pickups');
+    const dropoffs = parseStorageArray('veera-rentals-dropoffs');
     const invoices = readInvoices();
-    const fleet = JSON.parse(localStorage.getItem('fleet-data') || '[]');
+    const fleet = parseStorageArray('fleet-data');
     
     const totalRevenue = invoices.reduce((sum, inv) => sum + parseFloat(inv.amount || 0), 0);
     const todayRevenue = invoices.filter(inv => {
@@ -355,7 +367,7 @@ function deleteInvoice(invoiceNumber) {
 }
 
 function changeVehicleStatus(vehicleId) {
-    const fleet = JSON.parse(localStorage.getItem('fleet-data') || '[]');
+    const fleet = parseStorageArray('fleet-data');
     const vehicle = fleet.find(v => v.id === vehicleId);
     
     if (vehicle) {
@@ -371,10 +383,10 @@ function changeVehicleStatus(vehicleId) {
 
 function exportAllData() {
     const data = {
-        fleet: JSON.parse(localStorage.getItem('fleet-data') || '[]'),
-        pickups: JSON.parse(localStorage.getItem('veera-rentals-pickups') || '[]'),
-        dropoffs: JSON.parse(localStorage.getItem('veera-rentals-dropoffs') || '[]'),
-        swaps: JSON.parse(localStorage.getItem('veera-rentals-swaps') || '[]'),
+        fleet: parseStorageArray('fleet-data'),
+        pickups: parseStorageArray('veera-rentals-pickups'),
+        dropoffs: parseStorageArray('veera-rentals-dropoffs'),
+        swaps: parseStorageArray('veera-rentals-swaps'),
         invoices: readInvoices()
     };
     

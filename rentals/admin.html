@@ -75,6 +75,32 @@
         .form-group { margin-bottom: 1rem; }
         .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
         .form-group input, .form-group select { width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem; }
+
+        @media (max-width: 768px) {
+            .container { padding: 0 1rem; }
+            .logo-section { margin-bottom: 0.75rem; }
+            .logo-section h1 { font-size: 1.35rem; }
+            .nav { overflow-x: auto; padding-bottom: 0.25rem; }
+            .nav-link { white-space: nowrap; padding: 0.65rem 1rem; }
+            .invoice-header,
+            .invoice-row,
+            .vehicle-header,
+            .booking-header { flex-direction: column; align-items: flex-start; gap: 0.6rem; }
+            .invoice-stats { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.6rem; }
+            .invoice-actions { flex-wrap: wrap; }
+            .btn,
+            .btn-small { min-height: 44px; }
+            .reports-grid { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 576px) {
+            .main { padding: 1rem 0; }
+            .booking-card, .vehicle-card, .invoice-card, .report-card, .inv-stat { padding: 1rem; }
+            .invoice-stats { grid-template-columns: 1fr; }
+            .btn,
+            .btn-small { width: 100%; justify-content: center; }
+            .modal-content { width: calc(100% - 1rem); padding: 1rem; border-radius: 12px; }
+        }
     </style>
 </head>
 <body>

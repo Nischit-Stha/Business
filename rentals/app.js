@@ -2684,7 +2684,7 @@ function handleNewBooking(e) {
     
     // Create new rental
     const newRental = {
-        id: rentals.length + 1,
+        id: rentals.length ? Math.max(...rentals.map(r => Number(r.id) || 0)) + 1 : 1,
         customer: customerName,
         phone: customerPhone,
         email: customerEmail,
