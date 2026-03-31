@@ -19,6 +19,7 @@ let bookingQuickFilterMode = 'all';
 let requestSearchQuery = '';
 let requestSortMode = 'newest';
 let activeNegotiationOfferId = null;
+let suppressRemoteSync = false;
 
 function normalizeCarRate(rate) {
     const numericRate = Number(rate);
@@ -382,6 +383,74 @@ function mapLocalOfferMessageToSupabase(offerId, message) {
     };
 }
 
+function mapLocalVehicleToSupabase(vehicle) {
+    return {
+        id: Number(vehicle.id),
+        name: vehicle.name || null,
+        make: vehicle.make || null,
+        model: vehicle.model || null,
+        plate: vehicle.license || vehicle.rego || null,
+        status: vehicle.status || 'available',
+        rate_day: Number(vehicle.priceDay ?? vehicle.rate ?? DEFAULT_RATE),
+        rate_week: Number(vehicle.priceWeek || 0),
+        location: hasMeaningfulValue(vehicle.location) ? String(vehicle.location).trim() : 'Main Branch',
+        images: Array.isArray(vehicle.images) ? vehicle.images.filter(Boolean).slice(0, 8) : [],
+        availability: Array.isArray(vehicle.availabilityCalendar) ? vehicle.availabilityCalendar : []
+    };
+}
+
+async function syncFleetToSupabase(fleetList) {
+    const client = getSupabaseClient();
+    if (!client || !Array.isArray(fleetList)) return;
+
+    try {
+        const payload = fleetList
+            .map(normalizeCarRecord)
+            .map(mapLocalVehicleToSupabase)
+            .filter(item => Number.isFinite(Number(item.id)) && Number(item.id) > 0);
+
+        if (payload.length) {
+            const { error: upsertError } = await client
+                .from('vehicles')
+                .upsert(payload, { onConflict: 'id' });
+
+            if (upsertError) {
+                console.warn('Supabase vehicles upsert failed:', upsertError.message || upsertError);
+                return;
+            }
+        }
+
+        const { data: remoteRows, error: remoteError } = await client
+            .from('vehicles')
+            .select('id');
+
+        if (remoteError || !Array.isArray(remoteRows)) {
+            if (remoteError) {
+                console.warn('Supabase vehicles id-read failed:', remoteError.message || remoteError);
+            }
+            return;
+        }
+
+        const localIds = new Set(payload.map(item => Number(item.id)));
+        const staleIds = remoteRows
+            .map(row => Number(row.id))
+            .filter(id => Number.isFinite(id) && !localIds.has(id));
+
+        if (staleIds.length) {
+            const { error: deleteError } = await client
+                .from('vehicles')
+                .delete()
+                .in('id', staleIds);
+
+            if (deleteError) {
+                console.warn('Supabase vehicles stale-delete failed:', deleteError.message || deleteError);
+            }
+        }
+    } catch (error) {
+        console.warn('Supabase vehicles sync exception:', error);
+    }
+}
+
 async function loadPriceOffersFromSupabase() {
     const client = getSupabaseClient();
     if (!client) return null;
@@ -639,7 +708,7 @@ async function importSeedDataFromRecords() {
     }
     invoices = [];
 
-    saveData();
+    saveData({ syncRemote: false });
     localStorage.setItem('records-imported-v1', 'true');
 }
 
@@ -666,6 +735,7 @@ async function reimportFromRecords() {
 
 // Load from localStorage if available
 async function loadData() {
+    suppressRemoteSync = true;
     const savedFleet = localStorage.getItem('fleet-data');
     const savedRentals = localStorage.getItem('rentals-data');
     const importedFlag = localStorage.getItem('records-imported-v1') === 'true';
@@ -674,7 +744,6 @@ async function loadData() {
     if (!importedFlag) {
         try {
             await importSeedDataFromRecords();
-            return;
         } catch (error) {
             console.warn('Could not import Records seed data:', error);
         }
@@ -696,7 +765,7 @@ async function loadData() {
     }
 
     if (normalizeFleetRates()) {
-        saveData();
+        saveData({ syncRemote: false });
     }
     normalizeFleetRecords();
 
@@ -704,7 +773,7 @@ async function loadData() {
     if (Array.isArray(supabaseFleet) && supabaseFleet.length > 0) {
         fleet = supabaseFleet;
         normalizeFleetRecords();
-        saveData();
+        saveData({ syncRemote: false });
     }
 
     const supabaseRequests = await loadBookingRequestsFromSupabase();
@@ -722,13 +791,23 @@ async function loadData() {
         invoices = supabaseInvoices;
         localStorage.setItem(INVOICES_KEY, JSON.stringify(supabaseInvoices));
     }
+
+    suppressRemoteSync = false;
+
+    if (Array.isArray(supabaseFleet) && supabaseFleet.length === 0 && fleet.length > 0) {
+        void syncFleetToSupabase(fleet);
+    }
 }
 
-function saveData() {
+function saveData(options = {}) {
+    const { syncRemote = true } = options;
     localStorage.setItem('fleet-data', JSON.stringify(fleet));
     localStorage.setItem('rentals-data', JSON.stringify(rentals));
     localStorage.setItem(INVOICES_KEY, JSON.stringify(invoices));
-    void syncInvoicesToSupabase(invoices);
+    if (!suppressRemoteSync && syncRemote) {
+        void syncInvoicesToSupabase(invoices);
+        void syncFleetToSupabase(fleet);
+    }
 }
 
 function showToast(message, type = 'info') {
