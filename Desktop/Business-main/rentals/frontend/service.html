@@ -813,6 +813,8 @@
         <div id="success-msg" class="success-message">
             <h3>✅ Service Submitted Successfully!</h3>
             <p>Your service reference: <strong id="ref-display"></strong></p>
+            <p id="success-pricing" style="display:none; margin-top:0.35rem; color:#1f2937; font-weight:600;"></p>
+            <p id="success-pricing-breakdown" style="display:none; margin-top:0.25rem; color:#64748b;"></p>
             <div style="margin-top:0.85rem; display:flex; justify-content:center;">
                 <button type="button" class="btn btn-secondary" onclick="window.location.href='index.html'">Back to Home</button>
             </div>
@@ -1264,6 +1266,26 @@
 
             estimateEl.textContent = `$${total.toFixed(2)}`;
             breakdownEl.textContent = `${duration} ${plan === 'weekly' ? 'week(s)' : 'day(s)'} x $${unitRate.toFixed(2)} (${plan})`;
+        }
+
+        function getPickupPricingSnapshot(vehicle) {
+            const planSelect = document.getElementById('pricing-plan');
+            const durationInput = document.getElementById('pricing-duration');
+
+            const plan = (planSelect?.value === 'weekly') ? 'weekly' : 'daily';
+            const duration = Math.max(1, Number(durationInput?.value) || 1);
+            const dayRate = Number(vehicle?.rate || 0);
+            const weekRate = getVehicleWeeklyRate(vehicle);
+            const unitRate = plan === 'weekly' ? weekRate : dayRate;
+            const total = unitRate * duration;
+
+            return {
+                plan,
+                duration,
+                unitRate,
+                total,
+                durationLabel: plan === 'weekly' ? 'week(s)' : 'day(s)'
+            };
         }
 
         function getVehicleImage(vehicle) {
@@ -1828,7 +1850,25 @@
                 }
 
                 // Show success message
+                const successPricing = document.getElementById('success-pricing');
+                const successPricingBreakdown = document.getElementById('success-pricing-breakdown');
                 document.getElementById('ref-display').textContent = serviceData.serviceRef;
+
+                if (serviceType === 'pickup') {
+                    const pricing = getPickupPricingSnapshot(vehicle);
+                    if (successPricing) {
+                        successPricing.textContent = `Estimated total: $${pricing.total.toFixed(2)} (${pricing.plan})`;
+                        successPricing.style.display = 'block';
+                    }
+                    if (successPricingBreakdown) {
+                        successPricingBreakdown.textContent = `${pricing.duration} ${pricing.durationLabel} x $${pricing.unitRate.toFixed(2)}`;
+                        successPricingBreakdown.style.display = 'block';
+                    }
+                } else {
+                    if (successPricing) successPricing.style.display = 'none';
+                    if (successPricingBreakdown) successPricingBreakdown.style.display = 'none';
+                }
+
                 document.getElementById('success-msg').classList.add('show');
                 document.getElementById('service-form').style.display = 'none';
             } finally {
