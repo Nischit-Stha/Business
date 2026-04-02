@@ -1,233 +1,201 @@
 -- ============================================================================
--- SUPABASE STORAGE & RLS SETUP - FINAL CONFIGURATION
+-- SUPABASE SETUP (WORKING WITH CURRENT FRONTEND ARCHITECTURE)
 -- ============================================================================
--- This SQL sets up:
--- 1. Storage bucket for customer photos with RLS policies
--- 2. Role-based RLS policies for all data tables
+-- This project currently uses the public anon key and does not require users to
+-- sign in with Supabase Auth before creating bookings.
+--
+-- This script configures RLS so the current frontend works end-to-end:
+-- - service pickup submit inserts into booking_requests
+-- - admin pages can read/update rows
+-- - photos upload/read from storage bucket customer-photos
+--
+-- Run this entire script in Supabase SQL Editor.
 -- ============================================================================
 
 -- ============================================================================
--- STEP 1: CREATE STORAGE BUCKET FOR PHOTOS
+-- STEP 1: STORAGE BUCKET
 -- ============================================================================
--- Run this in Supabase SQL Editor, or use Supabase Dashboard:
--- 1. Go to Storage > Buckets
--- 2. Create new bucket: "customer-photos"
--- 3. Make it PUBLIC
--- 4. Add RLS policies below
-
--- The bucket name is: customer-photos
--- It will store: /pickup-photos/{rental_id}/*.jpg, /dropoff-photos/{rental_id}/*.jpg, etc.
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('customer-photos', 'customer-photos', true)
+ON CONFLICT (id)
+DO UPDATE SET public = EXCLUDED.public;
 
 -- ============================================================================
--- STEP 2: RLS POLICIES FOR STORAGE BUCKET (if using SQL)
+-- STEP 2: ENABLE RLS
 -- ============================================================================
--- Enable RLS on the storage.objects table:
-ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "customers_upload_own_photos" ON storage.objects;
-DROP POLICY IF EXISTS "customers_view_own_photos" ON storage.objects;
-DROP POLICY IF EXISTS "admins_full_access_photos" ON storage.objects;
-
--- Policy: Allow app users (anon/authenticated) to upload photos
-CREATE POLICY "customers_upload_own_photos"
-ON storage.objects
-FOR INSERT
-WITH CHECK (
-  bucket_id = 'customer-photos'
-  AND (auth.role() = 'anon' OR auth.uid() IS NOT NULL)
+CREATE TABLE IF NOT EXISTS public.customers (
+  id BIGSERIAL PRIMARY KEY,
+  full_name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  current_vehicle TEXT,
+  last_request_type TEXT,
+  license_photo_urls JSONB,
+  notes TEXT,
+  last_booking_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Policy: Allow app users (anon/authenticated) to read photo objects
-CREATE POLICY "customers_view_own_photos"
-ON storage.objects
-FOR SELECT
-USING (
-  bucket_id = 'customer-photos'
-  AND (auth.role() = 'anon' OR auth.uid() IS NOT NULL)
-);
+CREATE INDEX IF NOT EXISTS customers_email_idx ON public.customers (email);
+CREATE INDEX IF NOT EXISTS customers_phone_idx ON public.customers (phone);
+CREATE INDEX IF NOT EXISTS customers_last_booking_at_idx ON public.customers (last_booking_at DESC);
 
--- Policy: Allow admins full access
-CREATE POLICY "admins_full_access_photos"
-ON storage.objects
+ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vehicles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.booking_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.offers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.offer_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payment_intents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.invoices ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public.booking_requests
+  ADD COLUMN IF NOT EXISTS customer_id BIGINT;
+
+ALTER TABLE public.invoices
+  ADD COLUMN IF NOT EXISTS customer_id BIGINT;
+
+DO $$
+BEGIN
+  ALTER TABLE public.booking_requests
+    ADD CONSTRAINT booking_requests_customer_id_fkey
+    FOREIGN KEY (customer_id) REFERENCES public.customers(id) ON DELETE SET NULL;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  ALTER TABLE public.invoices
+    ADD CONSTRAINT invoices_customer_id_fkey
+    FOREIGN KEY (customer_id) REFERENCES public.customers(id) ON DELETE SET NULL;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+-- ============================================================================
+-- STEP 3: RESET EXISTING POLICIES (SAFE RE-RUN)
+-- ============================================================================
+DO $$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = 'vehicles'
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.vehicles', r.policyname);
+  END LOOP;
+
+  FOR r IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = 'customers'
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.customers', r.policyname);
+  END LOOP;
+
+  FOR r IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = 'booking_requests'
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.booking_requests', r.policyname);
+  END LOOP;
+
+  FOR r IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = 'offers'
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.offers', r.policyname);
+  END LOOP;
+
+  FOR r IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = 'offer_messages'
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.offer_messages', r.policyname);
+  END LOOP;
+
+  FOR r IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = 'payment_intents'
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.payment_intents', r.policyname);
+  END LOOP;
+
+  FOR r IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = 'invoices'
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.invoices', r.policyname);
+  END LOOP;
+END $$;
+
+-- ============================================================================
+-- STEP 4: STORAGE POLICIES (MANUAL IN DASHBOARD)
+-- ============================================================================
+-- If your SQL role is not owner of storage.objects, run storage policies from:
+-- Supabase Dashboard -> Storage -> Policies (bucket: customer-photos)
+-- Create policies equivalent to:
+-- 1) INSERT: bucket_id = 'customer-photos' for anon, authenticated
+-- 2) SELECT: bucket_id = 'customer-photos' for anon, authenticated
+-- 3) UPDATE: bucket_id = 'customer-photos' for anon, authenticated
+-- 4) DELETE: bucket_id = 'customer-photos' for anon, authenticated
+
+-- ============================================================================
+-- STEP 5: TABLE POLICIES (APP-COMPATIBLE)
+-- ============================================================================
+-- Note: These policies allow anon/authenticated frontend access so the app works
+-- without Supabase Auth sign-in. If you later migrate to full auth, tighten these.
+
+CREATE POLICY "vehicles_app_access"
+ON public.vehicles
 FOR ALL
-USING ((SELECT role FROM profiles WHERE id = auth.uid()) = 'admin')
-WITH CHECK ((SELECT role FROM profiles WHERE id = auth.uid()) = 'admin');
+TO anon, authenticated
+USING (true)
+WITH CHECK (true);
+
+CREATE POLICY "customers_app_access"
+ON public.customers
+FOR ALL
+TO anon, authenticated
+USING (true)
+WITH CHECK (true);
+
+CREATE POLICY "booking_requests_app_access"
+ON public.booking_requests
+FOR ALL
+TO anon, authenticated
+USING (true)
+WITH CHECK (true);
+
+CREATE POLICY "offers_app_access"
+ON public.offers
+FOR ALL
+TO anon, authenticated
+USING (true)
+WITH CHECK (true);
+
+CREATE POLICY "offer_messages_app_access"
+ON public.offer_messages
+FOR ALL
+TO anon, authenticated
+USING (true)
+WITH CHECK (true);
+
+CREATE POLICY "payment_intents_app_access"
+ON public.payment_intents
+FOR ALL
+TO anon, authenticated
+USING (true)
+WITH CHECK (true);
+
+CREATE POLICY "invoices_app_access"
+ON public.invoices
+FOR ALL
+TO anon, authenticated
+USING (true)
+WITH CHECK (true);
 
 -- ============================================================================
--- STEP 3: STRICT RLS POLICIES FOR DATA TABLES
+-- STEP 6: VERIFICATION QUERIES
 -- ============================================================================
--- These policies enforce role-based access control
+-- 1) Bucket exists and is public
+SELECT id, name, public FROM storage.buckets WHERE id = 'customer-photos';
 
--- ===== VEHICLES TABLE =====
--- Admin can do everything, customers can only view available vehicles
-DROP POLICY IF EXISTS "customers_view_available_vehicles" ON vehicles;
-DROP POLICY IF EXISTS "admins_full_vehicle_access" ON vehicles;
+-- 2) RLS enabled on required tables
+SELECT schemaname, tablename, rowsecurity
+FROM pg_tables
+WHERE schemaname = 'public'
+  AND tablename IN ('customers', 'vehicles', 'booking_requests', 'offers', 'offer_messages', 'payment_intents', 'invoices');
 
-CREATE POLICY "customers_view_available_vehicles"
-ON vehicles
-FOR SELECT
-USING (status = 'available' OR (SELECT role FROM profiles WHERE id = auth.uid()) = 'admin');
-
-CREATE POLICY "admins_full_vehicle_access"
-ON vehicles
-FOR ALL
-USING ((SELECT role FROM profiles WHERE id = auth.uid()) = 'admin')
-WITH CHECK ((SELECT role FROM profiles WHERE id = auth.uid()) = 'admin');
-
--- ===== BOOKING_REQUESTS TABLE =====
--- Customers see only their own, admins see all
-DROP POLICY IF EXISTS "customers_see_own_bookings" ON booking_requests;
-DROP POLICY IF EXISTS "customers_create_bookings" ON booking_requests;
-DROP POLICY IF EXISTS "admins_full_booking_access" ON booking_requests;
-
-CREATE POLICY "customers_see_own_bookings"
-ON booking_requests
-FOR SELECT
-USING (
-  customer_id = auth.uid()
-  OR (SELECT role FROM profiles WHERE id = auth.uid()) = 'admin'
-);
-
-CREATE POLICY "customers_create_bookings"
-ON booking_requests
-FOR INSERT
-WITH CHECK (customer_id = auth.uid());
-
-CREATE POLICY "customers_update_own_bookings"
-ON booking_requests
-FOR UPDATE
-USING (customer_id = auth.uid())
-WITH CHECK (customer_id = auth.uid());
-
-CREATE POLICY "admins_full_booking_access"
-ON booking_requests
-FOR ALL
-USING ((SELECT role FROM profiles WHERE id = auth.uid()) = 'admin')
-WITH CHECK ((SELECT role FROM profiles WHERE id = auth.uid()) = 'admin');
-
--- ===== OFFERS TABLE =====
--- Customers see offers on their bookings, admins see all
-DROP POLICY IF EXISTS "customers_see_own_offers" ON offers;
-DROP POLICY IF EXISTS "admins_full_offer_access" ON offers;
-
-CREATE POLICY "customers_see_own_offers"
-ON offers
-FOR SELECT
-USING (
-  EXISTS (
-    SELECT 1 FROM booking_requests 
-    WHERE booking_requests.id = offers.booking_request_id 
-    AND booking_requests.customer_id = auth.uid()
-  )
-  OR (SELECT role FROM profiles WHERE id = auth.uid()) = 'admin'
-);
-
-CREATE POLICY "admins_full_offer_access"
-ON offers
-FOR ALL
-USING ((SELECT role FROM profiles WHERE id = auth.uid()) = 'admin')
-WITH CHECK ((SELECT role FROM profiles WHERE id = auth.uid()) = 'admin');
-
--- ===== OFFER_MESSAGES TABLE =====
--- Customers see messages on their offers, admins see all
-DROP POLICY IF EXISTS "customers_see_own_offer_messages" ON offer_messages;
-DROP POLICY IF EXISTS "customers_create_offer_messages" ON offer_messages;
-DROP POLICY IF EXISTS "admins_full_offer_message_access" ON offer_messages;
-
-CREATE POLICY "customers_see_own_offer_messages"
-ON offer_messages
-FOR SELECT
-USING (
-  EXISTS (
-    SELECT 1 FROM offers 
-    WHERE offers.id = offer_messages.offer_id
-    AND EXISTS (
-      SELECT 1 FROM booking_requests
-      WHERE booking_requests.id = offers.booking_request_id
-      AND booking_requests.customer_id = auth.uid()
-    )
-  )
-  OR (SELECT role FROM profiles WHERE id = auth.uid()) = 'admin'
-);
-
-CREATE POLICY "customers_create_offer_messages"
-ON offer_messages
-FOR INSERT
-WITH CHECK (
-  EXISTS (
-    SELECT 1 FROM offers
-    WHERE offers.id = offer_messages.offer_id
-    AND EXISTS (
-      SELECT 1 FROM booking_requests
-      WHERE booking_requests.id = offers.booking_request_id
-      AND booking_requests.customer_id = auth.uid()
-    )
-  )
-);
-
-CREATE POLICY "admins_full_offer_message_access"
-ON offer_messages
-FOR ALL
-USING ((SELECT role FROM profiles WHERE id = auth.uid()) = 'admin')
-WITH CHECK ((SELECT role FROM profiles WHERE id = auth.uid()) = 'admin');
-
--- ===== PAYMENT_INTENTS TABLE =====
--- Customers see only their payments, admins see all
-DROP POLICY IF EXISTS "customers_see_own_payments" ON payment_intents;
-DROP POLICY IF EXISTS "admins_full_payment_access" ON payment_intents;
-
-CREATE POLICY "customers_see_own_payments"
-ON payment_intents
-FOR SELECT
-USING (
-  user_id = auth.uid()
-  OR (SELECT role FROM profiles WHERE id = auth.uid()) = 'admin'
-);
-
-CREATE POLICY "admins_full_payment_access"
-ON payment_intents
-FOR ALL
-USING ((SELECT role FROM profiles WHERE id = auth.uid()) = 'admin')
-WITH CHECK ((SELECT role FROM profiles WHERE id = auth.uid()) = 'admin');
-
--- ===== INVOICES TABLE =====
--- Customers see only their invoices, admins see all
-DROP POLICY IF EXISTS "customers_see_own_invoices" ON invoices;
-DROP POLICY IF EXISTS "admins_full_invoice_access" ON invoices;
-
-CREATE POLICY "customers_see_own_invoices"
-ON invoices
-FOR SELECT
-USING (
-  customer_id = auth.uid()
-  OR (SELECT role FROM profiles WHERE id = auth.uid()) = 'admin'
-);
-
-CREATE POLICY "admins_full_invoice_access"
-ON invoices
-FOR ALL
-USING ((SELECT role FROM profiles WHERE id = auth.uid()) = 'admin')
-WITH CHECK ((SELECT role FROM profiles WHERE id = auth.uid()) = 'admin');
-
--- ============================================================================
--- STEP 4: VERIFICATION QUERIES
--- ============================================================================
--- Run these to verify RLS is working:
-
--- Check if admin exists
--- SELECT id, email, role FROM profiles WHERE role = 'admin';
-
--- Check if storage bucket exists
--- SELECT name, owner FROM storage.buckets WHERE name = 'customer-photos';
-
--- Check RLS is enabled on tables
--- SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname = 'public' AND rowsecurity = true;
-
--- ============================================================================
--- NOTES:
--- ============================================================================
--- 1. Storage bucket "customer-photos" must be created via Supabase Dashboard (set to PUBLIC for direct image URLs)
--- 2. All policies assume customer_id or user_id matches auth.uid()
--- 3. Admin profile must exist with role = 'admin'
--- 4. RLS must be ENABLED on all tables (ALTER TABLE ... ENABLE ROW LEVEL SECURITY)
--- 5. Test policies in browser console before going live
+-- 3) Policies created
+SELECT schemaname, tablename, policyname
+FROM pg_policies
+WHERE (schemaname = 'storage' AND tablename = 'objects')
+  OR (schemaname = 'public' AND tablename IN ('customers', 'vehicles', 'booking_requests', 'offers', 'offer_messages', 'payment_intents', 'invoices'))
+ORDER BY schemaname, tablename, policyname;

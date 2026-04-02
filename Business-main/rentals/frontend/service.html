@@ -657,6 +657,10 @@
             <div class="form-group" id="rego-lookup-group" style="display: none;">
                 <label>Vehicle Registration Number</label>
                 <input type="text" id="rego-input" placeholder="Enter rego (e.g., ABC123)" style="text-transform: uppercase;">
+                <label style="margin-top: 0.75rem;">Phone Number</label>
+                <input type="tel" id="dropoff-phone" placeholder="Enter phone number">
+                <label style="margin-top: 0.75rem;">Email</label>
+                <input type="email" id="dropoff-email" placeholder="Enter email address">
                 <button type="button" class="btn btn-primary" style="margin-top: 0.5rem;" onclick="lookupRego()">Find Vehicle</button>
             </div>
             
@@ -743,6 +747,11 @@
                 </div>
 
                 <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="customer-email" required placeholder="name@example.com">
+                </div>
+
+                <div class="form-group">
                     <label id="upload-label">Driver License Photos</label>
                     <div class="photo-upload" onclick="document.getElementById('photo-input').click()">
                         <div class="photo-upload-icon">+</div>
@@ -765,28 +774,23 @@
 
                 <div class="form-group">
                     <label>Duration</label>
-                    <input type="number" id="pricing-duration" min="1" value="" placeholder="Enter duration">
-                    <small id="pricing-duration-label">day(s)</small>
+                    <input type="text" id="pricing-duration" value="undecided" placeholder="Undecided">
+                    <small id="pricing-duration-label">If undecided, we count 1 week by default</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Your Budget (Per Week)</label>
+                    <input type="number" id="pricing-budget" min="0" step="1" value="250" placeholder="Enter your weekly budget">
+                    <small id="pricing-budget-label">Default matches weekly rent price. Change it if you want a discount.</small>
                 </div>
                 <input type="hidden" id="pricing-plan" value="weekly">
                 </div>
 
                 <div id="pickup-step-3-section">
                 <div class="form-group full-width" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:0.85rem;">
-                    <label style="margin-bottom:0.35rem;">Review & Estimate</label>
+                    <label style="margin-bottom:0.35rem;">Estimated Price</label>
                     <p style="margin:0; font-weight:700; color:#1f2937;" id="pickup-price-estimate">$0.00</p>
                     <small id="pickup-price-breakdown" style="color:#64748b;">Select a car to calculate pricing</small>
-                </div>
-
-                <div id="pickup-review-summary" style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:0.9rem; margin-top:0.75rem;">
-                    <div style="font-weight:700; color:#111827; margin-bottom:0.5rem;">Review details</div>
-                    <p style="margin:0.2rem 0; color:#374151;"><strong>Name:</strong> <span id="review-customer-name">-</span></p>
-                    <p style="margin:0.2rem 0; color:#374151;"><strong>Contact:</strong> <span id="review-customer-phone">-</span></p>
-                    <p style="margin:0.2rem 0; color:#374151;"><strong>Vehicle:</strong> <span id="review-vehicle-name">-</span></p>
-                    <p style="margin:0.2rem 0; color:#374151;"><strong>Type:</strong> <span id="review-rental-type">-</span></p>
-                    <p style="margin:0.2rem 0; color:#374151;"><strong>Duration:</strong> <span id="review-duration">-</span></p>
-                    <p style="margin:0.2rem 0; color:#374151;"><strong>Estimated Total:</strong> <span id="review-total">$0.00</span></p>
-                    <p style="margin:0.2rem 0; color:#374151;"><strong>Breakdown:</strong> <span id="review-breakdown">-</span></p>
                 </div>
                 
                 <!-- Notes -->
@@ -822,7 +826,7 @@
             
             <div id="form-action-buttons">
                 <button type="button" class="btn btn-primary" id="primary-action-btn" onclick="handlePrimaryAction()">Next</button>
-                <button type="button" class="btn btn-secondary" onclick="window.location.href='index.html'">Back to Home</button>
+                <button type="button" class="btn btn-secondary" onclick="window.location.href='scanner.html'">Cancel</button>
             </div>
         </form>
         
@@ -862,6 +866,90 @@
             }
             return null;
         }
+
+        async function saveCustomerToSupabase(customerData) {
+            try {
+                const client = getSupabaseClient();
+                if (!client) return null;
+
+                const fullName = String(customerData?.fullName || '').trim();
+                const email = String(customerData?.email || '').trim().toLowerCase();
+                const phone = String(customerData?.phone || '').trim();
+                if (!fullName && !email && !phone) return null;
+
+                let existingCustomer = null;
+                if (email) {
+                    const { data, error } = await client
+                        .from('customers')
+                        .select('*')
+                        .eq('email', email)
+                        .limit(1);
+
+                    if (!error && Array.isArray(data) && data.length) {
+                        existingCustomer = data[0];
+                    }
+                }
+
+                if (!existingCustomer && phone) {
+                    const { data, error } = await client
+                        .from('customers')
+                        .select('*')
+                        .eq('phone', phone)
+                        .limit(1);
+
+                    if (!error && Array.isArray(data) && data.length) {
+                        existingCustomer = data[0];
+                    }
+                }
+
+                const payload = {
+                    full_name: fullName || existingCustomer?.full_name || 'Customer',
+                    email: email || existingCustomer?.email || null,
+                    phone: phone || existingCustomer?.phone || null,
+                    current_vehicle: String(customerData?.currentVehicle || existingCustomer?.current_vehicle || '').trim() || null,
+                    last_request_type: String(customerData?.lastRequestType || existingCustomer?.last_request_type || '').trim() || null,
+                    license_photo_urls: Array.isArray(customerData?.licensePhotoUrls) && customerData.licensePhotoUrls.length
+                        ? customerData.licensePhotoUrls
+                        : (existingCustomer?.license_photo_urls || null),
+                    notes: String(customerData?.notes || existingCustomer?.notes || '').trim() || null,
+                    last_booking_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                };
+
+                if (existingCustomer?.id) {
+                    const { data, error } = await client
+                        .from('customers')
+                        .update(payload)
+                        .eq('id', Number(existingCustomer.id))
+                        .select('*')
+                        .single();
+
+                    if (error) {
+                        console.warn('Customer update failed:', error.message || error);
+                        return existingCustomer;
+                    }
+
+                    return data || existingCustomer;
+                }
+
+                payload.created_at = new Date().toISOString();
+                const { data, error } = await client
+                    .from('customers')
+                    .insert(payload)
+                    .select('*')
+                    .single();
+
+                if (error) {
+                    console.warn('Customer insert failed:', error.message || error);
+                    return null;
+                }
+
+                return data || null;
+            } catch (error) {
+                console.warn('Customer save exception:', error);
+                return null;
+            }
+        }
         
         // Get service type from URL
         const params = new URLSearchParams(window.location.search);
@@ -891,6 +979,14 @@
             const regoLookup = document.getElementById('rego-lookup-group');
             const customerInputs = document.getElementById('customer-input-fields');
             const vehicleSelection = document.getElementById('vehicle-selection');
+            const pickupStep1 = document.getElementById('pickup-step-1-section');
+            const pickupStep2 = document.getElementById('pickup-step-2-section');
+            const pickupStep3 = document.getElementById('pickup-step-3-section');
+            const budgetInput = document.getElementById('pricing-budget');
+
+            if (budgetInput) {
+                budgetInput.value = String(DEFAULT_WEEKLY_RATE);
+            }
             
             if (serviceType === 'pickup') {
                 title.textContent = 'Vehicle Pickup';
@@ -908,6 +1004,9 @@
                 document.getElementById('selected-car-sticky').classList.remove('show');
                 document.getElementById('form-action-buttons').style.display = 'none';
                 document.querySelector('.container').classList.add('pickup-browse-mode');
+                if (pickupStep1) pickupStep1.style.display = 'block';
+                if (pickupStep2) pickupStep2.style.display = 'none';
+                if (pickupStep3) pickupStep3.style.display = 'none';
                 pickupFlowStep = 1;
                 document.getElementById('progress-text').textContent = 'Step 1 of 3 - Select Car';
                 loadAvailableVehiclesAsCards();
@@ -928,7 +1027,15 @@
                 if (primaryActionBtn) primaryActionBtn.textContent = 'Submit Service';
                 document.getElementById('customer-name').required = false;
                 document.getElementById('customer-phone').required = false;
+                document.getElementById('customer-email').required = false;
                 document.getElementById('vehicle-select').required = false;
+                const dropoffPhone = document.getElementById('dropoff-phone');
+                const dropoffEmail = document.getElementById('dropoff-email');
+                if (dropoffPhone) dropoffPhone.required = true;
+                if (dropoffEmail) dropoffEmail.required = false;
+                if (pickupStep1) pickupStep1.style.display = 'none';
+                if (pickupStep2) pickupStep2.style.display = 'none';
+                if (pickupStep3) pickupStep3.style.display = 'block';
             } else if (serviceType === 'swap') {
                 title.textContent = 'Vehicle Swap';
                 badge.textContent = 'SWAP';
@@ -937,13 +1044,20 @@
                 document.getElementById('upload-title').textContent = 'Tap to take photos';
                 document.getElementById('upload-hint').textContent = 'Current condition and key areas';
                 regoLookup.style.display = 'block';
-                customerInputs.style.display = 'none';
+                customerInputs.style.display = 'block';
                 vehicleSelection.style.display = 'none';
                 document.getElementById('pickup-details-section').classList.remove('hidden');
                 document.querySelector('.container').classList.remove('pickup-browse-mode');
                 document.getElementById('form-action-buttons').style.display = 'block';
                 const primaryActionBtn = document.getElementById('primary-action-btn');
                 if (primaryActionBtn) primaryActionBtn.textContent = 'Submit Service';
+                document.getElementById('customer-name').required = true;
+                document.getElementById('customer-phone').required = true;
+                document.getElementById('customer-email').required = true;
+                document.getElementById('vehicle-select').required = false;
+                if (pickupStep1) pickupStep1.style.display = 'block';
+                if (pickupStep2) pickupStep2.style.display = 'block';
+                if (pickupStep3) pickupStep3.style.display = 'none';
             }
             
             generateServiceRef();
@@ -952,9 +1066,16 @@
         // Lookup rego for drop-off
         async function lookupRego() {
             const rego = document.getElementById('rego-input').value.trim().toUpperCase();
+            const lookupPhone = document.getElementById('dropoff-phone').value.trim();
+            const lookupEmail = document.getElementById('dropoff-email').value.trim().toLowerCase();
             
             if (!rego) {
                 alert('Please enter a registration number');
+                return;
+            }
+
+            if (!lookupPhone) {
+                alert('Please enter the phone number for the drop-off request');
                 return;
             }
             
@@ -965,7 +1086,7 @@
                 if (client) {
                     const { data: vehicleRows, error: vehicleError } = await client
                         .from('vehicles')
-                        .select('id,name,make,model,plate')
+                        .select('id,name,make,model,plate,rate_day,rate_week,mileage')
                         .eq('plate', rego)
                         .limit(1);
 
@@ -975,26 +1096,38 @@
                             .from('booking_requests')
                             .select('*')
                             .eq('vehicle_id', Number(vehicle.id))
-                            .in('status', ['active', 'approved'])
                             .order('created_at', { ascending: false })
-                            .limit(1);
+                            .limit(10);
 
                         if (!bookingError && Array.isArray(bookingRows) && bookingRows.length) {
-                            const booking = bookingRows[0];
+                            const booking = bookingRows.find(row => {
+                                const matchesPhone = lookupPhone ? String(row.phone || '').trim() === lookupPhone : true;
+                                const matchesEmail = lookupEmail ? String(row.email || '').trim().toLowerCase() === lookupEmail : true;
+                                return matchesPhone && matchesEmail;
+                            }) || bookingRows[0];
                             foundRental = {
                                 bookingRequestId: Number(booking.id),
                                 customerName: booking.customer || 'Customer',
                                 customerPhone: booking.phone || '',
+                                customerEmail: booking.email || '',
+                                customerId: Number(booking.customer_id || booking.customerId || 0) || null,
                                 mileage: DEFAULT_ODOMETER,
                                 vehicle: {
                                     id: Number(vehicle.id),
                                     name: vehicle.name || `${vehicle.make || ''} ${vehicle.model || ''}`.trim() || 'Vehicle',
                                     make: vehicle.make || '',
                                     model: vehicle.model || '',
+                                    mileage: Number(vehicle.mileage || DEFAULT_ODOMETER),
+                                    rateDay: Number(vehicle.rate_day || DEFAULT_DAILY_RATE),
+                                    rateWeek: Number(vehicle.rate_week || DEFAULT_WEEKLY_RATE),
                                     rego: vehicle.plate,
                                     license: vehicle.plate
                                 }
                             };
+
+                            if (String(booking.status || '').toLowerCase() === 'pending') {
+                                alert('A pending booking was found for this vehicle. You can continue with the drop-off submission.');
+                            }
                         }
                     }
                 }
@@ -1019,13 +1152,18 @@
                 if (odometerInput) {
                     odometerInput.value = foundRental.vehicle?.mileage || foundRental.mileage || DEFAULT_ODOMETER;
                 }
+
+                const budgetInput = document.getElementById('pricing-budget');
+                if (budgetInput) {
+                    budgetInput.value = String(getVehicleWeeklyRate(foundRental.vehicle));
+                }
                 
                 // Hide rego lookup, enable form
                 document.getElementById('rego-lookup-group').style.display = 'none';
                 
                 alert(`✓ Rental found for ${foundRental.customerName || 'customer'}. Please complete the drop-off form.`);
             } else {
-                alert('No active rental found for this registration number. Please check and try again.');
+                alert('No rental record found for this registration number. Please check and try again.');
             }
         }
         
@@ -1051,47 +1189,6 @@
             if (primaryActionBtn) {
                 primaryActionBtn.textContent = pickupFlowStep === 3 ? 'Submit Service' : 'Next';
             }
-
-            if (pickupFlowStep === 3) {
-                updatePickupReviewSummary();
-            }
-        }
-
-        function updatePickupReviewSummary() {
-            const selectedVehicleData = document.getElementById('selected-vehicle-data').value;
-            const name = document.getElementById('customer-name').value.trim() || 'Not entered';
-            const phone = document.getElementById('customer-phone').value.trim() || 'Not entered';
-            const rentalTypeValue = document.getElementById('rental-type')?.value || 'rent';
-            const durationInput = document.getElementById('pricing-duration');
-            const durationValue = Math.max(1, Number(durationInput?.value) || 7);
-
-            let vehicle = null;
-            try {
-                vehicle = selectedVehicleData ? JSON.parse(selectedVehicleData) : null;
-            } catch {
-                vehicle = null;
-            }
-
-            const pricing = vehicle ? getPickupPricingSnapshot(vehicle) : null;
-            const vehicleName = vehicle ? `${getVehicleName(vehicle)} • ${vehicle.rego || vehicle.license || 'N/A'}` : 'Not selected';
-            const rentalTypeText = rentalTypeValue === 'rent_to_own' ? 'Rent to Own' : 'Rent';
-            const durationText = durationInput?.value ? `${durationValue} day(s)` : 'Weekly by default';
-
-            const reviewCustomerName = document.getElementById('review-customer-name');
-            const reviewCustomerPhone = document.getElementById('review-customer-phone');
-            const reviewVehicleName = document.getElementById('review-vehicle-name');
-            const reviewRentalType = document.getElementById('review-rental-type');
-            const reviewDuration = document.getElementById('review-duration');
-            const reviewTotal = document.getElementById('review-total');
-            const reviewBreakdown = document.getElementById('review-breakdown');
-
-            if (reviewCustomerName) reviewCustomerName.textContent = name;
-            if (reviewCustomerPhone) reviewCustomerPhone.textContent = phone;
-            if (reviewVehicleName) reviewVehicleName.textContent = vehicleName;
-            if (reviewRentalType) reviewRentalType.textContent = rentalTypeText;
-            if (reviewDuration) reviewDuration.textContent = durationText;
-            if (reviewTotal) reviewTotal.textContent = pricing ? `$${pricing.total.toFixed(2)}` : '$0.00';
-            if (reviewBreakdown) reviewBreakdown.textContent = pricing ? pricing.breakdownText : 'Select a car to calculate pricing';
         }
         
         // Load available vehicles as visual cards (for pickup)
@@ -1154,6 +1251,7 @@
                 serviceRef: serviceData.serviceRef,
                 type: serviceData.type,
                 odometer: serviceData.mileage || 'N/A',
+                budgetWeekly: Number(serviceData.budgetWeekly || 0) || getVehicleWeeklyRate(serviceData.vehicle),
                 location: serviceData.location || null,
                 photoCount: serviceData.photoCount || 0,
                 photoUrls: Array.isArray(serviceData.photos) ? serviceData.photos.map(item => item.url).filter(Boolean) : [],
@@ -1173,7 +1271,8 @@
             return {
                 customer: serviceData.customerName || 'Customer',
                 phone: serviceData.customerPhone || '',
-                email: '',
+                email: serviceData.customerEmail || '',
+                customerId: Number(serviceData.customerId || 0) || null,
                 car: carName,
                 carId: Number(serviceData.vehicle?.id || 0) || null,
                 pickupDate: pickupAt.toISOString(),
@@ -1190,6 +1289,7 @@
                 customer: request.customer || null,
                 phone: request.phone || null,
                 email: request.email || null,
+                customer_id: Number(request.customerId || 0) || null,
                 car: request.car || null,
                 vehicle_id: Number(request.carId || 0) || null,
                 pickup_at: request.pickupDate ? new Date(request.pickupDate).toISOString() : null,
@@ -1277,6 +1377,7 @@
                     type: serviceData.type,
                     submittedAt: serviceData.timestamp,
                     odometer: serviceData.mileage || 'N/A',
+                    budgetWeekly: Number(serviceData.budgetWeekly || 0) || getVehicleWeeklyRate(serviceData.vehicle),
                     location: serviceData.location || null,
                     photoCount: serviceData.photoCount || 0,
                     photoUrls: Array.isArray(serviceData.photos) ? serviceData.photos.map(item => item.url).filter(Boolean) : [],
@@ -1319,69 +1420,67 @@
         }
 
         function getVehicleWeeklyRate(vehicle) {
-            const weekRate = Number(vehicle?.priceWeek || 0);
+            const weekRate = Number(vehicle?.priceWeek ?? vehicle?.rateWeek ?? vehicle?.rate_week ?? 0);
             if (Number.isFinite(weekRate) && weekRate > 0) {
                 return weekRate;
             }
             return DEFAULT_WEEKLY_RATE;
         }
 
+        function getRequestedBudget(vehicle) {
+            const budgetInput = document.getElementById('pricing-budget');
+            const parsed = Number(budgetInput?.value);
+            if (Number.isFinite(parsed) && parsed >= 0) {
+                return parsed;
+            }
+            return getVehicleWeeklyRate(vehicle);
+        }
+
         function calculatePickupPricing(vehicle, planValue, durationValue, rentalTypeValue) {
             const plan = planValue === 'weekly' ? 'weekly' : 'daily';
-            const durationDays = Math.max(1, Number(durationValue) || 1);
+            const parsedDuration = Number(durationValue);
+            const durationUnits = Number.isFinite(parsedDuration) && parsedDuration > 0 ? Math.max(1, Math.floor(parsedDuration)) : 1;
             const rentalType = rentalTypeValue === 'rent_to_own' ? 'rent_to_own' : 'rent';
             const dayRate = getVehicleDayRate(vehicle);
             const weekRate = getVehicleWeeklyRate(vehicle);
             const surcharge = rentalType === 'rent_to_own' ? RENT_TO_OWN_SURCHARGE : 0;
 
             if (plan === 'weekly') {
-                const fullWeeks = Math.floor(durationDays / 7);
-                const extraDays = durationDays % 7;
-                const perDayFromWeekly = weekRate / 7;
-                const baseTotal = (fullWeeks * weekRate) + (extraDays * perDayFromWeekly);
-                const total = baseTotal + surcharge;
-                let breakdownText = '';
-                if (fullWeeks > 0 && extraDays > 0) {
-                    breakdownText = `${fullWeeks} week(s) x $${weekRate.toFixed(2)} + ${extraDays} day(s) x $${perDayFromWeekly.toFixed(2)}`;
-                } else if (fullWeeks > 0) {
-                    breakdownText = `${fullWeeks} week(s) x $${weekRate.toFixed(2)}`;
-                } else {
-                    breakdownText = `${extraDays} day(s) x $${perDayFromWeekly.toFixed(2)} (weekly pro-rata)`;
-                }
+                const total = (durationUnits * weekRate) + surcharge;
 
                 return {
                     plan,
                     rentalType,
-                    durationDays,
+                    durationDays: durationUnits * 7,
                     dayRate,
                     weekRate,
-                    fullWeeks,
-                    extraDays,
+                    fullWeeks: durationUnits,
+                    extraDays: 0,
                     surcharge,
                     unitRate: weekRate,
                     total,
-                    durationLabel: 'day(s)',
-                    breakdownText: surcharge > 0 ? `${breakdownText} + Rent to Own $${surcharge.toFixed(2)}` : breakdownText
+                    durationLabel: 'week(s)',
+                    breakdownText: `${durationUnits} week(s) x $${weekRate.toFixed(2)}${surcharge > 0 ? ` + Rent to Own $${surcharge.toFixed(2)}` : ''}`
                 };
             }
 
-            const baseTotal = durationDays * dayRate;
+            const baseTotal = durationUnits * dayRate;
             const total = baseTotal + surcharge;
             return {
                 plan,
                 rentalType,
-                durationDays,
+                durationDays: durationUnits,
                 dayRate,
                 weekRate,
                 fullWeeks: 0,
-                extraDays: durationDays,
+                extraDays: durationUnits,
                 surcharge,
                 unitRate: dayRate,
                 total,
                 durationLabel: 'day(s)',
                 breakdownText: surcharge > 0
-                    ? `${durationDays} day(s) x $${dayRate.toFixed(2)} (daily) + Rent to Own $${surcharge.toFixed(2)}`
-                    : `${durationDays} day(s) x $${dayRate.toFixed(2)} (daily)`
+                    ? `${durationUnits} day(s) x $${dayRate.toFixed(2)} (daily) + Rent to Own $${surcharge.toFixed(2)}`
+                    : `${durationUnits} day(s) x $${dayRate.toFixed(2)} (daily)`
             };
         }
 
@@ -1399,9 +1498,10 @@
             }
 
             const plan = planSelect.value === 'weekly' ? 'weekly' : 'daily';
-            const duration = Math.max(1, Number(durationInput.value) || 7);
+            const durationValue = String(durationInput.value || '').trim().toLowerCase();
+            const duration = durationValue === 'undecided' ? 1 : Math.max(1, Number(durationInput.value) || 7);
             const rentalType = rentalTypeSelect.value === 'rent_to_own' ? 'rent_to_own' : 'rent';
-            durationLabel.textContent = 'day(s)';
+            durationLabel.textContent = durationValue === 'undecided' ? 'week(s) by default' : (plan === 'weekly' ? 'week(s)' : 'day(s)');
 
             if (!selectedVehicleData) {
                 estimateEl.textContent = '$0.00';
@@ -1434,7 +1534,8 @@
             const rentalTypeSelect = document.getElementById('rental-type');
 
             const plan = (planSelect?.value === 'weekly') ? 'weekly' : 'daily';
-            const duration = Math.max(1, Number(durationInput?.value) || 7);
+            const durationValue = String(durationInput?.value || '').trim().toLowerCase();
+            const duration = durationValue === 'undecided' ? 1 : Math.max(1, Number(durationInput?.value) || 7);
             const rentalType = (rentalTypeSelect?.value === 'rent_to_own') ? 'rent_to_own' : 'rent';
             const pricing = calculatePickupPricing(vehicle, plan, duration, rentalType);
 
@@ -1451,6 +1552,39 @@
                 extraDays: pricing.extraDays,
                 surcharge: pricing.surcharge,
                 breakdownText: pricing.breakdownText
+            };
+        }
+
+        function buildServiceDetailsPayload(serviceData, pricing, bookingRequest) {
+            return {
+                serviceType: serviceData.type,
+                serviceRef: serviceData.serviceRef,
+                customerName: serviceData.customerName || 'Customer',
+                customerPhone: serviceData.customerPhone || '',
+                customerEmail: serviceData.customerEmail || '',
+                customerId: Number(serviceData.customerId || 0) || null,
+                vehicleName: getVehicleName(serviceData.vehicle),
+                vehicleRego: serviceData.vehicle?.rego || serviceData.vehicle?.license || '',
+                vehicleId: Number(serviceData.vehicle?.id || 0) || null,
+                pickupDate: bookingRequest?.pickupDate || null,
+                returnDate: bookingRequest?.returnDate || null,
+                pricingPlan: pricing?.plan || 'weekly',
+                pricingDuration: pricing?.durationDays || 7,
+                pricingLabel: pricing?.durationLabel || 'week(s)',
+                pricingTotal: pricing?.total || 0,
+                pricingDayRate: pricing?.dayRate || 0,
+                pricingWeekRate: pricing?.weekRate || 0,
+                pricingSurcharge: pricing?.surcharge || 0,
+                pricingBreakdown: pricing?.breakdownText || '',
+                rentalType: serviceData.rentalType || 'rent',
+                budgetWeekly: Number(serviceData.budgetWeekly || 0) || 0,
+                mileage: serviceData.mileage || DEFAULT_ODOMETER,
+                location: serviceData.location || null,
+                photoCount: Number(serviceData.photoCount || 0) || 0,
+                photoUrls: Array.isArray(serviceData.photos) ? serviceData.photos.map(item => item.url).filter(Boolean) : [],
+                notes: serviceData.notes || '',
+                submittedAt: serviceData.timestamp || new Date().toISOString(),
+                bookingRequestId: Number(bookingRequest?.id || 0) || null
             };
         }
 
@@ -1580,6 +1714,11 @@
             stickyText.textContent = `${getVehicleName(vehicle)} • ${vehicle.rego || vehicle.license || 'N/A'} • $${vehicle.rate}/day`;
             sticky.classList.add('show');
 
+            const budgetInput = document.getElementById('pricing-budget');
+            if (budgetInput) {
+                budgetInput.value = String(getVehicleWeeklyRate(vehicle));
+            }
+
             const detailsSection = document.getElementById('pickup-details-section');
             const container = document.querySelector('.container');
             if (detailsSection && serviceType === 'pickup') {
@@ -1664,7 +1803,6 @@
                 pickupFlowStep = 3;
                 updatePickupStepVisibility();
                 updatePickupPricingPreview();
-                updatePickupReviewSummary();
                 updateFormProgress();
                 return;
             }
@@ -1715,7 +1853,7 @@
             const hasPhotos = photos.length > 0;
             progressBar.style.width = hasPhotos ? '100%' : '84%';
             progressText.textContent = hasPhotos
-                ? 'Step 3 of 3 - Review details and confirm'
+                ? 'Step 3 of 3 - Review price and submit'
                 : 'Step 3 of 3 - Blocked: upload photo(s)';
         }
 
@@ -2005,7 +2143,7 @@
             isSubmittingService = true;
 
             try {
-                let vehicle, customerName, customerPhone;
+                let vehicle, customerName, customerPhone, customerEmail, customerRecord;
 
                 if (serviceType === 'pickup') {
                     if (pickupFlowStep < 3) {
@@ -2029,6 +2167,12 @@
                     vehicle = JSON.parse(vehicleData);
                     customerName = document.getElementById('customer-name').value;
                     customerPhone = document.getElementById('customer-phone').value;
+                    customerEmail = document.getElementById('customer-email').value;
+                    customerRecord = await saveCustomerToSupabase({
+                        fullName: customerName,
+                        email: customerEmail,
+                        phone: customerPhone
+                    });
                 } else {
                     // Drop-off or swap
                     if (!currentRental) {
@@ -2038,6 +2182,7 @@
                     vehicle = currentRental.vehicle;
                     customerName = currentRental.customerName || currentRental.customer;
                     customerPhone = currentRental.customerPhone || currentRental.phone;
+                    customerEmail = currentRental.customerEmail || currentRental.email || '';
                 }
 
                 // Generate reference ID for photo storage path
@@ -2051,10 +2196,13 @@
                     serviceRef: serviceRef,
                     customerName: customerName,
                     customerPhone: customerPhone,
+                    customerEmail: customerEmail || '',
+                    customerId: Number(customerRecord?.id || currentRental?.customerId || 0) || null,
                     vehicle: vehicle,
-                        pricingPlan: (document.getElementById('pricing-plan')?.value || 'weekly'),
-                        pricingDuration: getPickupPricingSnapshot(vehicle).duration,
+                    pricingPlan: (document.getElementById('pricing-plan')?.value || 'weekly'),
+                    pricingDuration: getPickupPricingSnapshot(vehicle).duration,
                     rentalType: (document.getElementById('rental-type')?.value || 'rent'),
+                    budgetWeekly: getRequestedBudget(vehicle),
                     mileage: document.getElementById('mileage').value || vehicle.mileage || currentRental?.mileage || DEFAULT_ODOMETER,
                     notes: document.getElementById('notes').value,
                     location: gpsLocation,
@@ -2064,14 +2212,37 @@
                 };
 
                 if (serviceType === 'pickup') {
+                    await saveCustomerToSupabase({
+                        fullName: customerName,
+                        email: customerEmail,
+                        phone: customerPhone,
+                        currentVehicle: getVehicleName(vehicle),
+                        lastRequestType: 'pickup',
+                        licensePhotoUrls: uploadedPhotos.map(photo => photo.url).filter(Boolean)
+                    });
+
                     const pickupRequest = buildScannerPickupRequest(serviceData);
                     const insertedRequest = await saveBookingRequestToSupabase(pickupRequest);
                     if (!insertedRequest || !insertedRequest.id) {
                         alert('Could not save pickup booking request. Please check Supabase setup and try again.');
                         return;
                     }
+
+                    const pricing = getPickupPricingSnapshot(vehicle);
+                    const detailsPayload = buildServiceDetailsPayload(serviceData, pricing, insertedRequest);
+                    sessionStorage.setItem('veera-last-service-details', JSON.stringify(detailsPayload));
+                    window.location.href = 'service-details.html';
+                    return;
                 } else {
                     await saveServiceEventToSupabase(serviceData);
+                    const detailsPayload = buildServiceDetailsPayload(serviceData, null, {
+                        id: null,
+                        pickupDate: serviceData.timestamp,
+                        returnDate: serviceData.timestamp
+                    });
+                    sessionStorage.setItem('veera-last-service-details', JSON.stringify(detailsPayload));
+                    window.location.href = 'service-details.html';
+                    return;
                 }
 
                 // Show success message
@@ -2112,6 +2283,7 @@
         document.getElementById('pricing-plan').addEventListener('change', updatePickupPricingPreview);
         document.getElementById('rental-type').addEventListener('change', updatePickupPricingPreview);
         document.getElementById('pricing-duration').addEventListener('input', updatePickupPricingPreview);
+        document.getElementById('pricing-budget').addEventListener('input', updatePickupPricingPreview);
         updatePickupPricingPreview();
 
         // Close compare modal when clicking outside

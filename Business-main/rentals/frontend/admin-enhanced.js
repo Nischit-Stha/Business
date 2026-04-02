@@ -125,6 +125,58 @@ function renderPhotoLinksFromNotes(notes) {
     return `<p><strong>Photos:</strong> ${links}</p>`;
 }
 
+function extractLatestServiceEventByType(notes, type) {
+    const normalizedType = String(type || '').trim().toLowerCase();
+    if (!normalizedType) return null;
+
+    const payloads = extractServicePayloadsFromNotes(notes);
+    if (!payloads.length) return null;
+
+    for (let i = payloads.length - 1; i >= 0; i -= 1) {
+        const payload = payloads[i];
+        if (String(payload?.type || '').trim().toLowerCase() === normalizedType) {
+            return payload;
+        }
+    }
+
+    return null;
+}
+
+function renderBookingCard(booking, extraBadges = []) {
+    const createdAt = booking.created_at || new Date().toISOString();
+    const vehicleText = sanitizeText(booking.car || booking.car_name, `Vehicle #${Number(booking.vehicle_id || 0) || ''}`);
+    const badgeText = [sanitizeText(booking.status, 'pending'), ...extraBadges.filter(Boolean)].join(' • ');
+
+    return `
+        <div class="booking-card ${String(booking.status || '').toLowerCase()}">
+            <div class="booking-header">
+                <span class="booking-type-badge">${badgeText}</span>
+                <span class="booking-ref">#${Number(booking.id || 0)}</span>
+            </div>
+            <div class="booking-details">
+                <p><strong>Customer:</strong> ${sanitizeText(booking.customer)}</p>
+                <p><strong>Phone:</strong> ${sanitizeText(booking.phone)}</p>
+                <p><strong>Email:</strong> ${sanitizeText(booking.email)}</p>
+                <p><strong>Vehicle:</strong> ${vehicleText}</p>
+                <p><strong>Pickup:</strong> ${booking.pickup_at ? new Date(booking.pickup_at).toLocaleString() : 'N/A'}</p>
+                <p><strong>Return:</strong> ${booking.return_at ? new Date(booking.return_at).toLocaleString() : 'N/A'}</p>
+                <p><strong>Created:</strong> ${new Date(createdAt).toLocaleString()}</p>
+                ${renderLocationFromNotes(booking.notes)}
+                ${renderPhotoLinksFromNotes(booking.notes)}
+            </div>
+        </div>
+    `;
+}
+
+function renderBookingSection(title, cardsHtml, emptyText) {
+    return `
+        <section style="margin-bottom: 1.5rem;">
+            <h3 style="font-family: 'Poppins', sans-serif; font-size: 1.15rem; margin-bottom: 0.75rem; color: #1a1a1a;">${escapeHtml(title)}</h3>
+            ${cardsHtml || `<p class="empty-state">${escapeHtml(emptyText)}</p>`}
+        </section>
+    `;
+}
+
 function toCurrency(value) {
     return `$${Number(value || 0).toFixed(2)}`;
 }
@@ -195,6 +247,67 @@ async function fetchInvoices() {
     }
 }
 
+async function fetchCustomers() {
+    const client = getSupabaseClient();
+    if (!client) return [];
+
+    try {
+        const [customersResult, bookingsResult, invoicesResult] = await Promise.all([
+            client.from('customers').select('*').order('updated_at', { ascending: false }),
+            client.from('booking_requests').select('*').order('created_at', { ascending: false }),
+            client.from('invoices').select('*').order('created_at', { ascending: false })
+        ]);
+
+        const customers = Array.isArray(customersResult.data) ? customersResult.data : [];
+        const bookings = Array.isArray(bookingsResult.data) ? bookingsResult.data : [];
+        const invoices = Array.isArray(invoicesResult.data) ? invoicesResult.data : [];
+
+        return customers.map(customer => {
+            const customerId = Number(customer.id || 0);
+            const linkedBookings = bookings.filter(booking => Number(booking.customer_id || booking.customerId || 0) === customerId ||
+                sanitizeText(booking.email, '').toLowerCase() === sanitizeText(customer.email, '').toLowerCase() ||
+                sanitizeText(booking.phone, '') === sanitizeText(customer.phone, ''));
+            const linkedInvoices = invoices.filter(invoice => Number(invoice.customer_id || invoice.customerId || 0) === customerId ||
+                sanitizeText(invoice.customer_email || invoice.customerEmail, '').toLowerCase() === sanitizeText(customer.email, '').toLowerCase() ||
+                sanitizeText(invoice.customer_phone || invoice.customerPhone, '') === sanitizeText(customer.phone, ''));
+
+            const sortedBookings = linkedBookings
+                .slice()
+                .sort((a, b) => new Date(b.created_at || b.createdAt || b.pickup_at || b.pickupDate || 0) - new Date(a.created_at || a.createdAt || a.pickup_at || a.pickupDate || 0));
+            const latestBooking = sortedBookings[0] || null;
+            const latestBookingPayloads = latestBooking ? extractServicePayloadsFromNotes(latestBooking.notes) : [];
+            const latestServiceEvent = latestBookingPayloads.length ? latestBookingPayloads[latestBookingPayloads.length - 1] : null;
+
+            const bookingVehicles = [...new Set(linkedBookings.map(booking => sanitizeText(booking.car || booking.car_name, 'Vehicle')).filter(Boolean))];
+            const totalSpent = linkedInvoices.reduce((sum, invoice) => sum + Number(invoice.total_amount || invoice.totalAmount || 0), 0);
+            const lastBookingDate = linkedBookings.length
+                ? linkedBookings.reduce((latest, booking) => {
+                    const bookingDate = new Date(booking.created_at || booking.createdAt || booking.pickup_at || booking.pickupDate || 0);
+                    if (Number.isNaN(bookingDate.getTime())) return latest;
+                    return !latest || bookingDate > latest ? bookingDate : latest;
+                }, null)
+                : null;
+
+            const licensePhotoUrls = latestBooking ? extractPhotoUrlsFromNotes(latestBooking.notes) : [];
+
+            return {
+                ...customer,
+                bookingCount: linkedBookings.length,
+                invoiceCount: linkedInvoices.length,
+                totalSpent,
+                vehicles: bookingVehicles,
+                currentVehicle: customer.current_vehicle || latestBooking?.car || latestBooking?.car_name || bookingVehicles[0] || null,
+                lastRequestType: customer.last_request_type || latestServiceEvent?.type || latestBooking?.source || null,
+                licensePhotoUrls: Array.isArray(customer.license_photo_urls) ? customer.license_photo_urls : licensePhotoUrls,
+                lastBookingAt: customer.last_booking_at || lastBookingDate?.toISOString() || null
+            };
+        });
+    } catch (error) {
+        console.warn('Admin customers load exception:', error);
+        return [];
+    }
+}
+
 // Tab Navigation
 async function showTab(tabName) {
     document.querySelectorAll('.tab-content').forEach(section => {
@@ -217,6 +330,8 @@ async function showTab(tabName) {
 
     if (tabName === 'bookings') {
         await renderAllBookings();
+    } else if (tabName === 'customers') {
+        await renderCustomers();
     } else if (tabName === 'inventory') {
         await renderInventory();
     } else if (tabName === 'invoices') {
@@ -236,29 +351,43 @@ async function renderAllBookings() {
         return;
     }
 
-    bookingsGrid.innerHTML = bookings.map(booking => {
-        const createdAt = booking.created_at || new Date().toISOString();
-        const vehicleText = sanitizeText(booking.car || booking.car_name, `Vehicle #${Number(booking.vehicle_id || 0) || ''}`);
-        return `
-            <div class="booking-card ${String(booking.status || '').toLowerCase()}">
-                <div class="booking-header">
-                    <span class="booking-type-badge">${sanitizeText(booking.status, 'pending')}</span>
-                    <span class="booking-ref">#${Number(booking.id || 0)}</span>
-                </div>
-                <div class="booking-details">
-                    <p><strong>Customer:</strong> ${sanitizeText(booking.customer)}</p>
-                    <p><strong>Phone:</strong> ${sanitizeText(booking.phone)}</p>
-                    <p><strong>Email:</strong> ${sanitizeText(booking.email)}</p>
-                    <p><strong>Vehicle:</strong> ${vehicleText}</p>
-                    <p><strong>Pickup:</strong> ${booking.pickup_at ? new Date(booking.pickup_at).toLocaleString() : 'N/A'}</p>
-                    <p><strong>Return:</strong> ${booking.return_at ? new Date(booking.return_at).toLocaleString() : 'N/A'}</p>
-                    <p><strong>Created:</strong> ${new Date(createdAt).toLocaleString()}</p>
-                    ${renderLocationFromNotes(booking.notes)}
-                    ${renderPhotoLinksFromNotes(booking.notes)}
-                </div>
-            </div>
-        `;
+    const dropoffRequests = [];
+    const swapRequests = [];
+    const pickupRequests = [];
+
+    bookings.forEach(booking => {
+        const dropoffEvent = extractLatestServiceEventByType(booking.notes, 'dropoff');
+        const swapEvent = extractLatestServiceEventByType(booking.notes, 'swap');
+
+        if (dropoffEvent) {
+            dropoffRequests.push({ booking, event: dropoffEvent });
+        }
+
+        if (swapEvent) {
+            swapRequests.push({ booking, event: swapEvent });
+        }
+
+        const source = String(booking.source || '').toLowerCase();
+        if (!dropoffEvent && !swapEvent && (source.includes('pickup') || source === '' || source === 'scanner')) {
+            pickupRequests.push(booking);
+        }
+    });
+
+    const pickupCards = pickupRequests.map(item => renderBookingCard(item, ['PICKUP REQUEST'])).join('');
+    const dropoffCards = dropoffRequests.map(item => {
+        const submittedAt = item.event?.submittedAt ? new Date(item.event.submittedAt).toLocaleString() : 'N/A';
+        return renderBookingCard(item.booking, [`DROP-OFF REQUEST`, `Submitted: ${submittedAt}`]);
     }).join('');
+    const swapCards = swapRequests.map(item => {
+        const submittedAt = item.event?.submittedAt ? new Date(item.event.submittedAt).toLocaleString() : 'N/A';
+        return renderBookingCard(item.booking, [`SWAP REQUEST`, `Submitted: ${submittedAt}`]);
+    }).join('');
+
+    bookingsGrid.innerHTML = `
+        ${renderBookingSection('Pickup Requests', pickupCards, 'No pickup requests found.')}
+        ${renderBookingSection('Drop-off Requests', dropoffCards, 'No drop-off requests found.')}
+        ${renderBookingSection('Swap Requests', swapCards, 'No swap requests found.')}
+    `;
 }
 
 // Render Inventory (Fleet)
@@ -304,6 +433,85 @@ async function renderInventory() {
                         <p><strong>Rate:</strong> ${toCurrency(vehicle.rate_day)}/day</p>
                     </div>
                     <button class="btn btn-small" onclick="changeVehicleStatus(${Number(vehicle.id)})">Change Status</button>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+// Render Customers
+async function renderCustomers() {
+    const customers = await fetchCustomers();
+    const customersGrid = document.getElementById('customers-grid');
+
+    if (!customersGrid) return;
+
+    const totalBookings = customers.reduce((sum, customer) => sum + Number(customer.bookingCount || 0), 0);
+    const totalSpent = customers.reduce((sum, customer) => sum + Number(customer.totalSpent || 0), 0);
+    const activeCustomers = customers.filter(customer => Number(customer.bookingCount || 0) > 0).length;
+
+    if (!customers.length) {
+        customersGrid.innerHTML = `
+            <div class="reports-grid">
+                <div class="report-card">
+                    <h3>Customer Summary</h3>
+                    <div class="report-stats">
+                        <p><strong>Total Customers:</strong> 0</p>
+                        <p><strong>Active Customers:</strong> 0</p>
+                        <p><strong>Total Bookings:</strong> 0</p>
+                        <p><strong>Total Spent:</strong> ${toCurrency(0)}</p>
+                    </div>
+                </div>
+            </div>
+            <p class="empty-state">No customers found.</p>
+        `;
+        return;
+    }
+
+    customersGrid.innerHTML = `
+        <div class="reports-grid">
+            <div class="report-card">
+                <h3>Customer Summary</h3>
+                <div class="report-stats">
+                    <p><strong>Total Customers:</strong> ${customers.length}</p>
+                    <p><strong>Active Customers:</strong> ${activeCustomers}</p>
+                    <p><strong>Total Bookings:</strong> ${totalBookings}</p>
+                    <p><strong>Total Spent:</strong> ${toCurrency(totalSpent)}</p>
+                </div>
+            </div>
+            <div class="report-card">
+                <h3>Top Customers</h3>
+                <div class="report-stats">
+                    ${customers
+                        .slice()
+                        .sort((a, b) => Number(b.totalSpent || 0) - Number(a.totalSpent || 0))
+                        .slice(0, 5)
+                        .map(customer => `<p><strong>${sanitizeText(customer.full_name || customer.fullName)}</strong><br><small>${Number(customer.bookingCount || 0)} booking(s) • ${toCurrency(customer.totalSpent || 0)}</small></p>`)
+                        .join('')}
+                </div>
+            </div>
+        </div>
+        <div class="inventory-list">
+            ${customers.map(customer => `
+                <div class="vehicle-card">
+                    <div class="vehicle-header">
+                        <h3>${sanitizeText(customer.full_name || customer.fullName)}</h3>
+                        <span class="status-badge available">${Number(customer.bookingCount || 0)} booking(s)</span>
+                    </div>
+                    <div class="vehicle-details">
+                        <p><strong>Phone:</strong> ${sanitizeText(customer.phone)}</p>
+                        <p><strong>Email:</strong> ${sanitizeText(customer.email)}</p>
+                        <p><strong>Current Vehicle:</strong> ${sanitizeText(customer.currentVehicle)}</p>
+                        <p><strong>Request Type:</strong> ${sanitizeText(customer.lastRequestType)}</p>
+                        <p><strong>Last Booking:</strong> ${customer.lastBookingAt ? new Date(customer.lastBookingAt).toLocaleString() : 'N/A'}</p>
+                        <p><strong>Vehicles Used:</strong> ${customer.vehicles && customer.vehicles.length ? customer.vehicles.join(', ') : 'None yet'}</p>
+                        <p><strong>Total Spent:</strong> ${toCurrency(customer.totalSpent || 0)}</p>
+                        <p><strong>License Photos:</strong> ${customer.licensePhotoUrls && customer.licensePhotoUrls.length ? customer.licensePhotoUrls.map((url, index) => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Photo ${index + 1}</a>`).join(' | ') : 'None saved'}</p>
+                        ${customer.notes ? `<p><strong>Notes:</strong> ${sanitizeText(customer.notes)}</p>` : ''}
+                    </div>
+                    <div class="invoice-actions">
+                        <button class="btn btn-small" onclick="showCustomerHistory('${String(customer.id).replace(/'/g, "\\'")}')">View History</button>
+                    </div>
                 </div>
             `).join('')}
         </div>
@@ -367,6 +575,7 @@ async function renderInvoices() {
 // Render Reports
 async function renderReports() {
     const [bookings, invoices, fleet] = await Promise.all([fetchBookings(), fetchInvoices(), fetchFleet()]);
+    const customers = await fetchCustomers();
 
     const totalRevenue = invoices.reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0);
     const todayRevenue = invoices.filter(inv => {
@@ -379,6 +588,19 @@ async function renderReports() {
         : 0;
 
     const activeBookings = bookings.filter(item => ['active', 'approved'].includes(String(item.status || '').toLowerCase()));
+    const bookedCustomers = customers.filter(customer => Number(customer.bookingCount || 0) > 0).length;
+    const topVehicle = fleet.map(vehicle => {
+        const vehicleBookings = bookings.filter(booking => Number(booking.vehicle_id || booking.carId || 0) === Number(vehicle.id));
+        const vehicleRevenue = invoices
+            .filter(invoice => Number(invoice.car_id || invoice.carId || 0) === Number(vehicle.id))
+            .reduce((sum, invoice) => sum + Number(invoice.total_amount || invoice.totalAmount || 0), 0);
+
+        return {
+            name: sanitizeText(vehicle.name, `${sanitizeText(vehicle.make, '')} ${sanitizeText(vehicle.model, '')}`.trim() || 'Vehicle'),
+            bookings: vehicleBookings.length,
+            revenue: vehicleRevenue
+        };
+    }).sort((a, b) => b.bookings - a.bookings)[0];
 
     document.getElementById('reports-content').innerHTML = `
         <div class="reports-grid">
@@ -397,14 +619,17 @@ async function renderReports() {
                     <p><strong>Available:</strong> ${fleet.filter(v => v.status === 'available').length}</p>
                     <p><strong>Rented:</strong> ${fleet.filter(v => v.status === 'rented').length}</p>
                     <p><strong>Utilization:</strong> ${utilization}%</p>
+                    ${topVehicle ? `<p><strong>Top Vehicle:</strong> ${topVehicle.name} (${topVehicle.bookings} booking(s), ${toCurrency(topVehicle.revenue)})</p>` : ''}
                 </div>
             </div>
             <div class="report-card">
-                <h3>Service Activity</h3>
+                <h3>Booking & Customer Activity</h3>
                 <div class="report-stats">
                     <p><strong>Total Booking Requests:</strong> ${bookings.length}</p>
                     <p><strong>Active/Approved:</strong> ${activeBookings.length}</p>
                     <p><strong>Pending:</strong> ${bookings.filter(item => String(item.status || '').toLowerCase() === 'pending').length}</p>
+                    <p><strong>Customers With Bookings:</strong> ${bookedCustomers}</p>
+                    <p><strong>Customer Records:</strong> ${customers.length}</p>
                 </div>
             </div>
         </div>
@@ -599,6 +824,41 @@ async function changeVehicleStatus(vehicleId) {
     }
 
     await renderInventory();
+}
+
+async function showCustomerHistory(customerId) {
+    const customers = await fetchCustomers();
+    const customer = customers.find(item => Number(item.id) === Number(customerId));
+    if (!customer) {
+        alert('Customer not found.');
+        return;
+    }
+
+    const bookings = await fetchBookings();
+    const invoices = await fetchInvoices();
+    const customerBookings = bookings.filter(booking => Number(booking.customer_id || booking.customerId || 0) === Number(customer.id) ||
+        sanitizeText(booking.email, '').toLowerCase() === sanitizeText(customer.email, '').toLowerCase() ||
+        sanitizeText(booking.phone, '') === sanitizeText(customer.phone, ''));
+    const customerInvoices = invoices.filter(invoice => Number(invoice.customer_id || invoice.customerId || 0) === Number(customer.id) ||
+        sanitizeText(invoice.customer_email || invoice.customerEmail, '').toLowerCase() === sanitizeText(customer.email, '').toLowerCase() ||
+        sanitizeText(invoice.customer_phone || invoice.customerPhone, '') === sanitizeText(customer.phone, ''));
+
+    const historyText = [
+        `Customer: ${sanitizeText(customer.full_name || customer.fullName)}`,
+        `Phone: ${sanitizeText(customer.phone)}`,
+        `Email: ${sanitizeText(customer.email)}`,
+        `Bookings: ${customerBookings.length}`,
+        `Invoices: ${customerInvoices.length}`,
+        `Total Spent: ${toCurrency(customer.totalSpent || 0)}`,
+        '',
+        'Booking History:',
+        ...customerBookings.map(booking => `- ${sanitizeText(booking.car || booking.car_name, 'Vehicle')} | ${booking.pickup_at || booking.pickupDate || 'N/A'} -> ${booking.return_at || booking.returnDate || 'N/A'} | ${sanitizeText(booking.status, 'pending')}`),
+        '',
+        'Invoice History:',
+        ...customerInvoices.map(invoice => `- ${sanitizeText(invoice.invoice_no || invoice.invoiceNumber, 'N/A')} | ${toCurrency(invoice.total_amount || invoice.totalAmount)} | ${sanitizeText(invoice.status, 'open')}`)
+    ].join('\n');
+
+    alert(historyText);
 }
 
 async function exportAllData() {

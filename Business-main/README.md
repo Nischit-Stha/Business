@@ -24,85 +24,85 @@ This project is fully static (HTML/CSS/JS) and runs directly from any static hos
 - **Export/Reports**: CSV data export and daily business reports
 - **Toast Notifications**: Real-time user feedback
 
-### Food (`/food`)
-- Multi-page menu: Indian, Pizza/Pasta/Grill, Kebabs
-- Interactive cart system
-- Call-to-order flow with phone integration
-- QR/share link support
-- Google Maps location embed
-- Mobile-responsive design
+# Business Operations Platform
 
-### Landing (`/index.html`) ✨ Redesigned
-- Premium landing page with service statistics
-- Smooth animations and hover effects
-- Beautiful gradient design
-- Easy navigation to both services
+Static HTML/CSS/JS workspace for two public sites:
+- `food/` for the menu site
+- `rentals/frontend/` for the Veera Rentals app
 
-## Project Structure
+The canonical rentals code lives under `Business-main/...`. There is also a legacy mirror under `Desktop/Business-main/...`; update the `Business-main` copy first when making changes.
 
-```text
-Business-main/
-├── index.html (Enhanced Landing Page)
-├── README.md
-├── food/
-│   ├── index.html
-│   ├── pizza-pasta-grill.html
-│   ├── kebabs.html
-│   ├── script.js
-│   ├── style.css
-│   └── Menu_Extracted_Content.csv
-└── rentals/
-    ├── index.html (Admin Dashboard with Premium Stats)
-    ├── scanner.html (Service Portal Hub)
-    ├── service.html (Pickup/Drop-off with Premium Features)
-    ├── customer-booking.html (Customer Portal with Price Calculator)
-    ├── app.js (Enhanced with Analytics & Notifications)
-    ├── admin-enhanced.js
-    ├── style.css
-    └── README.md
-```
+## Rentals Overview
 
-## 🚀 Run Locally
+The rentals app is split into three roles:
+- Customer booking and service requests
+- Admin booking/request review
+- Fleet and customer record management
+
+### Request Types
+- Pickup: customer selects a vehicle and submits name, phone, email, license photos, and budget
+- Drop-off: admin/customer lookup by rego plus phone/email, then submits return photos and mileage
+- Swap: same request flow as drop-off, with the swap request recorded for admin review
+
+### Admin Views
+- `Requests` tab: pickup, drop-off, and swap requests
+- `Customers` tab: saved customer records, current vehicle, request type, license photos, booking history
+- `Fleet` tab: car-only inventory and availability
+
+## Important Files
+
+### Rentals frontend
+- [rentals/frontend/service.html](rentals/frontend/service.html): pickup/drop-off/swap request form
+- [rentals/frontend/service-details.html](rentals/frontend/service-details.html): post-submit confirmation page
+- [rentals/frontend/admin.html](rentals/frontend/admin.html): admin shell and navigation
+- [rentals/frontend/admin-enhanced.js](rentals/frontend/admin-enhanced.js): request/customer/fleet rendering
+- [rentals/frontend/app.js](rentals/frontend/app.js): core rental logic and reports
+
+### Database bootstrap
+- [supabase-setup-final.sql](supabase-setup-final.sql): creates customers, links customer IDs, and enables app-access policies
+
+## Data Model
+
+The rentals app stores:
+- `vehicles`: fleet inventory
+- `booking_requests`: pickup and service requests
+- `customers`: normalized customer records
+- `invoices`: billing records
+- `offers`, `offer_messages`, `payment_intents`: supporting business flow
+
+Customer records are normalized around:
+- full name
+- phone
+- email
+- current vehicle
+- last request type
+- license photo URLs
+
+## Local Run
 
 From the project root:
 
-```bash
-cd /home/redmoon/Desktop/Business-main
-python3 -m http.server 8080
+```powershell
+cd C:\Users\Nischit\Desktop\Business-main
+python -m http.server 8080
 ```
 
-Open in browser:
+Open:
 - Landing: `http://localhost:8080/index.html`
 - Rentals: `http://localhost:8080/rentals/frontend/index.html`
-- Food: `http://localhost:8080/food/index.html`
+- Admin: `http://localhost:8080/rentals/frontend/admin.html`
+- Service form: `http://localhost:8080/rentals/frontend/service.html`
 
-## 📱 Deploy (GitHub Pages)
+## Developer Notes
 
-1. Push this folder to a GitHub repository.
-2. In repository settings, enable **GitHub Pages** from the default branch root.
-3. Access pages using:
-   - `https://<username>.github.io/<repo>/`
-   - `https://<username>.github.io/<repo>/rentals/`
-   - `https://<username>.github.io/<repo>/food/`
+- Keep request-only data in `booking_requests` and customer profile data in `customers`
+- Update both the service form and admin renderer when adding new request fields
+- The `Business-main` path is the one to use for GitHub updates
+- For Supabase changes, update `supabase-setup-final.sql` before editing UI assumptions
 
-## 💻 Tech Stack
+## Food Site
 
-- HTML5, CSS3, JavaScript (ES6+)
-- QRCode.js (CDN)
-- Google Maps Embed API
-- Browser `localStorage` for client-side persistence
-- Picsum.photos for dynamic car images
-
-## ✨ Premium Features Highlights
-
-### Vehicle Shopping
-- Browse cars with photos
-- Real-time search filtering
-- Sort by price or mileage
-- Add to favorites for quick access
-
-### Comparison Tools
-- Compare up to 5 vehicles side-by-side
+The food site is a separate static app under `food/` with its own HTML, CSS, and JS files.
 - View specs: price, mileage, color, fuel, transmission, seats
 - Quick select buttons from comparison modal
 

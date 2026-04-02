@@ -86,70 +86,40 @@ Upload all files to your hosting:
 ### Fleet
 - Car details (make, model, license)
 - Current status (available/rented/maintenance)
-- Mileage, fuel level
-- Daily rate
+# Rentals Module
 
-### Bookings
-- Customer info
-- Pickup/return dates
-- Car assigned
-- Status
+Frontend for the Veera Rentals request workflow. The current model is request-driven and uses Supabase as the system of record for both operational requests and normalized customer profiles.
 
-### Inspections
-- Photos (4+ per inspection)
-- Odometer readings
-- Fuel levels
-- GPS coordinates
-- Timestamps
-- Notes/damage reports
+## Main Screens
 
-## 🚀 Next Steps to Build
+- [frontend/index.html](frontend/index.html): admin dashboard entry
+- [frontend/admin.html](frontend/admin.html): admin shell and navigation
+- [frontend/admin-enhanced.js](frontend/admin-enhanced.js): request, customer, fleet, and report rendering
+- [frontend/service.html](frontend/service.html): pickup, drop-off, and swap request form
+- [frontend/service-details.html](frontend/service-details.html): confirmation page after submit
+- [frontend/customer-booking.html](frontend/customer-booking.html): customer-facing booking entry point
+- [frontend/scanner.html](frontend/scanner.html): operational service hub
 
-1. **Backend Integration**
-   - Replace localStorage with database
-   - API for saving data
+## Current Workflow
 
-2. **SMS/Email Automation**
-   - Send QR codes via Twilio
-   - Booking confirmations
-   - Reminders
+1. Pickup request captures name, phone, email, driver license details, vehicle choice, budget, and photo links.
+2. The form saves a normalized customer record, then stores the booking request.
+3. Drop-off and swap flows look up the latest booking by rego, phone, and email when needed.
+4. Admin views split requests into pickup, drop-off, and swap sections.
+5. Customer records show current vehicle, last request type, license photo URLs, and booking history.
 
-3. **Payment Integration**
-   - Link to Payd
-   - Auto-charge late fees
-   - Fuel refunds
+## Data Used
 
-4. **Advanced Features**
-   - Maintenance scheduler
-   - Customer history
+- `vehicles`: fleet inventory
+- `booking_requests`: operational request log
+- `customers`: normalized customer profiles
+- `invoices`: billing history
+- `offers`, `offer_messages`, `payment_intents`: supporting business records
+
+## Developer Notes
+
+- Keep request-only data in `booking_requests` and customer profile data in `customers`.
+- Update `frontend/service.html` and `frontend/admin-enhanced.js` together when adding or renaming request fields.
+- Update `supabase-setup-final.sql` before relying on new customer columns in the UI.
+- The canonical source tree is `Business-main/...`; `Desktop/Business-main/...` is the mirrored legacy path.
    - Revenue reports
-   - Damage claim workflow
-   - Insurance integration
-
-## 💡 Usage Tips
-
-- **QR Codes**: Generate unique QR for each booking ID
-- **Photos**: Require minimum 4 photos (F/B/I/F)
-- **Disputes**: Before/after photos = legal proof
-- **Fuel**: Photo of gauge = no arguments
-- **GPS**: Proves pickup/dropoff location
-- **Timestamps**: Cannot be manipulated
-
-## 🔐 Security
-
-- Customer data in localStorage (browser only)
-- For production: Use proper database + auth
-- QR codes can include encrypted booking ID
-- GPS & timestamps prevent fraud
-
-## 📱 Mobile Friendly
-
-- Fully responsive design
-- Camera access for photos
-- GPS location capture
-- Works on any smartphone
-
----
-
-**Built for Veera Rentals**
-*Automating inspections, tracking, and customer experience*
