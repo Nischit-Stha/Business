@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veera Rentals - Service Details</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            min-height: 100vh;
+            padding: 2rem 1rem;
+            background:
+                radial-gradient(circle at top left, rgba(255, 215, 0, 0.18), transparent 28%),
+                linear-gradient(135deg, #111827 0%, #1f2937 40%, #0f172a 100%);
+            color: #0f172a;
+        }
+
+        .page {
+            max-width: 840px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 24px;
+            box-shadow: 0 24px 80px rgba(15, 23, 42, 0.35);
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+        }
+
+        .hero {
+            padding: 2rem;
+            background: linear-gradient(135deg, #f8fafc 0%, #fff7cc 100%);
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .eyebrow {
+            display: inline-block;
+            padding: 0.45rem 0.9rem;
+            border-radius: 999px;
+            background: #111827;
+            color: #fff;
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-family: 'Poppins', sans-serif;
+            font-size: clamp(2rem, 4vw, 3rem);
+            line-height: 1.05;
+            color: #111827;
+            margin-bottom: 0.75rem;
+        }
+
+        .subtitle {
+            color: #475569;
+            font-size: 1rem;
+            max-width: 58ch;
+        }
+
+        .content {
+            padding: 2rem;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 18px;
+            padding: 1rem 1.1rem;
+        }
+
+        .card-label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #64748b;
+            margin-bottom: 0.35rem;
+            font-weight: 700;
+        }
+
+        .card-value {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #111827;
+            word-break: break-word;
+        }
+
+        .detail-section {
+            margin-top: 1.25rem;
+            padding: 1.25rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            background: #ffffff;
+        }
+
+        .detail-section h2 {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.1rem;
+            margin-bottom: 0.9rem;
+            color: #111827;
+        }
+
+        .detail-list {
+            display: grid;
+            gap: 0.8rem;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            border-bottom: 1px solid #eef2f7;
+            padding-bottom: 0.7rem;
+        }
+
+        .detail-row:last-child {
+            border-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .detail-row span:first-child {
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        .detail-row span:last-child {
+            color: #111827;
+            font-weight: 700;
+            text-align: right;
+        }
+
+        .breakdown {
+            background: #fff7d6;
+            border: 1px solid #fde68a;
+            border-radius: 18px;
+            padding: 1rem 1.1rem;
+            margin-top: 1rem;
+            color: #7c2d12;
+            line-height: 1.5;
+        }
+
+        .photo-list {
+            display: grid;
+            gap: 0.6rem;
+        }
+
+        .photo-list a {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            color: #0f766e;
+            text-decoration: none;
+            font-weight: 600;
+            word-break: break-all;
+        }
+
+        .actions {
+            display: flex;
+            gap: 0.9rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            appearance: none;
+            border: none;
+            border-radius: 14px;
+            padding: 0.95rem 1.25rem;
+            font-family: 'Poppins', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .btn-primary {
+            background: #111827;
+            color: #fff;
+            box-shadow: 0 10px 24px rgba(17, 24, 39, 0.22);
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #111827;
+        }
+
+        .empty-state {
+            padding: 2rem;
+            text-align: center;
+            color: #475569;
+        }
+
+        .empty-state h2 {
+            font-family: 'Poppins', sans-serif;
+            margin-bottom: 0.75rem;
+            color: #111827;
+        }
+
+        @media (max-width: 640px) {
+            .page,
+            .hero,
+            .content {
+                border-radius: 0;
+            }
+
+            body {
+                padding: 0;
+            }
+
+            .summary-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .detail-row {
+                flex-direction: column;
+                gap: 0.25rem;
+            }
+
+            .detail-row span:last-child {
+                text-align: left;
+            }
+
+            .actions {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="page">
+        <section class="hero">
+            <span class="eyebrow">Service Submitted</span>
+            <h1>Service details saved successfully</h1>
+            <p class="subtitle">Your request has been submitted. Review the service summary below, then return to the home page when you're done.</p>
+        </section>
+
+        <section class="content" id="details-root">
+            <div class="empty-state" id="empty-state" style="display:none;">
+                <h2>No service details found</h2>
+                <p>Please submit the service form again to see the summary here.</p>
+                <div class="actions" style="justify-content:center;">
+                    <a class="btn btn-primary" href="service.html">Go Back to Service Form</a>
+                    <a class="btn btn-secondary" href="index.html">Back to Home</a>
+                </div>
+            </div>
+
+            <div id="details-content" style="display:none;">
+                <div class="summary-grid">
+                    <div class="card">
+                        <div class="card-label">Service Reference</div>
+                        <div class="card-value" id="service-ref"></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-label">Estimated Total</div>
+                        <div class="card-value" id="pricing-total"></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-label">Customer</div>
+                        <div class="card-value" id="customer-name"></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-label">Vehicle</div>
+                        <div class="card-value" id="vehicle-name"></div>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h2>Service Information</h2>
+                    <div class="detail-list">
+                        <div class="detail-row"><span>Service Type</span><span id="service-type"></span></div>
+                        <div class="detail-row"><span>Phone</span><span id="customer-phone"></span></div>
+                        <div class="detail-row"><span>Email</span><span id="customer-email"></span></div>
+                        <div class="detail-row"><span>Vehicle Registration</span><span id="vehicle-rego"></span></div>
+                        <div class="detail-row"><span>Pickup Date</span><span id="pickup-date"></span></div>
+                        <div class="detail-row"><span>Return Date</span><span id="return-date"></span></div>
+                        <div class="detail-row"><span>Plan</span><span id="pricing-plan"></span></div>
+                        <div class="detail-row"><span>Duration</span><span id="pricing-duration"></span></div>
+                        <div class="detail-row"><span>Mileage</span><span id="mileage"></span></div>
+                        <div class="detail-row"><span>Location</span><span id="location"></span></div>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h2>Price Breakdown</h2>
+                    <div class="breakdown" id="pricing-breakdown"></div>
+                </div>
+
+                <div class="detail-section">
+                    <h2>Uploaded Photos</h2>
+                    <div class="photo-list" id="photo-list"></div>
+                </div>
+
+                <div class="detail-section">
+                    <h2>Notes</h2>
+                    <div class="breakdown" id="notes" style="background:#f8fafc; border-color:#e2e8f0; color:#334155;"></div>
+                </div>
+
+                <div class="actions">
+                    <a class="btn btn-primary" href="index.html">Back to Home</a>
+                    <a class="btn btn-secondary" href="service.html">Submit Another Service</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        function formatDate(value) {
+            if (!value) return 'N/A';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return 'N/A';
+            return date.toLocaleString();
+        }
+
+        function formatMoney(value) {
+            const amount = Number(value || 0);
+            return `$${amount.toFixed(2)}`;
+        }
+
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function buildPricingBreakdown(details) {
+            const hasDetailedFees = Number(details.pricingRent || 0) > 0
+                || Number(details.pricingPlatformFee || 0) > 0
+                || Number(details.pricingLabourFee || 0) > 0
+                || Number(details.pricingContractFee || 0) > 0;
+
+            if (hasDetailedFees) {
+                return [
+                    `Rent: ${formatMoney(details.pricingRent)}`,
+                    `Platform Fee: ${formatMoney(details.pricingPlatformFee)}`,
+                    `Labour Fee: ${formatMoney(details.pricingLabourFee)}`,
+                    `Contract Fee: ${formatMoney(details.pricingContractFee)}`,
+                    `Total: ${formatMoney(details.pricingTotal)}`
+                ];
+            }
+
+            if (details.pricingBreakdown) {
+                return String(details.pricingBreakdown)
+                    .split('•')
+                    .map(part => part.trim())
+                    .filter(Boolean);
+            }
+
+            return ['No breakdown available.'];
+        }
+
+        function renderDetails(details) {
+            document.getElementById('service-ref').textContent = details.serviceRef || 'N/A';
+            document.getElementById('pricing-total').textContent = formatMoney(details.pricingTotal);
+            document.getElementById('customer-name').textContent = details.customerName || 'N/A';
+            document.getElementById('vehicle-name').textContent = details.vehicleName || 'N/A';
+            document.getElementById('service-type').textContent = details.serviceType === 'pickup' ? 'Pickup' : (details.serviceType || 'N/A');
+            document.getElementById('customer-phone').textContent = details.customerPhone || 'N/A';
+            document.getElementById('customer-email').textContent = details.customerEmail || 'N/A';
+            document.getElementById('vehicle-rego').textContent = details.vehicleRego || 'N/A';
+            document.getElementById('pickup-date').textContent = formatDate(details.pickupDate);
+            document.getElementById('return-date').textContent = formatDate(details.returnDate);
+            document.getElementById('pricing-plan').textContent = details.pricingPlan === 'weekly' ? 'Weekly' : 'Daily';
+            document.getElementById('pricing-duration').textContent = `${details.pricingDuration || 0} ${details.pricingLabel || 'week(s)'}`;
+            document.getElementById('mileage').textContent = details.mileage || 'N/A';
+            document.getElementById('location').textContent = details.location || 'N/A';
+            const breakdownLines = buildPricingBreakdown(details);
+            document.getElementById('pricing-breakdown').innerHTML = breakdownLines
+                .map(line => `<div>${escapeHtml(line)}</div>`)
+                .join('');
+            document.getElementById('notes').textContent = details.notes || 'No additional notes.';
+
+            const photoList = document.getElementById('photo-list');
+            const photos = Array.isArray(details.photoUrls) ? details.photoUrls : [];
+            if (!photos.length) {
+                photoList.innerHTML = '<div style="color:#64748b;">No photos uploaded.</div>';
+            } else {
+                photoList.innerHTML = photos.map((photoUrl, index) => {
+                    const safeUrl = String(photoUrl);
+                    return `<a href="${safeUrl}" target="_blank" rel="noreferrer">Photo ${index + 1}: ${safeUrl}</a>`;
+                }).join('');
+            }
+        }
+
+        (function init() {
+            try {
+                const raw = sessionStorage.getItem('veera-last-service-details');
+                if (!raw) {
+                    document.getElementById('empty-state').style.display = 'block';
+                    return;
+                }
+
+                const details = JSON.parse(raw);
+                renderDetails(details || {});
+                document.getElementById('details-content').style.display = 'block';
+            } catch (error) {
+                console.warn('Failed to load service details:', error);
+                document.getElementById('empty-state').style.display = 'block';
+            }
+        })();
+    </script>
+</body>
+</html>

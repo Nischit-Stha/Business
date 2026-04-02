@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veera Rentals Management System</title>
+    <meta name="description" content="Veera Rentals dashboard for fleet management, real-time bookings, QR check-in/out, customer service workflows, and rental analytics.">
+    <script>
+        (function () {
+            const ADMIN_AUTH_KEY = 'veera_admin_auth';
+            if (sessionStorage.getItem(ADMIN_AUTH_KEY) === 'true') return;
+            const fileName = window.location.pathname.split('/').pop() || 'index.html';
+            const next = encodeURIComponent(fileName + window.location.search + window.location.hash);
+            window.location.replace(`login.html?next=${next}`);
+        })();
+    </script>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="logo-section">
+                <div class="logo">⭐</div>
+                <div>
+                    <h1>Veera Rentals</h1>
+                    <p class="tagline">Professional Veera Rentals Management</p>
+                </div>
+            </div>
+            <nav class="nav">
+                <a href="#dashboard" class="nav-link active" data-tab="dashboard">Dashboard</a>
+                <a href="#bookings" class="nav-link" data-tab="bookings">Bookings</a>
+                <a href="#fleet" class="nav-link" data-tab="fleet">Fleet</a>
+                <a href="#reports" class="nav-link" data-tab="reports">Reports</a>
+            </nav>
+            <div class="header-actions">
+                <a href="#" onclick="adminLogout(event)" class="logout-link">Logout</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+        <div class="container">
+            <div data-tab-panel="dashboard">
+            <!-- Quick Stats Cards -->
+            <div class="kpi-grid">
+                <div class="kpi-card kpi-bookings">
+                    <div class="kpi-value" id="month-bookings">0</div>
+                    <div class="kpi-label">This Month</div>
+                </div>
+                <div class="kpi-card kpi-revenue">
+                    <div class="kpi-value" id="month-revenue">$0</div>
+                    <div class="kpi-label">Month Revenue</div>
+                </div>
+                <div class="kpi-card kpi-completed">
+                    <div class="kpi-value" id="completed-rentals">0</div>
+                    <div class="kpi-label">Completed</div>
+                </div>
+                <div class="kpi-card kpi-average">
+                    <div class="kpi-value" id="avg-rental-days">0</div>
+                    <div class="kpi-label">Avg Days/Rental</div>
+                </div>
+                <div class="kpi-card kpi-invoiced">
+                    <div class="kpi-value" id="invoiced-month">$0</div>
+                    <div class="kpi-label">Invoiced This Month</div>
+                </div>
+                <div class="kpi-card kpi-unpaid">
+                    <div class="kpi-value" id="unpaid-total">$0</div>
+                    <div class="kpi-label">Total Unpaid</div>
+                </div>
+            </div>
+            <section class="stats-grid" id="dashboard">
+                <div class="stat-card available" data-filter="available" title="Show available vehicles">
+                    <div class="stat-icon">🟢</div>
+                    <div class="stat-content">
+                        <h3 id="available-count">0</h3>
+                        <p>Available</p>
+                    </div>
+                </div>
+                <div class="stat-card rented" data-filter="rented" title="Show rented vehicles">
+                    <div class="stat-icon">🔴</div>
+                    <div class="stat-content">
+                        <h3 id="rented-count">0</h3>
+                        <p>Currently Rented</p>
+                    </div>
+                </div>
+                <div class="stat-card maintenance" data-filter="maintenance" title="Show maintenance vehicles">
+                    <div class="stat-icon">⚙️</div>
+                    <div class="stat-content">
+                        <h3 id="maintenance-count">0</h3>
+                        <p>Maintenance</p>
+                    </div>
+                </div>
+                <div class="stat-card revenue">
+                    <div class="stat-icon">💵</div>
+                    <div class="stat-content">
+                        <h3 id="revenue-count">$0</h3>
+                        <p>Daily Revenue</p>
+                    </div>
+                </div>
+                <div class="stat-card utilization">
+                    <div class="stat-icon">📈</div>
+                    <div class="stat-content">
+                        <h3 id="utilization-count">0%</h3>
+                        <p>Fleet Utilization</p>
+                    </div>
+                </div>
+                <div class="stat-card bookings">
+                    <div class="stat-icon">📅</div>
+                    <div class="stat-content">
+                        <h3 id="today-bookings">0</h3>
+                        <p>Today's Bookings</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="rentals-section" id="dashboard-overview">
+                <div class="section-header">
+                    <h2>Dashboard Overview</h2>
+                    <span class="badge" id="overview-last-updated">Live</span>
+                </div>
+                <div class="overview-grid">
+                    <article class="overview-card" title="All vehicles in system">
+                        <p>Total Cars</p>
+                        <h3 id="overview-total-cars">0</h3>
+                    </article>
+                    <article class="overview-card" title="Currently active rental bookings">
+                        <p>Active Bookings</p>
+                        <h3 id="overview-active-bookings">0</h3>
+                    </article>
+                    <article class="overview-card" title="Pending customer bargain offers">
+                        <p>Pending Bargain Requests</p>
+                        <h3 id="overview-pending-bargains">0</h3>
+                    </article>
+                </div>
+                <p class="muted-text" id="overview-trend-text">Performance trend will appear here.</p>
+
+                <div class="section-header" style="margin-top: 1rem;">
+                    <h2>Owner Action Center</h2>
+                    <span class="badge" id="action-center-risk">Risk: 0</span>
+                </div>
+                <div class="action-center-grid">
+                    <article class="action-card" data-action="pending-approvals">
+                        <p>Pending Booking Approvals</p>
+                        <h3 id="action-pending-approvals">0</h3>
+                        <button type="button" class="btn btn-secondary btn-compact" onclick="handleActionCenter('pending-approvals')">Review</button>
+                    </article>
+                    <article class="action-card" data-action="pending-bargains">
+                        <p>Pending Bargain Offers</p>
+                        <h3 id="action-pending-bargains">0</h3>
+                        <button type="button" class="btn btn-secondary btn-compact" onclick="handleActionCenter('pending-bargains')">Review</button>
+                    </article>
+                    <article class="action-card" data-action="overdue-returns">
+                        <p>Overdue Active Returns</p>
+                        <h3 id="action-overdue-returns">0</h3>
+                        <button type="button" class="btn btn-secondary btn-compact" onclick="handleActionCenter('overdue-returns')">Open</button>
+                    </article>
+                    <article class="action-card" data-action="unpaid-invoices">
+                        <p>Unpaid Invoices</p>
+                        <h3 id="action-unpaid-invoices">0</h3>
+                        <button type="button" class="btn btn-secondary btn-compact" onclick="handleActionCenter('unpaid-invoices')">Inspect</button>
+                    </article>
+                </div>
+
+                <div class="section-header" style="margin-top: 1rem;">
+                    <h2>Notifications</h2>
+                    <span class="badge">Open: <span id="notification-count">0</span></span>
+                </div>
+                <div id="dashboard-notifications-list" class="dashboard-notifications-list">
+                    <p class="muted-text">No notifications yet.</p>
+                </div>
+
+                <div class="section-header" style="margin-top: 1.1rem;">
+                    <h2>Revenue Graph</h2>
+                    <select id="revenue-range" class="revenue-range-select">
+                        <option value="7">Last 7 Days</option>
+                        <option value="14" selected>Last 14 Days</option>
+                        <option value="30">Last 30 Days</option>
+                    </select>
+                </div>
+
+                <div class="revenue-chart-wrap">
+                    <svg id="revenue-chart" viewBox="0 0 760 240" preserveAspectRatio="none"></svg>
+                    <div class="chart-axis">
+                        <span id="chart-start-label">Start</span>
+                        <span id="chart-end-label">End</span>
+                    </div>
+                </div>
+                <p class="muted-text" id="revenue-chart-summary">Revenue trend for selected period.</p>
+                <p class="muted-text" id="revenue-chart-delta">Comparison against previous period will appear here.</p>
+            </section>
+            </div>
+
+            <!-- Quick Actions -->
+            <div data-tab-panel="reports" id="reports">
+                <section class="quick-actions">
+                    <div class="section-header">
+                        <h2>Quick Actions</h2>
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" onclick="showModal('booking-modal')">
+                            New Booking
+                        </button>
+                        <a class="btn btn-primary action-link" href="scanner.html">
+                            Customer Service Portal
+                        </a>
+                        <button class="btn btn-secondary" onclick="showModal('car-modal')">
+                            Add Vehicle
+                        </button>
+                        <button class="btn btn-secondary" onclick="reimportFromRecords()">
+                            Re-import Records
+                        </button>
+                        <button class="btn btn-secondary" onclick="exportData()">
+                            Export Data
+                        </button>
+                        <button class="btn btn-secondary" onclick="showDailyReport()">
+                            Daily Report
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Service History -->
+                <section class="rentals-section" id="revenue-analytics-section">
+                    <div class="section-header">
+                        <h2>Revenue Analytics</h2>
+                        <span class="badge" id="revenue-analytics-badge">Live</span>
+                    </div>
+                    <div class="analytics-kpi-grid">
+                        <article class="analytics-kpi">
+                            <p>Daily Earnings</p>
+                            <h3 id="earnings-daily">$0.00</h3>
+                        </article>
+                        <article class="analytics-kpi">
+                            <p>Weekly Earnings</p>
+                            <h3 id="earnings-weekly">$0.00</h3>
+                        </article>
+                        <article class="analytics-kpi">
+                            <p>Monthly Earnings</p>
+                            <h3 id="earnings-monthly">$0.00</h3>
+                        </article>
+                    </div>
+                    <div class="section-header" style="margin-top: 1rem;">
+                        <h2>Car-wise Performance</h2>
+                        <span class="badge" id="car-performance-count">0 Cars</span>
+                    </div>
+                    <div id="car-performance-list" class="performance-list">
+                        <p style="text-align: center; color: #6b7280; padding: 2rem;">No performance data yet</p>
+                    </div>
+                </section>
+
+                <section class="rentals-section" id="service-history">
+                    <div class="section-header">
+                        <h2>Recent Service Activity</h2>
+                    </div>
+                    <div id="service-history-list" class="stack-list">
+                        <div style="padding: 2rem; text-align: center; color: #999;">
+                            <p>Service records will appear here (pickups, drop-offs, swaps)</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="rentals-section" id="invoice-center">
+                    <div class="section-header">
+                        <h2>Invoice Center</h2>
+                        <span class="badge" id="invoice-count">0</span>
+                    </div>
+                    <div id="invoice-list" class="stack-list">
+                        <p style="text-align: center; color: #6b7280; padding: 2rem;">No invoices generated yet</p>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Fleet Overview -->
+            <div data-tab-panel="fleet" id="fleet">
+                <section class="fleet-section">
+                    <div class="section-header">
+                        <h2>Fleet Overview</h2>
+                        <div class="filters">
+                            <button class="filter-btn active" data-filter="all">All</button>
+                            <button class="filter-btn" data-filter="available">Available</button>
+                            <button class="filter-btn" data-filter="rented">Rented</button>
+                            <button class="filter-btn" data-filter="maintenance">Maintenance</button>
+                        </div>
+                    </div>
+                    <div class="filters control-bar">
+                        <input type="text" id="fleet-search" placeholder="Search by car, make, model, plate...">
+                        <select id="fleet-sort">
+                            <option value="name-asc">Sort: Name (A-Z)</option>
+                            <option value="rate-high">Sort: Rate High → Low</option>
+                            <option value="rate-low">Sort: Rate Low → High</option>
+                            <option value="status">Sort: Status</option>
+                        </select>
+                    </div>
+                    <div class="fleet-grid" id="fleet-grid">
+                        <!-- Fleet cards will be injected here -->
+                    </div>
+                </section>
+            </div>
+
+            <!-- Active Rentals -->
+            <div data-tab-panel="bookings" id="bookings">
+                <section class="rentals-section" id="booking-manager-overview">
+                    <div class="section-header">
+                        <h2>Booking Manager Console</h2>
+                        <span class="badge" id="booking-manager-health">Live</span>
+                    </div>
+                    <div class="booking-manager-grid">
+                        <article class="manager-metric">
+                            <p>Pending Requests</p>
+                            <h3 id="bm-pending">0</h3>
+                        </article>
+                        <article class="manager-metric">
+                            <p>Active Rentals</p>
+                            <h3 id="bm-active">0</h3>
+                        </article>
+                        <article class="manager-metric risk">
+                            <p>Overdue Returns</p>
+                            <h3 id="bm-overdue">0</h3>
+                        </article>
+                        <article class="manager-metric warn">
+                            <p>Due Next 24h</p>
+                            <h3 id="bm-due-soon">0</h3>
+                        </article>
+                    </div>
+                </section>
+
+                <section class="rentals-section" id="booking-requests-section">
+                    <div class="section-header">
+                        <h2>Booking Requests</h2>
+                        <span class="badge" id="booking-requests-count">0</span>
+                    </div>
+                    <div class="filters control-bar">
+                        <input type="text" id="request-search" placeholder="Search requests by customer, phone, email, car, plate...">
+                        <select id="request-sort">
+                            <option value="newest">Sort: Newest</option>
+                            <option value="pickup-soon">Sort: Pickup Soonest</option>
+                            <option value="customer">Sort: Customer (A-Z)</option>
+                        </select>
+                    </div>
+                    <div id="booking-requests-list" class="stack-list">
+                        <p style="text-align: center; color: #6b7280; padding: 2rem;">No pending booking requests</p>
+                    </div>
+                </section>
+
+                <section class="rentals-section" id="bargain-offers-section">
+                    <div class="section-header">
+                        <h2>Bargain Offers</h2>
+                        <span class="badge" id="bargain-offers-count">0</span>
+                    </div>
+                    <div id="bargain-offers-list" class="stack-list">
+                        <p style="text-align: center; color: #6b7280; padding: 2rem;">No bargain offers yet</p>
+                    </div>
+                </section>
+
+                <section class="rentals-section">
+                    <div class="section-header">
+                        <h2>Bookings List</h2>
+                        <span class="badge" id="active-rental-count">0</span>
+                    </div>
+                    <div class="tracker-filters">
+                        <button class="tracker-btn active" data-track="all">All Active</button>
+                        <button class="tracker-btn" data-track="overdue">Overdue</button>
+                        <button class="tracker-btn" data-track="due-soon">Due 24h</button>
+                        <button class="tracker-btn" data-track="return-today">Return Today</button>
+                    </div>
+                    <div class="filters control-bar">
+                        <input type="text" id="booking-search" placeholder="Search by customer, phone, car, plate...">
+                        <select id="booking-status-filter">
+                            <option value="active">Status: Active</option>
+                            <option value="completed">Status: Completed</option>
+                            <option value="all">Status: All</option>
+                        </select>
+                        <select id="booking-sort">
+                            <option value="recent">Sort: Newest First</option>
+                            <option value="return-soon">Sort: Return Soonest</option>
+                            <option value="customer-asc">Sort: Customer (A-Z)</option>
+                        </select>
+                    </div>
+                    <div class="rentals-list" id="rentals-list">
+                        <!-- Rental cards will be injected here -->
+                    </div>
+                </section>
+
+                <!-- Rented Cars Details -->
+                <section class="rentals-section" id="rented-cars-section">
+                    <div class="section-header">
+                        <h2>Rented Cars Details</h2>
+                        <span class="badge" id="rented-cars-count">0</span>
+                    </div>
+                    <div id="rented-cars-list" class="stack-list">
+                        <p style="text-align: center; color: #6b7280; padding: 2rem;">No rented cars to show</p>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <!-- New Booking Modal -->
+    <div class="modal" id="booking-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create New Booking</h2>
+                <button class="close-btn" onclick="closeModal('booking-modal')">&times;</button>
+            </div>
+            <form id="booking-form" class="form">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Customer Name *</label>
+                        <input type="text" id="customer-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Phone Number *</label>
+                        <input type="tel" id="customer-phone" required>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Email Address *</label>
+                        <input type="email" id="customer-email" required>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Select Vehicle *</label>
+                        <select id="car-select" required>
+                            <option value="">Choose a vehicle...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Pickup Date & Time *</label>
+                        <input type="datetime-local" id="pickup-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Return Date & Time *</label>
+                        <input type="datetime-local" id="return-date" required>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Additional Notes</label>
+                        <textarea id="booking-notes" rows="3" placeholder="Any special requirements..."></textarea>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('booking-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Booking & Generate QR</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Vehicle Modal -->
+    <div class="modal" id="car-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Vehicle</h2>
+                <button class="close-btn" onclick="closeModal('car-modal')">&times;</button>
+            </div>
+            <form id="car-form" class="form">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Vehicle Name *</label>
+                        <input type="text" id="car-name" placeholder="e.g., Toyota Camry" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Model Year *</label>
+                        <input type="number" id="car-model" min="2010" max="2030" required>
+                    </div>
+                    <div class="form-group">
+                        <label>License Plate *</label>
+                        <input type="text" id="car-license" placeholder="e.g., ABC123" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Daily Rate ($) *</label>
+                        <input type="number" id="car-rate" min="0" step="0.01" value="250" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Weekly Rate ($)</label>
+                        <input type="number" id="car-rate-week" min="0" step="0.01" value="250" placeholder="e.g., 1400">
+                    </div>
+                    <div class="form-group">
+                        <label>Location *</label>
+                        <input type="text" id="car-location" placeholder="e.g., Kathmandu Branch" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Status *</label>
+                        <select id="car-status" required>
+                            <option value="available" selected>Available</option>
+                            <option value="rented">Rented</option>
+                            <option value="maintenance">Maintenance</option>
+                        </select>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Color</label>
+                        <input type="text" id="car-color" placeholder="e.g., Black">
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Upload Vehicle Images</label>
+                        <input type="file" id="car-images" accept="image/*" multiple>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Availability Calendar (one per line)</label>
+                        <textarea id="car-availability" rows="3" placeholder="2026-04-01 to 2026-04-03 | Booked\n2026-04-10 to 2026-04-12 | Service"></textarea>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>VIN / Chassis Number</label>
+                        <input type="text" id="car-vin" placeholder="Vehicle Identification Number">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('car-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Vehicle</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Vehicle Modal -->
+    <div class="modal" id="edit-car-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Vehicle</h2>
+                <button class="close-btn" onclick="closeModal('edit-car-modal')">&times;</button>
+            </div>
+            <form id="edit-car-form" class="form">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Vehicle Name *</label>
+                        <input type="text" id="edit-car-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Model *</label>
+                        <input type="text" id="edit-car-model" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Status *</label>
+                        <select id="edit-car-status" required>
+                            <option value="available">Available</option>
+                            <option value="rented">Rented</option>
+                            <option value="maintenance">Maintenance</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>License Plate *</label>
+                        <input type="text" id="edit-car-license" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Rego</label>
+                        <input type="text" id="edit-car-rego" placeholder="e.g., ABC123">
+                    </div>
+                    <div class="form-group">
+                        <label>Daily Rate ($) *</label>
+                        <input type="number" id="edit-car-rate" min="0" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Weekly Rate ($)</label>
+                        <input type="number" id="edit-car-rate-week" min="0" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>Location *</label>
+                        <input type="text" id="edit-car-location" required>
+                    </div>
+                    <div class="form-group full-width" style="margin-top: 0.25rem;">
+                        <details style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 0.75rem 1rem;">
+                            <summary style="cursor: pointer; font-weight: 600; color: #374151;">More options</summary>
+                            <div class="form-grid" style="margin-top: 0.75rem;">
+                                <div class="form-group">
+                                    <label>Make</label>
+                                    <input type="text" id="edit-car-make" placeholder="e.g., Toyota">
+                                </div>
+                                <div class="form-group">
+                                    <label>Mileage (km)</label>
+                                    <input type="number" id="edit-car-mileage" min="0" step="1">
+                                </div>
+                                <div class="form-group">
+                                    <label>Fuel</label>
+                                    <input type="text" id="edit-car-fuel" placeholder="e.g., Full">
+                                </div>
+                                <div class="form-group">
+                                    <label>Color</label>
+                                    <input type="text" id="edit-car-color" placeholder="e.g., Black">
+                                </div>
+                                <div class="form-group full-width">
+                                    <label>VIN / Chassis Number</label>
+                                    <input type="text" id="edit-car-vin" placeholder="Vehicle Identification Number">
+                                </div>
+                                <div class="form-group full-width">
+                                    <label>Upload Additional Images</label>
+                                    <input type="file" id="edit-car-images" accept="image/*" multiple>
+                                </div>
+                                <div class="form-group full-width">
+                                    <label>Availability Calendar (one per line)</label>
+                                    <textarea id="edit-car-availability" rows="3" placeholder="2026-04-01 to 2026-04-03 | Booked"></textarea>
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="edit-delete-car-btn">Delete Vehicle</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('edit-car-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- QR Code Modal -->
+    <div class="modal" id="qr-modal">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2>Booking QR Code</h2>
+                <button class="close-btn" onclick="closeModal('qr-modal')">&times;</button>
+            </div>
+            <div class="qr-container">
+                <div class="qr-display" id="qr-display"></div>
+                <div class="qr-info">
+                    <p><strong>How to use:</strong></p>
+                    <ul>
+                        <li>Send to customer via SMS/Email</li>
+                        <li>Customer scans for check-in/out</li>
+                        <li>Opens inspection form with GPS</li>
+                        <li>Photos automatically timestamped</li>
+                    </ul>
+                    <button class="btn btn-primary btn-block" onclick="printQR()">
+                        Print QR Code
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="rental-detail-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Rental & Vehicle Details</h2>
+                <button class="close-btn" onclick="closeModal('rental-detail-modal')">&times;</button>
+            </div>
+            <div id="rental-detail-content" class="detail-grid"></div>
+            <div class="form-actions form-actions-compact">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('rental-detail-modal')">Close</button>
+                <button type="button" class="btn btn-primary" id="rental-detail-invoice-btn">Generate Invoice</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="invoice-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Invoice Preview</h2>
+                <button class="close-btn" onclick="closeModal('invoice-modal')">&times;</button>
+            </div>
+            <div id="invoice-content" class="invoice-grid"></div>
+            <div class="form-actions form-actions-compact">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('invoice-modal')">Close</button>
+                <button type="button" class="btn btn-primary" onclick="window.print()">Print Invoice</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="customer-profile-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Customer Profile</h2>
+                <button class="close-btn" onclick="closeModal('customer-profile-modal')">&times;</button>
+            </div>
+            <div id="customer-profile-content" class="detail-grid"></div>
+            <div class="form-actions form-actions-compact">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('customer-profile-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="offer-negotiation-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Bargain Negotiation</h2>
+                <button class="close-btn" onclick="closeModal('offer-negotiation-modal')">&times;</button>
+            </div>
+            <div id="offer-negotiation-meta" class="detail-grid"></div>
+            <div id="offer-negotiation-chat" class="negotiation-chat"></div>
+            <form id="offer-negotiation-form" class="negotiation-form">
+                <textarea id="offer-negotiation-message" placeholder="Write your message to customer..." required></textarea>
+                <div class="negotiation-actions-row">
+                    <input type="number" id="offer-counter-rate" min="1" step="0.01" placeholder="Counter rate ($/day)">
+                    <button type="button" class="btn btn-secondary" id="offer-send-counter-btn">Send Counter</button>
+                    <button type="submit" class="btn btn-primary">Send Message</button>
+                </div>
+            </form>
+            <div class="form-actions form-actions-compact">
+                <button type="button" class="btn btn-secondary" id="offer-accept-btn">Accept Offer</button>
+                <button type="button" class="btn btn-secondary" id="offer-reject-btn">Reject Offer</button>
+                <button type="button" class="btn btn-primary" onclick="closeModal('offer-negotiation-modal')">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script>
+        function adminLogout(event) {
+            if (event) event.preventDefault();
+            sessionStorage.removeItem('veera_admin_auth');
+            window.location.replace('login.html');
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <script src="../supabase-config.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
