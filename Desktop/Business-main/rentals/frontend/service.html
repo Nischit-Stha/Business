@@ -833,6 +833,8 @@
         let comparingVehicles = [];
         let showingFavoritesOnly = false;
         let isSubmittingService = false;
+        const DEFAULT_DAILY_RATE = 80;
+        const DEFAULT_WEEKLY_RATE = 250;
         
         // Helper to get Supabase client
         function getSupabaseClient() {
@@ -1044,9 +1046,9 @@
                         rego: vehicle.plate,
                         license: vehicle.plate,
                         status: vehicle.status || 'available',
-                        rate: Number(vehicle.rate_day || 0),
-                        priceDay: Number(vehicle.rate_day || 0),
-                        priceWeek: Number(vehicle.rate_week || 0),
+                        rate: Number(vehicle.rate_day || DEFAULT_DAILY_RATE),
+                        priceDay: Number(vehicle.rate_day || DEFAULT_DAILY_RATE),
+                        priceWeek: Number(vehicle.rate_week || DEFAULT_WEEKLY_RATE),
                         images: Array.isArray(vehicle.images) ? vehicle.images : []
                     }));
 
@@ -1059,7 +1061,12 @@
 
         function buildScannerPickupRequest(serviceData) {
             const pickupAt = new Date();
-            const returnAt = new Date(pickupAt.getTime() + (24 * 60 * 60 * 1000));
+            const pickupPricing = calculatePickupPricing(
+                serviceData.vehicle,
+                serviceData.pricingPlan,
+                serviceData.pricingDuration
+            );
+            const returnAt = new Date(pickupAt.getTime() + (pickupPricing.durationDays * 24 * 60 * 60 * 1000));
             const carName = serviceData.vehicle?.name || `${serviceData.vehicle?.make || ''} ${serviceData.vehicle?.model || ''}`.trim() || 'Vehicle';
             const existingNotes = serviceData.notes ? String(serviceData.notes).trim() : '';
             const scannerPayload = {
@@ -1069,6 +1076,11 @@
                 location: serviceData.location || null,
                 photoCount: serviceData.photoCount || 0,
                 photoUrls: Array.isArray(serviceData.photos) ? serviceData.photos.map(item => item.url).filter(Boolean) : [],
+                pricingPlan: pickupPricing.plan,
+                pricingDuration: pickupPricing.durationDays,
+                pricingTotal: pickupPricing.total,
+                pricingDailyRate: pickupPricing.dayRate,
+                pricingWeeklyRate: pickupPricing.weekRate,
                 submittedAt: serviceData.timestamp,
                 formNotes: serviceData.notes || ''
             };
@@ -1215,13 +1227,64 @@
             return vehicle.name || `${vehicle.make || ''} ${vehicle.model || ''}`.trim() || 'Vehicle';
         }
 
+        function getVehicleDayRate(vehicle) {
+            const dayRate = Number(vehicle?.priceDay ?? vehicle?.rate);
+            if (Number.isFinite(dayRate) && dayRate > 0) {
+                return dayRate;
+            }
+            return DEFAULT_DAILY_RATE;
+        }
+
         function getVehicleWeeklyRate(vehicle) {
-            const dayRate = Number(vehicle?.rate || 0);
             const weekRate = Number(vehicle?.priceWeek || 0);
             if (Number.isFinite(weekRate) && weekRate > 0) {
                 return weekRate;
             }
-            return Number((dayRate * 6).toFixed(2));
+            return DEFAULT_WEEKLY_RATE;
+        }
+
+        function calculatePickupPricing(vehicle, planValue, durationValue) {
+            const plan = planValue === 'weekly' ? 'weekly' : 'daily';
+            const durationDays = Math.max(1, Number(durationValue) || 1);
+            const dayRate = getVehicleDayRate(vehicle);
+            const weekRate = getVehicleWeeklyRate(vehicle);
+
+            if (plan === 'weekly') {
+                const fullWeeks = Math.floor(durationDays / 7);
+                const extraDays = durationDays % 7;
+                const perDayFromWeekly = weekRate / 7;
+                const total = (fullWeeks * weekRate) + (extraDays * perDayFromWeekly);
+                const breakdownText = fullWeeks > 0
+                    ? `${fullWeeks} week(s) x $${weekRate.toFixed(2)} + ${extraDays} day(s) x $${perDayFromWeekly.toFixed(2)}`
+                    : `${extraDays} day(s) x $${perDayFromWeekly.toFixed(2)} (weekly pro-rata)`;
+
+                return {
+                    plan,
+                    durationDays,
+                    dayRate,
+                    weekRate,
+                    fullWeeks,
+                    extraDays,
+                    unitRate: weekRate,
+                    total,
+                    durationLabel: 'day(s)',
+                    breakdownText
+                };
+            }
+
+            const total = durationDays * dayRate;
+            return {
+                plan,
+                durationDays,
+                dayRate,
+                weekRate,
+                fullWeeks: 0,
+                extraDays: durationDays,
+                unitRate: dayRate,
+                total,
+                durationLabel: 'day(s)',
+                breakdownText: `${durationDays} day(s) x $${dayRate.toFixed(2)} (daily)`
+            };
         }
 
         function updatePickupPricingPreview() {
@@ -1238,7 +1301,7 @@
 
             const plan = planSelect.value === 'weekly' ? 'weekly' : 'daily';
             const duration = Math.max(1, Number(durationInput.value) || 1);
-            durationLabel.textContent = plan === 'weekly' ? 'week(s)' : 'day(s)';
+            durationLabel.textContent = 'day(s)';
 
             if (!selectedVehicleData) {
                 estimateEl.textContent = '$0.00';
@@ -1259,13 +1322,10 @@
                 return;
             }
 
-            const dayRate = Number(vehicle.rate || 0);
-            const weekRate = getVehicleWeeklyRate(vehicle);
-            const unitRate = plan === 'weekly' ? weekRate : dayRate;
-            const total = unitRate * duration;
+            const pricing = calculatePickupPricing(vehicle, plan, duration);
 
-            estimateEl.textContent = `$${total.toFixed(2)}`;
-            breakdownEl.textContent = `${duration} ${plan === 'weekly' ? 'week(s)' : 'day(s)'} x $${unitRate.toFixed(2)} (${plan})`;
+            estimateEl.textContent = `$${pricing.total.toFixed(2)}`;
+            breakdownEl.textContent = pricing.breakdownText;
         }
 
         function getPickupPricingSnapshot(vehicle) {
@@ -1274,17 +1334,19 @@
 
             const plan = (planSelect?.value === 'weekly') ? 'weekly' : 'daily';
             const duration = Math.max(1, Number(durationInput?.value) || 1);
-            const dayRate = Number(vehicle?.rate || 0);
-            const weekRate = getVehicleWeeklyRate(vehicle);
-            const unitRate = plan === 'weekly' ? weekRate : dayRate;
-            const total = unitRate * duration;
+            const pricing = calculatePickupPricing(vehicle, plan, duration);
 
             return {
-                plan,
-                duration,
-                unitRate,
-                total,
-                durationLabel: plan === 'weekly' ? 'week(s)' : 'day(s)'
+                plan: pricing.plan,
+                duration: pricing.durationDays,
+                unitRate: pricing.unitRate,
+                total: pricing.total,
+                durationLabel: pricing.durationLabel,
+                dayRate: pricing.dayRate,
+                weekRate: pricing.weekRate,
+                fullWeeks: pricing.fullWeeks,
+                extraDays: pricing.extraDays,
+                breakdownText: pricing.breakdownText
             };
         }
 
@@ -1861,7 +1923,7 @@
                         successPricing.style.display = 'block';
                     }
                     if (successPricingBreakdown) {
-                        successPricingBreakdown.textContent = `${pricing.duration} ${pricing.durationLabel} x $${pricing.unitRate.toFixed(2)}`;
+                        successPricingBreakdown.textContent = pricing.breakdownText;
                         successPricingBreakdown.style.display = 'block';
                     }
                 } else {

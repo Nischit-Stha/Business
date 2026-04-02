@@ -6,7 +6,8 @@ let invoices = [];
 let bookingRequestsCache = [];
 let priceOffersCache = [];
 
-const DEFAULT_RATE = 250;
+const DEFAULT_RATE = 80;
+const DEFAULT_WEEKLY_RATE = 250;
 const BOOKING_REQUESTS_KEY = 'booking-requests-data';
 const INVOICES_KEY = 'rentals-invoices-data';
 const PRICE_OFFERS_KEY = 'price-offers-data';
@@ -107,7 +108,7 @@ function normalizeCarRecord(car) {
         ...car,
         rate: dayRate,
         priceDay: dayRate,
-        priceWeek: Number.isFinite(weekRate) && weekRate > 0 ? weekRate : Number((dayRate * 6).toFixed(2)),
+        priceWeek: Number.isFinite(weekRate) && weekRate > 0 ? weekRate : DEFAULT_WEEKLY_RATE,
         location: hasMeaningfulValue(car.location) ? String(car.location).trim() : 'Main Branch',
         images: Array.isArray(car.images) ? car.images.filter(Boolean).slice(0, 8) : [],
         availabilityCalendar: Array.isArray(car.availabilityCalendar) ? car.availabilityCalendar : []
@@ -332,7 +333,7 @@ function mapSupabaseVehicleToLocal(vehicle) {
         status: vehicle.status || 'available',
         rate: Number(vehicle.rate_day || DEFAULT_RATE),
         priceDay: Number(vehicle.rate_day || DEFAULT_RATE),
-        priceWeek: Number(vehicle.rate_week || 0),
+        priceWeek: Number(vehicle.rate_week || DEFAULT_WEEKLY_RATE),
         location: vehicle.location || 'Main Branch',
         images: Array.isArray(vehicle.images) ? vehicle.images : [],
         availabilityCalendar: Array.isArray(vehicle.availability) ? vehicle.availability : []
@@ -1828,17 +1829,35 @@ function calculateRentalAmount(rental, car) {
     const pickupDate = new Date(rental.pickupDate);
     const returnDate = new Date(rental.returnDate);
     const totalDays = Math.max(1, Math.ceil((returnDate - pickupDate) / (1000 * 60 * 60 * 24)));
-    const dailyRate = Number(car?.rate || 0);
-    const subTotal = totalDays * dailyRate;
+    const dailyRate = Number(car?.rate || DEFAULT_RATE) > 0 ? Number(car?.rate || DEFAULT_RATE) : DEFAULT_RATE;
+    const weeklyRate = Number(car?.priceWeek || 0) > 0 ? Number(car?.priceWeek || 0) : DEFAULT_WEEKLY_RATE;
+
+    const pricingEvents = parseServiceEventsFromNotes(rental?.notes || '');
+    const latestPricingEvent = [...pricingEvents]
+        .reverse()
+        .find(event => Number(event?.pricingDuration || 0) > 0);
+    const billingPlan = String(latestPricingEvent?.pricingPlan || 'daily').toLowerCase() === 'weekly' ? 'weekly' : 'daily';
+    const billedDays = Math.max(1, Number(latestPricingEvent?.pricingDuration || totalDays) || totalDays);
+
+    let subTotal = billedDays * dailyRate;
+    if (billingPlan === 'weekly') {
+        const fullWeeks = Math.floor(billedDays / 7);
+        const extraDays = billedDays % 7;
+        subTotal = (fullWeeks * weeklyRate) + ((weeklyRate / 7) * extraDays);
+    }
+
     const taxRate = 0.13;
     const taxAmount = subTotal * taxRate;
     const totalAmount = subTotal + taxAmount;
+    const effectiveDailyRate = billedDays > 0 ? subTotal / billedDays : dailyRate;
 
     return {
         pickupDate,
         returnDate,
-        totalDays,
-        dailyRate,
+        totalDays: billedDays,
+        dailyRate: Number(effectiveDailyRate.toFixed(2)),
+        billingPlan,
+        weeklyRate,
         subTotal,
         taxRate,
         taxAmount,
