@@ -2249,6 +2249,45 @@ function renderBookingRequests() {
     const count = document.getElementById('booking-requests-count');
     if (!list || !count) return;
 
+    function getBookingConflictInfo(request) {
+        const requestCarId = Number(request.carId || 0);
+        const pickupDate = new Date(request.pickupDate);
+        const returnDate = new Date(request.returnDate);
+
+        if (!requestCarId || Number.isNaN(pickupDate.getTime()) || Number.isNaN(returnDate.getTime())) {
+            return { count: 0, names: [] };
+        }
+
+        const conflicts = [];
+        const trackMatch = (other, sourceLabel) => {
+            if (!other || Number(other.id) === Number(request.id)) return;
+            if (Number(other.carId || 0) !== requestCarId) return;
+
+            const otherPickup = new Date(other.pickupDate);
+            const otherReturn = new Date(other.returnDate);
+            if (Number.isNaN(otherPickup.getTime()) || Number.isNaN(otherReturn.getTime())) return;
+
+            if (isDateRangeOverlapping(pickupDate, returnDate, otherPickup, otherReturn)) {
+                conflicts.push({
+                    name: other.customer || 'Customer',
+                    source: sourceLabel
+                });
+            }
+        };
+
+        getBookingRequests().forEach(otherRequest => trackMatch(otherRequest, 'booking'));
+        (Array.isArray(rentals) ? rentals : []).forEach(activeRental => trackMatch({
+            id: `r-${activeRental.id}`,
+            carId: activeRental.carId,
+            pickupDate: activeRental.pickupDate,
+            returnDate: activeRental.returnDate,
+            customer: activeRental.customer || 'Customer'
+        }, 'rental'));
+
+        const uniqueNames = [...new Set(conflicts.map(item => item.name))];
+        return { count: uniqueNames.length, names: uniqueNames.slice(0, 2) };
+    }
+
     const requests = getBookingRequests().filter(request => String(request.status || 'pending').toLowerCase() === 'pending');
 
     const searchedRequests = requests.filter(request => {
@@ -2295,6 +2334,10 @@ function renderBookingRequests() {
         const statusHint = requestedCar?.status === 'available' ? '✅ Available' : '⚠️ Currently unavailable';
         const sourceLabel = String(request.source || 'customer-portal') === 'scanner-pickup' ? 'Scanner Pickup' : 'Customer Portal';
         const visibleNotes = getVisibleNotesFromBookingNotes(request.notes);
+        const conflictInfo = getBookingConflictInfo(request);
+        const conflictLabel = conflictInfo.count > 0
+            ? `${conflictInfo.count} other booking${conflictInfo.count === 1 ? '' : 's'} on this car${conflictInfo.names.length ? `: ${conflictInfo.names.join(', ')}` : ''}`
+            : '';
 
         return `
             <div style="background:white; border:1px solid #e5e7eb; border-radius:12px; padding:1rem 1.25rem; box-shadow:0 2px 8px rgba(0,0,0,0.04);">
@@ -2302,6 +2345,7 @@ function renderBookingRequests() {
                     <div>
                         <h4 style="margin:0 0 0.35rem 0; color:#111827;">${request.customer || 'Customer'} — ${carName}</h4>
                         <p style="margin:0; color:#6b7280; font-size:0.9rem;">📅 Requested: ${createdAt.toLocaleString()} • ${statusHint} • ${sourceLabel}</p>
+                        ${conflictInfo.count > 0 ? `<div style="margin-top:0.45rem; display:inline-flex; align-items:center; gap:0.4rem; background:#fff7ed; color:#9a3412; border:1px solid #fdba74; border-radius:999px; padding:0.3rem 0.75rem; font-size:0.82rem; font-weight:700;">⚠ Booking conflict: ${conflictLabel}</div>` : ''}
                     </div>
                     <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
                         <button class="btn-small btn-edit" onclick="showRequestCustomerProfile(${Number(request.id)})">👤 Customer</button>
@@ -2334,6 +2378,37 @@ function showRequestCustomerProfile(requestId) {
 
     const createdAt = new Date(request.createdAt || Date.now());
     const visibleNotes = getVisibleNotesFromBookingNotes(request.notes);
+    const conflictInfo = (() => {
+        const requestCarId = Number(request.carId || 0);
+        const pickupDate = new Date(request.pickupDate);
+        const returnDate = new Date(request.returnDate);
+        if (!requestCarId || Number.isNaN(pickupDate.getTime()) || Number.isNaN(returnDate.getTime())) return { count: 0, names: [] };
+
+        const conflicts = [];
+        const track = (item, isRental = false) => {
+            if (!item || Number(item.id) === Number(request.id)) return;
+            if (Number(item.carId || 0) !== requestCarId) return;
+
+            const otherPickup = new Date(item.pickupDate);
+            const otherReturn = new Date(item.returnDate);
+            if (Number.isNaN(otherPickup.getTime()) || Number.isNaN(otherReturn.getTime())) return;
+
+            if (isDateRangeOverlapping(pickupDate, returnDate, otherPickup, otherReturn)) {
+                conflicts.push(item.customer || 'Customer');
+            }
+        };
+
+        getBookingRequests().forEach(item => track(item));
+        (Array.isArray(rentals) ? rentals : []).forEach(item => track({
+            id: `r-${item.id}`,
+            carId: item.carId,
+            pickupDate: item.pickupDate,
+            returnDate: item.returnDate,
+            customer: item.customer || 'Customer'
+        }, true));
+
+        return { count: [...new Set(conflicts)].length, names: [...new Set(conflicts)].slice(0, 3) };
+    })();
     content.innerHTML = `
         <div style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:10px; padding:0.9rem 1rem;">
             <h3 style="margin:0 0 0.35rem 0; color:#111827;">${request.customer || 'Customer'}</h3>
@@ -2352,6 +2427,7 @@ function showRequestCustomerProfile(requestId) {
                 <p style="margin:0.2rem 0 0; color:#374151;">Return: ${new Date(request.returnDate).toLocaleString()}</p>
             </div>
         </div>
+        ${conflictInfo.count > 0 ? `<div style="background:#fff7ed; border:1px solid #fdba74; color:#9a3412; border-radius:10px; padding:0.85rem; font-weight:600;">⚠ Booking conflict detected with ${conflictInfo.count} other booking${conflictInfo.count === 1 ? '' : 's'}${conflictInfo.names.length ? `: ${conflictInfo.names.join(', ')}` : ''}</div>` : ''}
         ${visibleNotes ? `<div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; padding:0.85rem;"><strong>Notes:</strong> ${visibleNotes}</div>` : ''}
     `;
 
