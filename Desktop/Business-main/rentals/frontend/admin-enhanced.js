@@ -271,6 +271,13 @@ async function fetchCustomers() {
                 sanitizeText(invoice.customer_email || invoice.customerEmail, '').toLowerCase() === sanitizeText(customer.email, '').toLowerCase() ||
                 sanitizeText(invoice.customer_phone || invoice.customerPhone, '') === sanitizeText(customer.phone, ''));
 
+            const sortedBookings = linkedBookings
+                .slice()
+                .sort((a, b) => new Date(b.created_at || b.createdAt || b.pickup_at || b.pickupDate || 0) - new Date(a.created_at || a.createdAt || a.pickup_at || a.pickupDate || 0));
+            const latestBooking = sortedBookings[0] || null;
+            const latestBookingPayloads = latestBooking ? extractServicePayloadsFromNotes(latestBooking.notes) : [];
+            const latestServiceEvent = latestBookingPayloads.length ? latestBookingPayloads[latestBookingPayloads.length - 1] : null;
+
             const bookingVehicles = [...new Set(linkedBookings.map(booking => sanitizeText(booking.car || booking.car_name, 'Vehicle')).filter(Boolean))];
             const totalSpent = linkedInvoices.reduce((sum, invoice) => sum + Number(invoice.total_amount || invoice.totalAmount || 0), 0);
             const lastBookingDate = linkedBookings.length
@@ -281,12 +288,17 @@ async function fetchCustomers() {
                 }, null)
                 : null;
 
+            const licensePhotoUrls = latestBooking ? extractPhotoUrlsFromNotes(latestBooking.notes) : [];
+
             return {
                 ...customer,
                 bookingCount: linkedBookings.length,
                 invoiceCount: linkedInvoices.length,
                 totalSpent,
                 vehicles: bookingVehicles,
+                currentVehicle: customer.current_vehicle || latestBooking?.car || latestBooking?.car_name || bookingVehicles[0] || null,
+                lastRequestType: customer.last_request_type || latestServiceEvent?.type || latestBooking?.source || null,
+                licensePhotoUrls: Array.isArray(customer.license_photo_urls) ? customer.license_photo_urls : licensePhotoUrls,
                 lastBookingAt: customer.last_booking_at || lastBookingDate?.toISOString() || null
             };
         });
@@ -489,9 +501,12 @@ async function renderCustomers() {
                     <div class="vehicle-details">
                         <p><strong>Phone:</strong> ${sanitizeText(customer.phone)}</p>
                         <p><strong>Email:</strong> ${sanitizeText(customer.email)}</p>
+                        <p><strong>Current Vehicle:</strong> ${sanitizeText(customer.currentVehicle)}</p>
+                        <p><strong>Request Type:</strong> ${sanitizeText(customer.lastRequestType)}</p>
                         <p><strong>Last Booking:</strong> ${customer.lastBookingAt ? new Date(customer.lastBookingAt).toLocaleString() : 'N/A'}</p>
                         <p><strong>Vehicles Used:</strong> ${customer.vehicles && customer.vehicles.length ? customer.vehicles.join(', ') : 'None yet'}</p>
                         <p><strong>Total Spent:</strong> ${toCurrency(customer.totalSpent || 0)}</p>
+                        <p><strong>License Photos:</strong> ${customer.licensePhotoUrls && customer.licensePhotoUrls.length ? customer.licensePhotoUrls.map((url, index) => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Photo ${index + 1}</a>`).join(' | ') : 'None saved'}</p>
                         ${customer.notes ? `<p><strong>Notes:</strong> ${sanitizeText(customer.notes)}</p>` : ''}
                     </div>
                     <div class="invoice-actions">

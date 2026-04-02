@@ -657,6 +657,10 @@
             <div class="form-group" id="rego-lookup-group" style="display: none;">
                 <label>Vehicle Registration Number</label>
                 <input type="text" id="rego-input" placeholder="Enter rego (e.g., ABC123)" style="text-transform: uppercase;">
+                <label style="margin-top: 0.75rem;">Phone Number</label>
+                <input type="tel" id="dropoff-phone" placeholder="Enter phone number">
+                <label style="margin-top: 0.75rem;">Email</label>
+                <input type="email" id="dropoff-email" placeholder="Enter email address">
                 <button type="button" class="btn btn-primary" style="margin-top: 0.5rem;" onclick="lookupRego()">Find Vehicle</button>
             </div>
             
@@ -902,6 +906,11 @@
                     full_name: fullName || existingCustomer?.full_name || 'Customer',
                     email: email || existingCustomer?.email || null,
                     phone: phone || existingCustomer?.phone || null,
+                    current_vehicle: String(customerData?.currentVehicle || existingCustomer?.current_vehicle || '').trim() || null,
+                    last_request_type: String(customerData?.lastRequestType || existingCustomer?.last_request_type || '').trim() || null,
+                    license_photo_urls: Array.isArray(customerData?.licensePhotoUrls) && customerData.licensePhotoUrls.length
+                        ? customerData.licensePhotoUrls
+                        : (existingCustomer?.license_photo_urls || null),
                     notes: String(customerData?.notes || existingCustomer?.notes || '').trim() || null,
                     last_booking_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
@@ -1020,6 +1029,10 @@
                 document.getElementById('customer-phone').required = false;
                 document.getElementById('customer-email').required = false;
                 document.getElementById('vehicle-select').required = false;
+                const dropoffPhone = document.getElementById('dropoff-phone');
+                const dropoffEmail = document.getElementById('dropoff-email');
+                if (dropoffPhone) dropoffPhone.required = true;
+                if (dropoffEmail) dropoffEmail.required = false;
                 if (pickupStep1) pickupStep1.style.display = 'none';
                 if (pickupStep2) pickupStep2.style.display = 'none';
                 if (pickupStep3) pickupStep3.style.display = 'block';
@@ -1038,11 +1051,11 @@
                 document.getElementById('form-action-buttons').style.display = 'block';
                 const primaryActionBtn = document.getElementById('primary-action-btn');
                 if (primaryActionBtn) primaryActionBtn.textContent = 'Submit Service';
-                document.getElementById('customer-name').required = false;
-                document.getElementById('customer-phone').required = false;
-                document.getElementById('customer-email').required = false;
+                document.getElementById('customer-name').required = true;
+                document.getElementById('customer-phone').required = true;
+                document.getElementById('customer-email').required = true;
                 document.getElementById('vehicle-select').required = false;
-                if (pickupStep1) pickupStep1.style.display = 'none';
+                if (pickupStep1) pickupStep1.style.display = 'block';
                 if (pickupStep2) pickupStep2.style.display = 'block';
                 if (pickupStep3) pickupStep3.style.display = 'none';
             }
@@ -1053,9 +1066,16 @@
         // Lookup rego for drop-off
         async function lookupRego() {
             const rego = document.getElementById('rego-input').value.trim().toUpperCase();
+            const lookupPhone = document.getElementById('dropoff-phone').value.trim();
+            const lookupEmail = document.getElementById('dropoff-email').value.trim().toLowerCase();
             
             if (!rego) {
                 alert('Please enter a registration number');
+                return;
+            }
+
+            if (!lookupPhone) {
+                alert('Please enter the phone number for the drop-off request');
                 return;
             }
             
@@ -1077,10 +1097,14 @@
                             .select('*')
                             .eq('vehicle_id', Number(vehicle.id))
                             .order('created_at', { ascending: false })
-                            .limit(1);
+                            .limit(10);
 
                         if (!bookingError && Array.isArray(bookingRows) && bookingRows.length) {
-                            const booking = bookingRows[0];
+                            const booking = bookingRows.find(row => {
+                                const matchesPhone = lookupPhone ? String(row.phone || '').trim() === lookupPhone : true;
+                                const matchesEmail = lookupEmail ? String(row.email || '').trim().toLowerCase() === lookupEmail : true;
+                                return matchesPhone && matchesEmail;
+                            }) || bookingRows[0];
                             foundRental = {
                                 bookingRequestId: Number(booking.id),
                                 customerName: booking.customer || 'Customer',
@@ -2188,6 +2212,15 @@
                 };
 
                 if (serviceType === 'pickup') {
+                    await saveCustomerToSupabase({
+                        fullName: customerName,
+                        email: customerEmail,
+                        phone: customerPhone,
+                        currentVehicle: getVehicleName(vehicle),
+                        lastRequestType: 'pickup',
+                        licensePhotoUrls: uploadedPhotos.map(photo => photo.url).filter(Boolean)
+                    });
+
                     const pickupRequest = buildScannerPickupRequest(serviceData);
                     const insertedRequest = await saveBookingRequestToSupabase(pickupRequest);
                     if (!insertedRequest || !insertedRequest.id) {
