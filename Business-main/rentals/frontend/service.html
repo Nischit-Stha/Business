@@ -765,17 +765,28 @@
 
                 <div class="form-group">
                     <label>Duration</label>
-                    <input type="number" id="pricing-duration" min="1" value="" placeholder="Undecided">
-                    <small id="pricing-duration-label">If left blank, we count 1 week by default</small>
+                    <input type="number" id="pricing-duration" min="1" value="" placeholder="Enter duration">
+                    <small id="pricing-duration-label">day(s)</small>
                 </div>
                 <input type="hidden" id="pricing-plan" value="weekly">
                 </div>
 
                 <div id="pickup-step-3-section">
                 <div class="form-group full-width" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:0.85rem;">
-                    <label style="margin-bottom:0.35rem;">Estimated Price</label>
+                    <label style="margin-bottom:0.35rem;">Review & Estimate</label>
                     <p style="margin:0; font-weight:700; color:#1f2937;" id="pickup-price-estimate">$0.00</p>
                     <small id="pickup-price-breakdown" style="color:#64748b;">Select a car to calculate pricing</small>
+                </div>
+
+                <div id="pickup-review-summary" style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:0.9rem; margin-top:0.75rem;">
+                    <div style="font-weight:700; color:#111827; margin-bottom:0.5rem;">Review details</div>
+                    <p style="margin:0.2rem 0; color:#374151;"><strong>Name:</strong> <span id="review-customer-name">-</span></p>
+                    <p style="margin:0.2rem 0; color:#374151;"><strong>Contact:</strong> <span id="review-customer-phone">-</span></p>
+                    <p style="margin:0.2rem 0; color:#374151;"><strong>Vehicle:</strong> <span id="review-vehicle-name">-</span></p>
+                    <p style="margin:0.2rem 0; color:#374151;"><strong>Type:</strong> <span id="review-rental-type">-</span></p>
+                    <p style="margin:0.2rem 0; color:#374151;"><strong>Duration:</strong> <span id="review-duration">-</span></p>
+                    <p style="margin:0.2rem 0; color:#374151;"><strong>Estimated Total:</strong> <span id="review-total">$0.00</span></p>
+                    <p style="margin:0.2rem 0; color:#374151;"><strong>Breakdown:</strong> <span id="review-breakdown">-</span></p>
                 </div>
                 
                 <!-- Notes -->
@@ -811,7 +822,7 @@
             
             <div id="form-action-buttons">
                 <button type="button" class="btn btn-primary" id="primary-action-btn" onclick="handlePrimaryAction()">Next</button>
-                <button type="button" class="btn btn-secondary" onclick="window.location.href='scanner.html'">Cancel</button>
+                <button type="button" class="btn btn-secondary" onclick="window.location.href='index.html'">Back to Home</button>
             </div>
         </form>
         
@@ -1040,6 +1051,47 @@
             if (primaryActionBtn) {
                 primaryActionBtn.textContent = pickupFlowStep === 3 ? 'Submit Service' : 'Next';
             }
+
+            if (pickupFlowStep === 3) {
+                updatePickupReviewSummary();
+            }
+        }
+
+        function updatePickupReviewSummary() {
+            const selectedVehicleData = document.getElementById('selected-vehicle-data').value;
+            const name = document.getElementById('customer-name').value.trim() || 'Not entered';
+            const phone = document.getElementById('customer-phone').value.trim() || 'Not entered';
+            const rentalTypeValue = document.getElementById('rental-type')?.value || 'rent';
+            const durationInput = document.getElementById('pricing-duration');
+            const durationValue = Math.max(1, Number(durationInput?.value) || 7);
+
+            let vehicle = null;
+            try {
+                vehicle = selectedVehicleData ? JSON.parse(selectedVehicleData) : null;
+            } catch {
+                vehicle = null;
+            }
+
+            const pricing = vehicle ? getPickupPricingSnapshot(vehicle) : null;
+            const vehicleName = vehicle ? `${getVehicleName(vehicle)} • ${vehicle.rego || vehicle.license || 'N/A'}` : 'Not selected';
+            const rentalTypeText = rentalTypeValue === 'rent_to_own' ? 'Rent to Own' : 'Rent';
+            const durationText = durationInput?.value ? `${durationValue} day(s)` : 'Weekly by default';
+
+            const reviewCustomerName = document.getElementById('review-customer-name');
+            const reviewCustomerPhone = document.getElementById('review-customer-phone');
+            const reviewVehicleName = document.getElementById('review-vehicle-name');
+            const reviewRentalType = document.getElementById('review-rental-type');
+            const reviewDuration = document.getElementById('review-duration');
+            const reviewTotal = document.getElementById('review-total');
+            const reviewBreakdown = document.getElementById('review-breakdown');
+
+            if (reviewCustomerName) reviewCustomerName.textContent = name;
+            if (reviewCustomerPhone) reviewCustomerPhone.textContent = phone;
+            if (reviewVehicleName) reviewVehicleName.textContent = vehicleName;
+            if (reviewRentalType) reviewRentalType.textContent = rentalTypeText;
+            if (reviewDuration) reviewDuration.textContent = durationText;
+            if (reviewTotal) reviewTotal.textContent = pricing ? `$${pricing.total.toFixed(2)}` : '$0.00';
+            if (reviewBreakdown) reviewBreakdown.textContent = pricing ? pricing.breakdownText : 'Select a car to calculate pricing';
         }
         
         // Load available vehicles as visual cards (for pickup)
@@ -1349,7 +1401,7 @@
             const plan = planSelect.value === 'weekly' ? 'weekly' : 'daily';
             const duration = Math.max(1, Number(durationInput.value) || 7);
             const rentalType = rentalTypeSelect.value === 'rent_to_own' ? 'rent_to_own' : 'rent';
-            durationLabel.textContent = durationInput.value ? 'day(s)' : 'Undecided = 1 week by default';
+            durationLabel.textContent = 'day(s)';
 
             if (!selectedVehicleData) {
                 estimateEl.textContent = '$0.00';
@@ -1612,6 +1664,7 @@
                 pickupFlowStep = 3;
                 updatePickupStepVisibility();
                 updatePickupPricingPreview();
+                updatePickupReviewSummary();
                 updateFormProgress();
                 return;
             }
@@ -1662,7 +1715,7 @@
             const hasPhotos = photos.length > 0;
             progressBar.style.width = hasPhotos ? '100%' : '84%';
             progressText.textContent = hasPhotos
-                ? 'Step 3 of 3 - Review price and submit'
+                ? 'Step 3 of 3 - Review details and confirm'
                 : 'Step 3 of 3 - Blocked: upload photo(s)';
         }
 
