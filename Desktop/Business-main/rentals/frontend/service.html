@@ -641,10 +641,10 @@
         <div style="background: #f0f4f8; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
             <div style="display: flex; gap: 0.5rem; justify-content: space-between; margin-bottom: 0.5rem;">
                 <span style="font-size: 0.85rem; font-weight: 600; color: #1a1a1a;">Progress</span>
-                <span style="font-size: 0.85rem; color: #666;" id="progress-text">Step 1 of 4</span>
+                <span style="font-size: 0.85rem; color: #666;" id="progress-text">Step 1 of 3 - Select Car</span>
             </div>
             <div style="height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden;">
-                <div id="progress-bar" style="height: 100%; background: linear-gradient(90deg, #ffd700, #ffed4e); width: 25%; transition: width 0.3s; border-radius: 3px;"></div>
+                <div id="progress-bar" style="height: 100%; background: linear-gradient(90deg, #ffd700, #ffed4e); width: 33.33%; transition: width 0.3s; border-radius: 3px;"></div>
             </div>
         </div>
         
@@ -813,7 +813,7 @@
             </div>
             
             <div id="form-action-buttons">
-                <button type="submit" class="btn btn-primary">Submit Service</button>
+                <button type="button" class="btn btn-primary" id="primary-action-btn" onclick="handlePrimaryAction()">Next</button>
                 <button type="button" class="btn btn-secondary" onclick="window.location.href='scanner.html'">Cancel</button>
             </div>
         </form>
@@ -841,6 +841,7 @@
         let comparingVehicles = [];
         let showingFavoritesOnly = false;
         let isSubmittingService = false;
+        let pickupFlowStep = 1;
         const DEFAULT_DAILY_RATE = 80;
         const DEFAULT_WEEKLY_RATE = 250;
         const RENT_TO_OWN_SURCHARGE = 200;
@@ -898,7 +899,8 @@
                 document.getElementById('selected-car-sticky').classList.remove('show');
                 document.getElementById('form-action-buttons').style.display = 'none';
                 document.querySelector('.container').classList.add('pickup-browse-mode');
-                document.getElementById('progress-text').textContent = 'Step 1 of 4 - Select Car';
+                pickupFlowStep = 1;
+                document.getElementById('progress-text').textContent = 'Step 1 of 3 - Select Car';
                 loadAvailableVehiclesAsCards();
             } else if (serviceType === 'dropoff') {
                 title.textContent = 'Vehicle Drop-off';
@@ -913,6 +915,8 @@
                 document.getElementById('pickup-details-section').classList.remove('hidden');
                 document.querySelector('.container').classList.remove('pickup-browse-mode');
                 document.getElementById('form-action-buttons').style.display = 'block';
+                const primaryActionBtn = document.getElementById('primary-action-btn');
+                if (primaryActionBtn) primaryActionBtn.textContent = 'Submit Service';
                 document.getElementById('customer-name').required = false;
                 document.getElementById('customer-phone').required = false;
                 document.getElementById('vehicle-select').required = false;
@@ -929,6 +933,8 @@
                 document.getElementById('pickup-details-section').classList.remove('hidden');
                 document.querySelector('.container').classList.remove('pickup-browse-mode');
                 document.getElementById('form-action-buttons').style.display = 'block';
+                const primaryActionBtn = document.getElementById('primary-action-btn');
+                if (primaryActionBtn) primaryActionBtn.textContent = 'Submit Service';
             }
             
             generateServiceRef();
@@ -1511,7 +1517,10 @@
                 detailsSection.classList.remove('hidden');
                 container.classList.remove('pickup-browse-mode');
                 document.getElementById('form-action-buttons').style.display = 'block';
-                document.getElementById('progress-text').textContent = 'Step 2 of 4 - Enter Details';
+                pickupFlowStep = 2;
+                const primaryActionBtn = document.getElementById('primary-action-btn');
+                if (primaryActionBtn) primaryActionBtn.textContent = 'Next';
+                document.getElementById('progress-text').textContent = 'Step 2 of 3 - Enter Details';
                 detailsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
             
@@ -1541,56 +1550,87 @@
                 document.querySelectorAll('.car-option-card').forEach(card => card.classList.remove('selected'));
                 summary.classList.remove('show');
                 document.getElementById('selected-car-summary-text').textContent = '';
+                pickupFlowStep = 1;
             }
 
-            document.getElementById('progress-text').textContent = 'Step 1 of 4 - Select Car';
+            const primaryActionBtn = document.getElementById('primary-action-btn');
+            if (primaryActionBtn) primaryActionBtn.textContent = 'Next';
+            document.getElementById('progress-text').textContent = 'Step 1 of 3 - Select Car';
             document.getElementById('car-cards-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
             updateFormProgress();
             updatePickupPricingPreview();
         }
 
+        function isPickupDetailsComplete() {
+            const hasVehicle = Boolean(document.getElementById('selected-vehicle-data').value);
+            const hasName = Boolean(document.getElementById('customer-name').value.trim());
+            const hasPhone = Boolean(document.getElementById('customer-phone').value.trim());
+            const hasMileage = Boolean(document.getElementById('mileage').value);
+            return hasVehicle && hasName && hasPhone && hasMileage;
+        }
+
+        function handlePrimaryAction() {
+            const form = document.getElementById('service-form');
+            if (!form) return;
+
+            if (serviceType !== 'pickup') {
+                form.requestSubmit();
+                return;
+            }
+
+            if (pickupFlowStep <= 2) {
+                if (!isPickupDetailsComplete()) {
+                    updateFormProgress();
+                    alert('Step 2 is blocked. Please complete customer name, phone, and odometer.');
+                    return;
+                }
+
+                pickupFlowStep = 3;
+                updateFormProgress();
+                return;
+            }
+
+            form.requestSubmit();
+        }
+
         // Update progress bar
         function updateFormProgress() {
-            const steps = [
-                { selector: '#selected-vehicle-data', complete: false },
-                { selector: '#customer-name, #customer-phone', complete: false },
-                { selector: '#mileage', complete: false },
-                { selector: '#notes', complete: false }
-            ];
-            
-            let completedSteps = 0;
-            
-            // Check vehicle selection
-            if (document.getElementById('selected-vehicle-data').value) {
-                completedSteps++;
-            }
-            
-            // Check customer details
-            const nameVal = document.getElementById('customer-name').value.trim();
-            const phoneVal = document.getElementById('customer-phone').value.trim();
-            if (nameVal && phoneVal) {
-                completedSteps++;
-            }
-            
-            // Check odometer
-            const mileageVal = document.getElementById('mileage').value;
-            if (mileageVal) {
-                completedSteps++;
-            }
-            
-            // Check notes (optional but counts when filled)
-            if (document.getElementById('notes').value.trim()) {
-                completedSteps++;
-            }
-            
-            const progress = ((completedSteps / 4) * 100);
             const progressBar = document.getElementById('progress-bar');
             const progressText = document.getElementById('progress-text');
-            
-            if (progressBar) {
-                progressBar.style.width = progress + '%';
-                progressText.textContent = `Step ${Math.ceil((progress / 25))} of 4`;
+
+            if (!progressBar || !progressText) return;
+
+            if (serviceType !== 'pickup') {
+                progressBar.style.width = '100%';
+                progressText.textContent = 'Step 1 of 1 - Ready';
+                return;
             }
+
+            const hasVehicle = Boolean(document.getElementById('selected-vehicle-data').value);
+            if (!hasVehicle) {
+                progressBar.style.width = '33.33%';
+                progressText.textContent = 'Step 1 of 3 - Select Car';
+                return;
+            }
+
+            const detailsComplete = isPickupDetailsComplete();
+            const primaryActionBtn = document.getElementById('primary-action-btn');
+
+            if (pickupFlowStep <= 2) {
+                if (primaryActionBtn) primaryActionBtn.textContent = 'Next';
+                progressBar.style.width = detailsComplete ? '66.66%' : '50%';
+                progressText.textContent = detailsComplete
+                    ? 'Step 2 of 3 - Ready for Next'
+                    : 'Step 2 of 3 - Blocked: complete required details';
+                return;
+            }
+
+            if (primaryActionBtn) primaryActionBtn.textContent = 'Next';
+            const hasPhotos = photos.length > 0;
+            progressBar.style.width = hasPhotos ? '100%' : '84%';
+            progressText.textContent = hasPhotos
+                ? 'Step 3 of 3 - Ready for Next'
+                : 'Step 3 of 3 - Blocked: upload photo(s)';
         }
 
         // Premium Features: Favorites
@@ -1782,6 +1822,8 @@
                 };
                 reader.readAsDataURL(file);
             });
+
+            updateFormProgress();
         });
         
         async function convertPhotosToLocalDataUrls(photoFiles) {
@@ -1880,6 +1922,12 @@
                 let vehicle, customerName, customerPhone;
 
                 if (serviceType === 'pickup') {
+                    if (pickupFlowStep < 3) {
+                        alert('Please click Next to complete Step 2 before submitting.');
+                        updateFormProgress();
+                        return;
+                    }
+
                     // Get vehicle from card selection (visual) or dropdown (fallback)
                     const selectedVehicleData = document.getElementById('selected-vehicle-data').value;
                     const vehicleData = selectedVehicleData || document.getElementById('vehicle-select').value;
