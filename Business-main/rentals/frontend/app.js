@@ -8,6 +8,7 @@ let priceOffersCache = [];
 
 const DEFAULT_RATE = 80;
 const DEFAULT_WEEKLY_RATE = 250;
+const DEFAULT_ODOMETER = 500;
 const BOOKING_REQUESTS_KEY = 'booking-requests-data';
 const INVOICES_KEY = 'rentals-invoices-data';
 const PRICE_OFFERS_KEY = 'price-offers-data';
@@ -2800,7 +2801,7 @@ async function handleAddCar(e) {
     const carModel = document.getElementById('car-model')?.value?.trim() || '';
     const rateDayInput = parseFloat(document.getElementById('car-rate')?.value || '0');
     const rateWeekInput = parseFloat(document.getElementById('car-rate-week')?.value || '0');
-    const mileage = parseInt(document.getElementById('car-mileage')?.value || '0', 10) || 0;
+    const mileage = parseInt(document.getElementById('car-mileage')?.value || String(DEFAULT_ODOMETER), 10) || DEFAULT_ODOMETER;
     const fuel = document.getElementById('car-fuel')?.value || 'Full';
     const license = document.getElementById('car-license')?.value?.trim() || '';
     const status = (document.getElementById('car-status')?.value || 'available').trim().toLowerCase();
@@ -3121,7 +3122,7 @@ function editCar(carId) {
     document.getElementById('edit-car-rate').value = normalizeCarRate(normalizedCar.priceDay ?? normalizedCar.rate);
     document.getElementById('edit-car-rate-week').value = Number(normalizedCar.priceWeek || (normalizeCarRate(normalizedCar.priceDay ?? normalizedCar.rate) * 6)).toFixed(2);
     document.getElementById('edit-car-location').value = normalizedCar.location || 'Main Branch';
-    document.getElementById('edit-car-mileage').value = Number(normalizedCar.mileage || 0);
+    document.getElementById('edit-car-mileage').value = Number(normalizedCar.mileage || DEFAULT_ODOMETER);
     document.getElementById('edit-car-fuel').value = normalizedCar.fuel || 'N/A';
     document.getElementById('edit-car-color').value = normalizedCar.color || '';
     document.getElementById('edit-car-vin').value = normalizedCar.vin || '';
@@ -3151,7 +3152,7 @@ async function handleEditCar(e) {
     const rateDayInput = parseFloat(document.getElementById('edit-car-rate').value);
     const rateWeekInput = parseFloat(document.getElementById('edit-car-rate-week').value);
     const locationInput = document.getElementById('edit-car-location').value.trim();
-    const mileageInput = parseInt(document.getElementById('edit-car-mileage').value || '0', 10);
+    const mileageInput = parseInt(document.getElementById('edit-car-mileage').value || String(DEFAULT_ODOMETER), 10);
     const fuelInput = document.getElementById('edit-car-fuel').value.trim();
     const colorInput = document.getElementById('edit-car-color').value.trim();
     const vinInput = document.getElementById('edit-car-vin').value.trim();

@@ -731,6 +731,7 @@
 
             <!-- Customer Details (for pickup) -->
             <div id="customer-input-fields">
+                <div id="pickup-step-1-section">
                 <div class="form-group">
                     <label>Customer Name</label>
                     <input type="text" id="customer-name" required placeholder="Enter full name">
@@ -742,13 +743,18 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Pricing Plan</label>
-                    <select id="pricing-plan">
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                    </select>
+                    <label id="upload-label">Driver License Photos</label>
+                    <div class="photo-upload" onclick="document.getElementById('photo-input').click()">
+                        <div class="photo-upload-icon">+</div>
+                        <p><strong id="upload-title">Tap to upload license photos</strong></p>
+                        <small id="upload-hint">Front and back of driver license</small>
+                    </div>
+                    <input type="file" id="photo-input" accept="image/*" capture="environment" multiple style="display: none;">
+                    <div class="photo-preview" id="photo-preview"></div>
+                </div>
                 </div>
 
+                <div id="pickup-step-2-section">
                 <div class="form-group">
                     <label>Type</label>
                     <select id="rental-type">
@@ -759,14 +765,24 @@
 
                 <div class="form-group">
                     <label>Duration</label>
-                    <input type="number" id="pricing-duration" min="1" value="1" placeholder="1">
-                    <small id="pricing-duration-label">day(s)</small>
+                    <input type="number" id="pricing-duration" min="1" value="" placeholder="Undecided">
+                    <small id="pricing-duration-label">If left blank, we count 1 week by default</small>
+                </div>
+                <input type="hidden" id="pricing-plan" value="weekly">
                 </div>
 
+                <div id="pickup-step-3-section">
                 <div class="form-group full-width" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:0.85rem;">
                     <label style="margin-bottom:0.35rem;">Estimated Price</label>
                     <p style="margin:0; font-weight:700; color:#1f2937;" id="pickup-price-estimate">$0.00</p>
                     <small id="pickup-price-breakdown" style="color:#64748b;">Select a car to calculate pricing</small>
+                </div>
+                
+                <!-- Notes -->
+                <div class="form-group">
+                    <label>Additional Notes</label>
+                    <textarea id="notes" placeholder="Any damage or issues to report..."></textarea>
+                </div>
                 </div>
             </div>
             
@@ -777,32 +793,13 @@
                     <option value="">Choose vehicle...</option>
                 </select>
             </div>
-            
+
             <!-- Odometer Reading -->
-            <div class="form-group" id="odometer-group">
+            <div class="form-group" id="odometer-group" style="display:none;">
                 <label>Odometer Reading (Admin Only)</label>
-                <input type="number" id="mileage" required placeholder="Auto-filled by system" readonly>
+                <input type="number" id="mileage" required placeholder="Auto-filled by system" value="500" readonly>
             </div>
-            
-            <!-- Photo Upload -->
-            <div class="form-group">
-                <label id="upload-label">Vehicle Photos</label>
-                <div class="photo-upload" onclick="document.getElementById('photo-input').click()">
-                    <div class="photo-upload-icon">+</div>
-                    <p><strong id="upload-title">Tap to take photos</strong></p>
-                    <small id="upload-hint">Front, Back, Interior, Vehicle condition</small>
-                </div>
-                <input type="file" id="photo-input" accept="image/*" capture="environment" multiple style="display: none;">
-                <div class="photo-preview" id="photo-preview"></div>
-            </div>
-            
-            <!-- Notes -->
-            <div class="form-group">
-                <label>Additional Notes</label>
-                <textarea id="notes" placeholder="Any damage or issues to report..."></textarea>
-            </div>
-            </div>
-            
+
             <!-- GPS Location (hidden from customer, captured in background) -->
             <input type="hidden" id="location" readonly>
             
@@ -845,6 +842,7 @@
         const DEFAULT_DAILY_RATE = 80;
         const DEFAULT_WEEKLY_RATE = 250;
         const RENT_TO_OWN_SURCHARGE = 200;
+        const DEFAULT_ODOMETER = 500;
         
         // Helper to get Supabase client
         function getSupabaseClient() {
@@ -976,7 +974,7 @@
                                 bookingRequestId: Number(booking.id),
                                 customerName: booking.customer || 'Customer',
                                 customerPhone: booking.phone || '',
-                                mileage: '',
+                                mileage: DEFAULT_ODOMETER,
                                 vehicle: {
                                     id: Number(vehicle.id),
                                     name: vehicle.name || `${vehicle.make || ''} ${vehicle.model || ''}`.trim() || 'Vehicle',
@@ -1008,7 +1006,7 @@
                 // Auto-fill odometer (admin value from vehicle/rental)
                 const odometerInput = document.getElementById('mileage');
                 if (odometerInput) {
-                    odometerInput.value = foundRental.vehicle?.mileage || foundRental.mileage || '';
+                    odometerInput.value = foundRental.vehicle?.mileage || foundRental.mileage || DEFAULT_ODOMETER;
                 }
                 
                 // Hide rego lookup, enable form
@@ -1027,6 +1025,21 @@
             const random = Math.floor(1000 + Math.random() * 9000);
             const ref = `${prefix}-${date}-${random}`;
             document.getElementById('service-ref').value = ref;
+        }
+
+        function updatePickupStepVisibility() {
+            const step1 = document.getElementById('pickup-step-1-section');
+            const step2 = document.getElementById('pickup-step-2-section');
+            const step3 = document.getElementById('pickup-step-3-section');
+            const primaryActionBtn = document.getElementById('primary-action-btn');
+
+            if (step1) step1.style.display = pickupFlowStep === 1 ? 'block' : 'none';
+            if (step2) step2.style.display = pickupFlowStep === 2 ? 'block' : 'none';
+            if (step3) step3.style.display = pickupFlowStep === 3 ? 'block' : 'none';
+
+            if (primaryActionBtn) {
+                primaryActionBtn.textContent = pickupFlowStep === 3 ? 'Submit Service' : 'Next';
+            }
         }
         
         // Load available vehicles as visual cards (for pickup)
@@ -1275,9 +1288,14 @@
                 const perDayFromWeekly = weekRate / 7;
                 const baseTotal = (fullWeeks * weekRate) + (extraDays * perDayFromWeekly);
                 const total = baseTotal + surcharge;
-                const breakdownText = fullWeeks > 0
-                    ? `${fullWeeks} week(s) x $${weekRate.toFixed(2)} + ${extraDays} day(s) x $${perDayFromWeekly.toFixed(2)}`
-                    : `${extraDays} day(s) x $${perDayFromWeekly.toFixed(2)} (weekly pro-rata)`;
+                let breakdownText = '';
+                if (fullWeeks > 0 && extraDays > 0) {
+                    breakdownText = `${fullWeeks} week(s) x $${weekRate.toFixed(2)} + ${extraDays} day(s) x $${perDayFromWeekly.toFixed(2)}`;
+                } else if (fullWeeks > 0) {
+                    breakdownText = `${fullWeeks} week(s) x $${weekRate.toFixed(2)}`;
+                } else {
+                    breakdownText = `${extraDays} day(s) x $${perDayFromWeekly.toFixed(2)} (weekly pro-rata)`;
+                }
 
                 return {
                     plan,
@@ -1329,9 +1347,9 @@
             }
 
             const plan = planSelect.value === 'weekly' ? 'weekly' : 'daily';
-            const duration = Math.max(1, Number(durationInput.value) || 1);
+            const duration = Math.max(1, Number(durationInput.value) || 7);
             const rentalType = rentalTypeSelect.value === 'rent_to_own' ? 'rent_to_own' : 'rent';
-            durationLabel.textContent = 'day(s)';
+            durationLabel.textContent = durationInput.value ? 'day(s)' : 'Undecided = 1 week by default';
 
             if (!selectedVehicleData) {
                 estimateEl.textContent = '$0.00';
@@ -1364,7 +1382,7 @@
             const rentalTypeSelect = document.getElementById('rental-type');
 
             const plan = (planSelect?.value === 'weekly') ? 'weekly' : 'daily';
-            const duration = Math.max(1, Number(durationInput?.value) || 1);
+            const duration = Math.max(1, Number(durationInput?.value) || 7);
             const rentalType = (rentalTypeSelect?.value === 'rent_to_own') ? 'rent_to_own' : 'rent';
             const pricing = calculatePickupPricing(vehicle, plan, duration, rentalType);
 
@@ -1493,7 +1511,7 @@
             // Auto-fill odometer from vehicle data (admin-controlled)
             const odometerInput = document.getElementById('mileage');
             if (odometerInput) {
-                odometerInput.value = vehicle.mileage || '';
+                odometerInput.value = vehicle.mileage || DEFAULT_ODOMETER;
             }
 
             // Also populate the hidden select for form validation
@@ -1517,10 +1535,9 @@
                 detailsSection.classList.remove('hidden');
                 container.classList.remove('pickup-browse-mode');
                 document.getElementById('form-action-buttons').style.display = 'block';
-                pickupFlowStep = 2;
-                const primaryActionBtn = document.getElementById('primary-action-btn');
-                if (primaryActionBtn) primaryActionBtn.textContent = 'Next';
-                document.getElementById('progress-text').textContent = 'Step 2 of 3 - Enter Details';
+                pickupFlowStep = 1;
+                updatePickupStepVisibility();
+                document.getElementById('progress-text').textContent = 'Step 1 of 3 - Customer Details';
                 detailsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
             
@@ -1551,10 +1568,10 @@
                 summary.classList.remove('show');
                 document.getElementById('selected-car-summary-text').textContent = '';
                 pickupFlowStep = 1;
+                updatePickupStepVisibility();
             }
 
-            const primaryActionBtn = document.getElementById('primary-action-btn');
-            if (primaryActionBtn) primaryActionBtn.textContent = 'Next';
+            updatePickupStepVisibility();
             document.getElementById('progress-text').textContent = 'Step 1 of 3 - Select Car';
             document.getElementById('car-cards-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
             updateFormProgress();
@@ -1565,8 +1582,8 @@
             const hasVehicle = Boolean(document.getElementById('selected-vehicle-data').value);
             const hasName = Boolean(document.getElementById('customer-name').value.trim());
             const hasPhone = Boolean(document.getElementById('customer-phone').value.trim());
-            const hasMileage = Boolean(document.getElementById('mileage').value);
-            return hasVehicle && hasName && hasPhone && hasMileage;
+            const hasLicensePhotos = photos.length > 0;
+            return hasVehicle && hasName && hasPhone && hasLicensePhotos;
         }
 
         function handlePrimaryAction() {
@@ -1578,14 +1595,23 @@
                 return;
             }
 
-            if (pickupFlowStep <= 2) {
+            if (pickupFlowStep === 1) {
                 if (!isPickupDetailsComplete()) {
                     updateFormProgress();
-                    alert('Step 2 is blocked. Please complete customer name, phone, and odometer.');
+                    alert('Step 1 is blocked. Please complete customer name, contact number, and driver license photos.');
                     return;
                 }
 
+                pickupFlowStep = 2;
+                updatePickupStepVisibility();
+                updateFormProgress();
+                return;
+            }
+
+            if (pickupFlowStep === 2) {
                 pickupFlowStep = 3;
+                updatePickupStepVisibility();
+                updatePickupPricingPreview();
                 updateFormProgress();
                 return;
             }
@@ -1616,20 +1642,27 @@
             const detailsComplete = isPickupDetailsComplete();
             const primaryActionBtn = document.getElementById('primary-action-btn');
 
-            if (pickupFlowStep <= 2) {
+            if (pickupFlowStep === 1) {
                 if (primaryActionBtn) primaryActionBtn.textContent = 'Next';
-                progressBar.style.width = detailsComplete ? '66.66%' : '50%';
+                progressBar.style.width = detailsComplete ? '33.33%' : '20%';
                 progressText.textContent = detailsComplete
-                    ? 'Step 2 of 3 - Ready for Next'
-                    : 'Step 2 of 3 - Blocked: complete required details';
+                    ? 'Step 1 of 3 - Ready for Next'
+                    : 'Step 1 of 3 - Blocked: complete required details';
                 return;
             }
 
-            if (primaryActionBtn) primaryActionBtn.textContent = 'Next';
+            if (pickupFlowStep === 2) {
+                if (primaryActionBtn) primaryActionBtn.textContent = 'Next';
+                progressBar.style.width = '66.66%';
+                progressText.textContent = 'Step 2 of 3 - Type and Duration';
+                return;
+            }
+
+            if (primaryActionBtn) primaryActionBtn.textContent = 'Submit Service';
             const hasPhotos = photos.length > 0;
             progressBar.style.width = hasPhotos ? '100%' : '84%';
             progressText.textContent = hasPhotos
-                ? 'Step 3 of 3 - Ready for Next'
+                ? 'Step 3 of 3 - Review price and submit'
                 : 'Step 3 of 3 - Blocked: upload photo(s)';
         }
 
@@ -1966,10 +1999,10 @@
                     customerName: customerName,
                     customerPhone: customerPhone,
                     vehicle: vehicle,
-                    pricingPlan: (document.getElementById('pricing-plan')?.value || 'daily'),
-                    pricingDuration: Math.max(1, Number(document.getElementById('pricing-duration')?.value) || 1),
+                        pricingPlan: (document.getElementById('pricing-plan')?.value || 'weekly'),
+                        pricingDuration: getPickupPricingSnapshot(vehicle).duration,
                     rentalType: (document.getElementById('rental-type')?.value || 'rent'),
-                    mileage: document.getElementById('mileage').value || vehicle.mileage || currentRental?.mileage || '',
+                    mileage: document.getElementById('mileage').value || vehicle.mileage || currentRental?.mileage || DEFAULT_ODOMETER,
                     notes: document.getElementById('notes').value,
                     location: gpsLocation,
                     photos: uploadedPhotos,  // Now contains URLs instead of Base64
