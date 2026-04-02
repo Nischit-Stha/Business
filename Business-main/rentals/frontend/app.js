@@ -6,7 +6,8 @@ let invoices = [];
 let bookingRequestsCache = [];
 let priceOffersCache = [];
 
-const DEFAULT_RATE = 250;
+const DEFAULT_RATE = 80;
+const DEFAULT_WEEKLY_RATE = 250;
 const BOOKING_REQUESTS_KEY = 'booking-requests-data';
 const INVOICES_KEY = 'rentals-invoices-data';
 const PRICE_OFFERS_KEY = 'price-offers-data';
@@ -107,7 +108,7 @@ function normalizeCarRecord(car) {
         ...car,
         rate: dayRate,
         priceDay: dayRate,
-        priceWeek: Number.isFinite(weekRate) && weekRate > 0 ? weekRate : Number((dayRate * 6).toFixed(2)),
+        priceWeek: Number.isFinite(weekRate) && weekRate > 0 ? weekRate : DEFAULT_WEEKLY_RATE,
         location: hasMeaningfulValue(car.location) ? String(car.location).trim() : 'Main Branch',
         images: Array.isArray(car.images) ? car.images.filter(Boolean).slice(0, 8) : [],
         availabilityCalendar: Array.isArray(car.availabilityCalendar) ? car.availabilityCalendar : []
@@ -161,46 +162,20 @@ function isDateRangeOverlapping(firstStart, firstEnd, secondStart, secondEnd) {
 }
 
 function getBookingRequests() {
-    if (DATABASE_ONLY_MODE) {
-        return Array.isArray(bookingRequestsCache) ? bookingRequestsCache : [];
-    }
-
-    try {
-        const raw = localStorage.getItem(BOOKING_REQUESTS_KEY);
-        const parsed = raw ? JSON.parse(raw) : [];
-        return Array.isArray(parsed) ? parsed : [];
-    } catch {
-        return [];
-    }
+    return Array.isArray(bookingRequestsCache) ? bookingRequestsCache : [];
 }
 
 function saveBookingRequests(requests) {
     bookingRequestsCache = Array.isArray(requests) ? requests : [];
-    if (!DATABASE_ONLY_MODE) {
-        localStorage.setItem(BOOKING_REQUESTS_KEY, JSON.stringify(bookingRequestsCache));
-    }
     void syncBookingRequestsToSupabase(requests);
 }
 
 function getPriceOffers() {
-    if (DATABASE_ONLY_MODE) {
-        return Array.isArray(priceOffersCache) ? priceOffersCache : [];
-    }
-
-    try {
-        const raw = localStorage.getItem(PRICE_OFFERS_KEY);
-        const parsed = raw ? JSON.parse(raw) : [];
-        return Array.isArray(parsed) ? parsed : [];
-    } catch {
-        return [];
-    }
+    return Array.isArray(priceOffersCache) ? priceOffersCache : [];
 }
 
 function savePriceOffers(offers) {
     priceOffersCache = Array.isArray(offers) ? offers : [];
-    if (!DATABASE_ONLY_MODE) {
-        localStorage.setItem(PRICE_OFFERS_KEY, JSON.stringify(priceOffersCache));
-    }
     void syncPriceOffersToSupabase(offers);
 }
 
@@ -311,8 +286,6 @@ window.resetLocalRentalData = function resetLocalRentalData() {
 
 async function clearFleetDataEverywhere() {
     fleet = [];
-    localStorage.removeItem('fleet-data');
-    localStorage.setItem('records-imported-v1', 'true');
 
     const client = getSupabaseClient();
     if (!client) {
@@ -360,7 +333,7 @@ function mapSupabaseVehicleToLocal(vehicle) {
         status: vehicle.status || 'available',
         rate: Number(vehicle.rate_day || DEFAULT_RATE),
         priceDay: Number(vehicle.rate_day || DEFAULT_RATE),
-        priceWeek: Number(vehicle.rate_week || 0),
+        priceWeek: Number(vehicle.rate_week || DEFAULT_WEEKLY_RATE),
         location: vehicle.location || 'Main Branch',
         images: Array.isArray(vehicle.images) ? vehicle.images : [],
         availabilityCalendar: Array.isArray(vehicle.availability) ? vehicle.availability : []
@@ -863,8 +836,7 @@ async function importSeedDataFromRecords() {
     }
     invoices = [];
 
-    saveData({ syncRemote: false });
-    localStorage.setItem('records-imported-v1', 'true');
+    saveData();
 }
 
 async function reimportFromRecords() {
@@ -888,7 +860,7 @@ async function reimportFromRecords() {
     }
 }
 
-// Load from localStorage if available
+// Load from Supabase as the system of record
 async function loadData() {
     if (shouldClearCarsFromUrl()) {
         await clearFleetDataEverywhere();
@@ -897,40 +869,10 @@ async function loadData() {
 
     if (shouldResetLocalCacheFromUrl()) {
         clearLocalRentalData();
-        localStorage.setItem('records-imported-v1', 'true');
         removeResetParamFromUrl();
     }
 
     suppressRemoteSync = true;
-    if (!DATABASE_ONLY_MODE) {
-        const savedFleet = localStorage.getItem('fleet-data');
-        const savedRentals = localStorage.getItem('rentals-data');
-        const importedFlag = localStorage.getItem('records-imported-v1') === 'true';
-        const savedInvoices = localStorage.getItem(INVOICES_KEY);
-
-        if (!importedFlag) {
-            try {
-                await importSeedDataFromRecords();
-            } catch (error) {
-                console.warn('Could not import Records seed data:', error);
-            }
-        }
-
-        if (savedFleet) {
-            fleet = JSON.parse(savedFleet);
-        }
-        if (savedRentals) {
-            rentals = normalizeRentalDates(JSON.parse(savedRentals));
-        }
-        if (savedInvoices) {
-            try {
-                const parsedInvoices = JSON.parse(savedInvoices);
-                invoices = Array.isArray(parsedInvoices) ? parsedInvoices : [];
-            } catch {
-                invoices = [];
-            }
-        }
-    }
 
     if (normalizeFleetRates()) {
         saveData({ syncRemote: false });
@@ -948,25 +890,16 @@ async function loadData() {
     if (Array.isArray(supabaseRequests)) {
         bookingRequestsCache = supabaseRequests;
         syncRentalsFromBookingRequestsCache();
-        if (!DATABASE_ONLY_MODE && supabaseRequests.length > 0) {
-            localStorage.setItem(BOOKING_REQUESTS_KEY, JSON.stringify(supabaseRequests));
-        }
     }
 
     const supabaseOffers = await loadPriceOffersFromSupabase();
     if (Array.isArray(supabaseOffers)) {
         priceOffersCache = supabaseOffers;
-        if (!DATABASE_ONLY_MODE && supabaseOffers.length > 0) {
-            localStorage.setItem(PRICE_OFFERS_KEY, JSON.stringify(supabaseOffers));
-        }
     }
 
     const supabaseInvoices = await loadInvoicesFromSupabase();
     if (Array.isArray(supabaseInvoices)) {
         invoices = supabaseInvoices;
-        if (!DATABASE_ONLY_MODE && supabaseInvoices.length > 0) {
-            localStorage.setItem(INVOICES_KEY, JSON.stringify(supabaseInvoices));
-        }
     }
 
     suppressRemoteSync = false;
@@ -978,11 +911,6 @@ async function loadData() {
 
 function saveData(options = {}) {
     const { syncRemote = true } = options;
-    if (!DATABASE_ONLY_MODE) {
-        localStorage.setItem('fleet-data', JSON.stringify(fleet));
-        localStorage.setItem('rentals-data', JSON.stringify(rentals));
-        localStorage.setItem(INVOICES_KEY, JSON.stringify(invoices));
-    }
     if (!suppressRemoteSync && syncRemote) {
         void syncInvoicesToSupabase(invoices);
         void syncFleetToSupabase(fleet);
@@ -1352,6 +1280,11 @@ document.addEventListener('DOMContentLoaded', async function() {
         button.addEventListener('click', () => {
             const mode = button.dataset.track || 'all';
             bookingQuickFilterMode = mode;
+            if (mode !== 'all') {
+                bookingStatusFilter = 'active';
+                const statusSelect = document.getElementById('booking-status-filter');
+                if (statusSelect) statusSelect.value = 'active';
+            }
             setActiveTrackerFilterButton(mode);
             renderRentals();
         });
@@ -1845,6 +1778,7 @@ function handleActionCenter(actionKey) {
         bookingQuickFilterMode = 'overdue';
         const statusSelect = document.getElementById('booking-status-filter');
         if (statusSelect) statusSelect.value = 'active';
+        setActiveTrackerFilterButton('overdue');
         renderRentals();
         return;
     }
@@ -1895,17 +1829,44 @@ function calculateRentalAmount(rental, car) {
     const pickupDate = new Date(rental.pickupDate);
     const returnDate = new Date(rental.returnDate);
     const totalDays = Math.max(1, Math.ceil((returnDate - pickupDate) / (1000 * 60 * 60 * 24)));
-    const dailyRate = Number(car?.rate || 0);
-    const subTotal = totalDays * dailyRate;
+    const dailyRate = Number(car?.rate || DEFAULT_RATE) > 0 ? Number(car?.rate || DEFAULT_RATE) : DEFAULT_RATE;
+    const weeklyRate = Number(car?.priceWeek || 0) > 0 ? Number(car?.priceWeek || 0) : DEFAULT_WEEKLY_RATE;
+
+    const pricingEvents = parseServiceEventsFromNotes(rental?.notes || '');
+    const latestPricingEvent = [...pricingEvents]
+        .reverse()
+        .find(event => Number(event?.pricingDuration || 0) > 0);
+    const billingPlan = String(latestPricingEvent?.pricingPlan || 'daily').toLowerCase() === 'weekly' ? 'weekly' : 'daily';
+    const rentalType = String(latestPricingEvent?.rentalType || 'rent').toLowerCase() === 'rent_to_own' ? 'rent_to_own' : 'rent';
+    const billedDays = Math.max(1, Number(latestPricingEvent?.pricingDuration || totalDays) || totalDays);
+    const rentToOwnSurcharge = Number(latestPricingEvent?.pricingSurcharge || 0);
+    const surcharge = Number.isFinite(rentToOwnSurcharge)
+        ? rentToOwnSurcharge
+        : (rentalType === 'rent_to_own' ? 200 : 0);
+
+    let subTotal = billedDays * dailyRate;
+    if (billingPlan === 'weekly') {
+        const fullWeeks = Math.floor(billedDays / 7);
+        const extraDays = billedDays % 7;
+        subTotal = (fullWeeks * weeklyRate) + ((weeklyRate / 7) * extraDays);
+    }
+
+    subTotal += surcharge;
+
     const taxRate = 0.13;
     const taxAmount = subTotal * taxRate;
     const totalAmount = subTotal + taxAmount;
+    const effectiveDailyRate = billedDays > 0 ? subTotal / billedDays : dailyRate;
 
     return {
         pickupDate,
         returnDate,
-        totalDays,
-        dailyRate,
+        totalDays: billedDays,
+        dailyRate: Number(effectiveDailyRate.toFixed(2)),
+        billingPlan,
+        rentalType,
+        surcharge,
+        weeklyRate,
         subTotal,
         taxRate,
         taxAmount,
@@ -2332,6 +2293,7 @@ function renderBookingRequests() {
         const dropoff = new Date(request.returnDate);
         const statusHint = requestedCar?.status === 'available' ? '✅ Available' : '⚠️ Currently unavailable';
         const sourceLabel = String(request.source || 'customer-portal') === 'scanner-pickup' ? 'Scanner Pickup' : 'Customer Portal';
+        const visibleNotes = getVisibleNotesFromBookingNotes(request.notes);
 
         return `
             <div style="background:white; border:1px solid #e5e7eb; border-radius:12px; padding:1rem 1.25rem; box-shadow:0 2px 8px rgba(0,0,0,0.04);">
@@ -2352,7 +2314,7 @@ function renderBookingRequests() {
                     <p style="margin:0; color:#374151;"><strong>Plate:</strong> ${plate}</p>
                     <p style="margin:0; color:#374151;"><strong>Pickup:</strong> ${pickup.toLocaleString()}</p>
                     <p style="margin:0; color:#374151;"><strong>Return:</strong> ${dropoff.toLocaleString()}</p>
-                    ${request.notes ? `<p style="margin:0; color:#374151;"><strong>Notes:</strong> ${request.notes}</p>` : ''}
+                    ${visibleNotes ? `<p style="margin:0; color:#374151;"><strong>Notes:</strong> ${visibleNotes}</p>` : ''}
                 </div>
             </div>
         `;
@@ -2370,6 +2332,7 @@ function showRequestCustomerProfile(requestId) {
     if (!content) return;
 
     const createdAt = new Date(request.createdAt || Date.now());
+    const visibleNotes = getVisibleNotesFromBookingNotes(request.notes);
     content.innerHTML = `
         <div style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:10px; padding:0.9rem 1rem;">
             <h3 style="margin:0 0 0.35rem 0; color:#111827;">${request.customer || 'Customer'}</h3>
@@ -2388,7 +2351,7 @@ function showRequestCustomerProfile(requestId) {
                 <p style="margin:0.2rem 0 0; color:#374151;">Return: ${new Date(request.returnDate).toLocaleString()}</p>
             </div>
         </div>
-        ${request.notes ? `<div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; padding:0.85rem;"><strong>Notes:</strong> ${request.notes}</div>` : ''}
+        ${visibleNotes ? `<div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; padding:0.85rem;"><strong>Notes:</strong> ${visibleNotes}</div>` : ''}
     `;
 
     showModal('customer-profile-modal');
@@ -2423,7 +2386,7 @@ function showRentalCustomerProfile(rentalId) {
                 <p style="margin:0.2rem 0 0; color:#374151;">Return: ${new Date(rental.returnDate).toLocaleString()}</p>
             </div>
         </div>
-        ${rental.notes ? `<div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; padding:0.85rem;"><strong>Notes:</strong> ${rental.notes}</div>` : ''}
+        ${getVisibleNotesFromBookingNotes(rental.notes) ? `<div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; padding:0.85rem;"><strong>Notes:</strong> ${getVisibleNotesFromBookingNotes(rental.notes)}</div>` : ''}
     `;
 
     showModal('customer-profile-modal');
@@ -2701,10 +2664,11 @@ function parseServiceEventsFromNotes(notesText = '') {
         .map(line => String(line || '').trim())
         .filter(Boolean)
         .forEach(line => {
-            const marker = markers.find(item => line.startsWith(item));
+            const marker = markers.find(item => line.includes(item));
             if (!marker) return;
 
-            const rawJson = line.slice(marker.length).trim();
+            const markerIndex = line.indexOf(marker);
+            const rawJson = line.slice(markerIndex + marker.length).trim();
             if (!rawJson) return;
 
             try {
@@ -2716,6 +2680,42 @@ function parseServiceEventsFromNotes(notesText = '') {
         });
 
     return events;
+}
+
+function getVisibleNotesFromBookingNotes(notesText = '') {
+    if (!hasMeaningfulValue(notesText)) return '';
+
+    const markers = ['SCANNER_FORM::', 'SERVICE_EVENT::'];
+    const cleanLines = String(notesText)
+        .split('\n')
+        .map(line => String(line || '').trim())
+        .map(line => {
+            const markerIndex = markers
+                .map(marker => line.indexOf(marker))
+                .filter(index => index >= 0)
+                .sort((a, b) => a - b)[0];
+
+            if (markerIndex === undefined) return line;
+            return line.slice(0, markerIndex).trim();
+        })
+        .filter(Boolean);
+
+    return cleanLines.join(' ');
+}
+
+function getScannerSummaryText(notesText = '') {
+    const events = parseServiceEventsFromNotes(notesText);
+    if (!events.length) return '';
+
+    const latest = events[events.length - 1] || {};
+    const photoCount = Number(latest.photoCount || 0);
+    const ref = latest.serviceRef || 'N/A';
+    const odometer = latest.odometer || 'N/A';
+    const locationText = latest.location && latest.location.lat && latest.location.lng
+        ? `${Number(latest.location.lat).toFixed(5)}, ${Number(latest.location.lng).toFixed(5)}`
+        : 'Not captured';
+
+    return `Ref ${ref} | Photos ${photoCount} | Odometer ${odometer} | GPS ${locationText}`;
 }
 
 // ===== RENDER SERVICE HISTORY =====
@@ -3312,7 +3312,7 @@ function showRentalDetails(rentalId) {
                 <p style="margin:0.2rem 0 0; color:#6b7280;">Invoice: ${invoice ? invoice.invoiceNumber : 'Not generated'}</p>
             </div>
         </div>
-        ${rental.notes ? `<div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; padding:0.85rem;"><strong>Notes:</strong> ${rental.notes}</div>` : ''}
+        ${getVisibleNotesFromBookingNotes(rental.notes) ? `<div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; padding:0.85rem;"><strong>Notes:</strong> ${getVisibleNotesFromBookingNotes(rental.notes)}</div>` : ''}
     `;
 
     const invoiceButton = document.getElementById('rental-detail-invoice-btn');

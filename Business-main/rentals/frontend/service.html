@@ -641,10 +641,10 @@
         <div style="background: #f0f4f8; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
             <div style="display: flex; gap: 0.5rem; justify-content: space-between; margin-bottom: 0.5rem;">
                 <span style="font-size: 0.85rem; font-weight: 600; color: #1a1a1a;">Progress</span>
-                <span style="font-size: 0.85rem; color: #666;" id="progress-text">Step 1 of 4</span>
+                <span style="font-size: 0.85rem; color: #666;" id="progress-text">Step 1 of 3 - Select Car</span>
             </div>
             <div style="height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden;">
-                <div id="progress-bar" style="height: 100%; background: linear-gradient(90deg, #ffd700, #ffed4e); width: 25%; transition: width 0.3s; border-radius: 3px;"></div>
+                <div id="progress-bar" style="height: 100%; background: linear-gradient(90deg, #ffd700, #ffed4e); width: 33.33%; transition: width 0.3s; border-radius: 3px;"></div>
             </div>
         </div>
         
@@ -740,6 +740,34 @@
                     <label>Contact Number</label>
                     <input type="tel" id="customer-phone" required placeholder="0466877527">
                 </div>
+
+                <div class="form-group">
+                    <label>Pricing Plan</label>
+                    <select id="pricing-plan">
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Type</label>
+                    <select id="rental-type">
+                        <option value="rent">Rent</option>
+                        <option value="rent_to_own">Rent to Own</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Duration</label>
+                    <input type="number" id="pricing-duration" min="1" value="1" placeholder="1">
+                    <small id="pricing-duration-label">day(s)</small>
+                </div>
+
+                <div class="form-group full-width" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:0.85rem;">
+                    <label style="margin-bottom:0.35rem;">Estimated Price</label>
+                    <p style="margin:0; font-weight:700; color:#1f2937;" id="pickup-price-estimate">$0.00</p>
+                    <small id="pickup-price-breakdown" style="color:#64748b;">Select a car to calculate pricing</small>
+                </div>
             </div>
             
             <!-- Vehicle Selection Dropdown (backup/hidden for pickup) -->
@@ -785,7 +813,7 @@
             </div>
             
             <div id="form-action-buttons">
-                <button type="submit" class="btn btn-primary">Submit Service</button>
+                <button type="button" class="btn btn-primary" id="primary-action-btn" onclick="handlePrimaryAction()">Next</button>
                 <button type="button" class="btn btn-secondary" onclick="window.location.href='scanner.html'">Cancel</button>
             </div>
         </form>
@@ -793,6 +821,11 @@
         <div id="success-msg" class="success-message">
             <h3>✅ Service Submitted Successfully!</h3>
             <p>Your service reference: <strong id="ref-display"></strong></p>
+            <p id="success-pricing" style="display:none; margin-top:0.35rem; color:#1f2937; font-weight:600;"></p>
+            <p id="success-pricing-breakdown" style="display:none; margin-top:0.25rem; color:#64748b;"></p>
+            <div style="margin-top:0.85rem; display:flex; justify-content:center;">
+                <button type="button" class="btn btn-secondary" onclick="window.location.href='index.html'">Back to Home</button>
+            </div>
         </div>
     </div>
     
@@ -807,6 +840,11 @@
         let favoritedVehicles = [];
         let comparingVehicles = [];
         let showingFavoritesOnly = false;
+        let isSubmittingService = false;
+        let pickupFlowStep = 1;
+        const DEFAULT_DAILY_RATE = 80;
+        const DEFAULT_WEEKLY_RATE = 250;
+        const RENT_TO_OWN_SURCHARGE = 200;
         
         // Helper to get Supabase client
         function getSupabaseClient() {
@@ -861,7 +899,8 @@
                 document.getElementById('selected-car-sticky').classList.remove('show');
                 document.getElementById('form-action-buttons').style.display = 'none';
                 document.querySelector('.container').classList.add('pickup-browse-mode');
-                document.getElementById('progress-text').textContent = 'Step 1 of 4 - Select Car';
+                pickupFlowStep = 1;
+                document.getElementById('progress-text').textContent = 'Step 1 of 3 - Select Car';
                 loadAvailableVehiclesAsCards();
             } else if (serviceType === 'dropoff') {
                 title.textContent = 'Vehicle Drop-off';
@@ -876,6 +915,8 @@
                 document.getElementById('pickup-details-section').classList.remove('hidden');
                 document.querySelector('.container').classList.remove('pickup-browse-mode');
                 document.getElementById('form-action-buttons').style.display = 'block';
+                const primaryActionBtn = document.getElementById('primary-action-btn');
+                if (primaryActionBtn) primaryActionBtn.textContent = 'Submit Service';
                 document.getElementById('customer-name').required = false;
                 document.getElementById('customer-phone').required = false;
                 document.getElementById('vehicle-select').required = false;
@@ -892,6 +933,8 @@
                 document.getElementById('pickup-details-section').classList.remove('hidden');
                 document.querySelector('.container').classList.remove('pickup-browse-mode');
                 document.getElementById('form-action-buttons').style.display = 'block';
+                const primaryActionBtn = document.getElementById('primary-action-btn');
+                if (primaryActionBtn) primaryActionBtn.textContent = 'Submit Service';
             }
             
             generateServiceRef();
@@ -949,16 +992,6 @@
             } catch (error) {
                 console.warn('Supabase rego lookup failed:', error);
             }
-
-            if (!foundRental) {
-                const pickups = JSON.parse(localStorage.getItem('veera-rentals-pickups') || '[]');
-                const rentals = JSON.parse(localStorage.getItem('rentals-data') || '[]');
-
-                foundRental = pickups.find(p => p.vehicle && p.vehicle.rego && p.vehicle.rego.toUpperCase() === rego);
-                if (!foundRental) {
-                    foundRental = rentals.find(r => r.vehicle && r.vehicle.rego && r.vehicle.rego.toUpperCase() === rego);
-                }
-            }
             
             if (foundRental) {
                 currentRental = foundRental;
@@ -998,8 +1031,7 @@
         
         // Load available vehicles as visual cards (for pickup)
         function loadAvailableVehiclesAsCards() {
-            const fallbackFleet = JSON.parse(localStorage.getItem('fleet-data') || '[]');
-            availableVehicles = fallbackFleet.filter(v => v.status === 'available');
+            availableVehicles = [];
             renderVehicleCards(availableVehicles);
             initializeVehicleShopControls();
 
@@ -1029,9 +1061,9 @@
                         rego: vehicle.plate,
                         license: vehicle.plate,
                         status: vehicle.status || 'available',
-                        rate: Number(vehicle.rate_day || 0),
-                        priceDay: Number(vehicle.rate_day || 0),
-                        priceWeek: Number(vehicle.rate_week || 0),
+                        rate: Number(vehicle.rate_day || DEFAULT_DAILY_RATE),
+                        priceDay: Number(vehicle.rate_day || DEFAULT_DAILY_RATE),
+                        priceWeek: Number(vehicle.rate_week || DEFAULT_WEEKLY_RATE),
                         images: Array.isArray(vehicle.images) ? vehicle.images : []
                     }));
 
@@ -1044,7 +1076,13 @@
 
         function buildScannerPickupRequest(serviceData) {
             const pickupAt = new Date();
-            const returnAt = new Date(pickupAt.getTime() + (24 * 60 * 60 * 1000));
+            const pickupPricing = calculatePickupPricing(
+                serviceData.vehicle,
+                serviceData.pricingPlan,
+                serviceData.pricingDuration,
+                serviceData.rentalType
+            );
+            const returnAt = new Date(pickupAt.getTime() + (pickupPricing.durationDays * 24 * 60 * 60 * 1000));
             const carName = serviceData.vehicle?.name || `${serviceData.vehicle?.make || ''} ${serviceData.vehicle?.model || ''}`.trim() || 'Vehicle';
             const existingNotes = serviceData.notes ? String(serviceData.notes).trim() : '';
             const scannerPayload = {
@@ -1054,6 +1092,13 @@
                 location: serviceData.location || null,
                 photoCount: serviceData.photoCount || 0,
                 photoUrls: Array.isArray(serviceData.photos) ? serviceData.photos.map(item => item.url).filter(Boolean) : [],
+                pricingPlan: pickupPricing.plan,
+                rentalType: pickupPricing.rentalType,
+                pricingDuration: pickupPricing.durationDays,
+                pricingTotal: pickupPricing.total,
+                pricingDailyRate: pickupPricing.dayRate,
+                pricingWeeklyRate: pickupPricing.weekRate,
+                pricingSurcharge: pickupPricing.surcharge,
                 submittedAt: serviceData.timestamp,
                 formNotes: serviceData.notes || ''
             };
@@ -1061,7 +1106,6 @@
             const scannerMeta = `SCANNER_FORM::${JSON.stringify(scannerPayload)}`;
 
             return {
-                id: Date.now() + Math.floor(Math.random() * 1000),
                 customer: serviceData.customerName || 'Customer',
                 phone: serviceData.customerPhone || '',
                 email: '',
@@ -1077,8 +1121,7 @@
         }
 
         function mapBookingRequestToSupabase(request) {
-            return {
-                id: Number(request.id),
+            const payload = {
                 customer: request.customer || null,
                 phone: request.phone || null,
                 email: request.email || null,
@@ -1091,27 +1134,36 @@
                 source: request.source || 'scanner-pickup',
                 created_at: request.createdAt ? new Date(request.createdAt).toISOString() : new Date().toISOString()
             };
+
+            const numericId = Number(request.id);
+            if (Number.isFinite(numericId) && numericId > 0 && numericId <= 2147483647) {
+                payload.id = Math.trunc(numericId);
+            }
+
+            return payload;
         }
 
         async function saveBookingRequestToSupabase(request) {
             try {
                 const client = getSupabaseClient();
-                if (!client) return false;
+                if (!client) return null;
 
                 const payload = mapBookingRequestToSupabase(request);
-                const { error } = await client
+                const { data, error } = await client
                     .from('booking_requests')
-                    .upsert([payload], { onConflict: 'id' });
+                    .insert(payload)
+                    .select('*')
+                    .single();
 
                 if (error) {
                     console.warn('Supabase booking request save failed:', error.message || error);
-                    return false;
+                    return null;
                 }
 
-                return true;
+                return data || null;
             } catch (error) {
                 console.warn('Supabase booking request save exception:', error);
-                return false;
+                return null;
             }
         }
 
@@ -1191,6 +1243,145 @@
 
         function getVehicleName(vehicle) {
             return vehicle.name || `${vehicle.make || ''} ${vehicle.model || ''}`.trim() || 'Vehicle';
+        }
+
+        function getVehicleDayRate(vehicle) {
+            const dayRate = Number(vehicle?.priceDay ?? vehicle?.rate);
+            if (Number.isFinite(dayRate) && dayRate > 0) {
+                return dayRate;
+            }
+            return DEFAULT_DAILY_RATE;
+        }
+
+        function getVehicleWeeklyRate(vehicle) {
+            const weekRate = Number(vehicle?.priceWeek || 0);
+            if (Number.isFinite(weekRate) && weekRate > 0) {
+                return weekRate;
+            }
+            return DEFAULT_WEEKLY_RATE;
+        }
+
+        function calculatePickupPricing(vehicle, planValue, durationValue, rentalTypeValue) {
+            const plan = planValue === 'weekly' ? 'weekly' : 'daily';
+            const durationDays = Math.max(1, Number(durationValue) || 1);
+            const rentalType = rentalTypeValue === 'rent_to_own' ? 'rent_to_own' : 'rent';
+            const dayRate = getVehicleDayRate(vehicle);
+            const weekRate = getVehicleWeeklyRate(vehicle);
+            const surcharge = rentalType === 'rent_to_own' ? RENT_TO_OWN_SURCHARGE : 0;
+
+            if (plan === 'weekly') {
+                const fullWeeks = Math.floor(durationDays / 7);
+                const extraDays = durationDays % 7;
+                const perDayFromWeekly = weekRate / 7;
+                const baseTotal = (fullWeeks * weekRate) + (extraDays * perDayFromWeekly);
+                const total = baseTotal + surcharge;
+                const breakdownText = fullWeeks > 0
+                    ? `${fullWeeks} week(s) x $${weekRate.toFixed(2)} + ${extraDays} day(s) x $${perDayFromWeekly.toFixed(2)}`
+                    : `${extraDays} day(s) x $${perDayFromWeekly.toFixed(2)} (weekly pro-rata)`;
+
+                return {
+                    plan,
+                    rentalType,
+                    durationDays,
+                    dayRate,
+                    weekRate,
+                    fullWeeks,
+                    extraDays,
+                    surcharge,
+                    unitRate: weekRate,
+                    total,
+                    durationLabel: 'day(s)',
+                    breakdownText: surcharge > 0 ? `${breakdownText} + Rent to Own $${surcharge.toFixed(2)}` : breakdownText
+                };
+            }
+
+            const baseTotal = durationDays * dayRate;
+            const total = baseTotal + surcharge;
+            return {
+                plan,
+                rentalType,
+                durationDays,
+                dayRate,
+                weekRate,
+                fullWeeks: 0,
+                extraDays: durationDays,
+                surcharge,
+                unitRate: dayRate,
+                total,
+                durationLabel: 'day(s)',
+                breakdownText: surcharge > 0
+                    ? `${durationDays} day(s) x $${dayRate.toFixed(2)} (daily) + Rent to Own $${surcharge.toFixed(2)}`
+                    : `${durationDays} day(s) x $${dayRate.toFixed(2)} (daily)`
+            };
+        }
+
+        function updatePickupPricingPreview() {
+            const estimateEl = document.getElementById('pickup-price-estimate');
+            const breakdownEl = document.getElementById('pickup-price-breakdown');
+            const planSelect = document.getElementById('pricing-plan');
+            const durationInput = document.getElementById('pricing-duration');
+            const durationLabel = document.getElementById('pricing-duration-label');
+            const rentalTypeSelect = document.getElementById('rental-type');
+            const selectedVehicleData = document.getElementById('selected-vehicle-data').value;
+
+            if (!estimateEl || !breakdownEl || !planSelect || !durationInput || !durationLabel || !rentalTypeSelect) {
+                return;
+            }
+
+            const plan = planSelect.value === 'weekly' ? 'weekly' : 'daily';
+            const duration = Math.max(1, Number(durationInput.value) || 1);
+            const rentalType = rentalTypeSelect.value === 'rent_to_own' ? 'rent_to_own' : 'rent';
+            durationLabel.textContent = 'day(s)';
+
+            if (!selectedVehicleData) {
+                estimateEl.textContent = '$0.00';
+                breakdownEl.textContent = 'Select a car to calculate pricing';
+                return;
+            }
+
+            let vehicle = null;
+            try {
+                vehicle = JSON.parse(selectedVehicleData);
+            } catch {
+                vehicle = null;
+            }
+
+            if (!vehicle) {
+                estimateEl.textContent = '$0.00';
+                breakdownEl.textContent = 'Select a car to calculate pricing';
+                return;
+            }
+
+            const pricing = calculatePickupPricing(vehicle, plan, duration, rentalType);
+
+            estimateEl.textContent = `$${pricing.total.toFixed(2)}`;
+            breakdownEl.textContent = pricing.breakdownText;
+        }
+
+        function getPickupPricingSnapshot(vehicle) {
+            const planSelect = document.getElementById('pricing-plan');
+            const durationInput = document.getElementById('pricing-duration');
+            const rentalTypeSelect = document.getElementById('rental-type');
+
+            const plan = (planSelect?.value === 'weekly') ? 'weekly' : 'daily';
+            const duration = Math.max(1, Number(durationInput?.value) || 1);
+            const rentalType = (rentalTypeSelect?.value === 'rent_to_own') ? 'rent_to_own' : 'rent';
+            const pricing = calculatePickupPricing(vehicle, plan, duration, rentalType);
+
+            return {
+                plan: pricing.plan,
+                rentalType: pricing.rentalType,
+                duration: pricing.durationDays,
+                unitRate: pricing.unitRate,
+                total: pricing.total,
+                durationLabel: pricing.durationLabel,
+                dayRate: pricing.dayRate,
+                weekRate: pricing.weekRate,
+                fullWeeks: pricing.fullWeeks,
+                extraDays: pricing.extraDays,
+                surcharge: pricing.surcharge,
+                breakdownText: pricing.breakdownText
+            };
         }
 
         function getVehicleImage(vehicle) {
@@ -1326,12 +1517,16 @@
                 detailsSection.classList.remove('hidden');
                 container.classList.remove('pickup-browse-mode');
                 document.getElementById('form-action-buttons').style.display = 'block';
-                document.getElementById('progress-text').textContent = 'Step 2 of 4 - Enter Details';
+                pickupFlowStep = 2;
+                const primaryActionBtn = document.getElementById('primary-action-btn');
+                if (primaryActionBtn) primaryActionBtn.textContent = 'Next';
+                document.getElementById('progress-text').textContent = 'Step 2 of 3 - Enter Details';
                 detailsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
             
             // Update progress when vehicle is selected
             updateFormProgress();
+            updatePickupPricingPreview();
         }
 
         function backToCarSelection(clearSelection = true) {
@@ -1355,55 +1550,87 @@
                 document.querySelectorAll('.car-option-card').forEach(card => card.classList.remove('selected'));
                 summary.classList.remove('show');
                 document.getElementById('selected-car-summary-text').textContent = '';
+                pickupFlowStep = 1;
             }
 
-            document.getElementById('progress-text').textContent = 'Step 1 of 4 - Select Car';
+            const primaryActionBtn = document.getElementById('primary-action-btn');
+            if (primaryActionBtn) primaryActionBtn.textContent = 'Next';
+            document.getElementById('progress-text').textContent = 'Step 1 of 3 - Select Car';
             document.getElementById('car-cards-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
             updateFormProgress();
+            updatePickupPricingPreview();
+        }
+
+        function isPickupDetailsComplete() {
+            const hasVehicle = Boolean(document.getElementById('selected-vehicle-data').value);
+            const hasName = Boolean(document.getElementById('customer-name').value.trim());
+            const hasPhone = Boolean(document.getElementById('customer-phone').value.trim());
+            const hasMileage = Boolean(document.getElementById('mileage').value);
+            return hasVehicle && hasName && hasPhone && hasMileage;
+        }
+
+        function handlePrimaryAction() {
+            const form = document.getElementById('service-form');
+            if (!form) return;
+
+            if (serviceType !== 'pickup') {
+                form.requestSubmit();
+                return;
+            }
+
+            if (pickupFlowStep <= 2) {
+                if (!isPickupDetailsComplete()) {
+                    updateFormProgress();
+                    alert('Step 2 is blocked. Please complete customer name, phone, and odometer.');
+                    return;
+                }
+
+                pickupFlowStep = 3;
+                updateFormProgress();
+                return;
+            }
+
+            form.requestSubmit();
         }
 
         // Update progress bar
         function updateFormProgress() {
-            const steps = [
-                { selector: '#selected-vehicle-data', complete: false },
-                { selector: '#customer-name, #customer-phone', complete: false },
-                { selector: '#mileage', complete: false },
-                { selector: '#notes', complete: false }
-            ];
-            
-            let completedSteps = 0;
-            
-            // Check vehicle selection
-            if (document.getElementById('selected-vehicle-data').value) {
-                completedSteps++;
-            }
-            
-            // Check customer details
-            const nameVal = document.getElementById('customer-name').value.trim();
-            const phoneVal = document.getElementById('customer-phone').value.trim();
-            if (nameVal && phoneVal) {
-                completedSteps++;
-            }
-            
-            // Check odometer
-            const mileageVal = document.getElementById('mileage').value;
-            if (mileageVal) {
-                completedSteps++;
-            }
-            
-            // Check notes (optional but counts when filled)
-            if (document.getElementById('notes').value.trim()) {
-                completedSteps++;
-            }
-            
-            const progress = ((completedSteps / 4) * 100);
             const progressBar = document.getElementById('progress-bar');
             const progressText = document.getElementById('progress-text');
-            
-            if (progressBar) {
-                progressBar.style.width = progress + '%';
-                progressText.textContent = `Step ${Math.ceil((progress / 25))} of 4`;
+
+            if (!progressBar || !progressText) return;
+
+            if (serviceType !== 'pickup') {
+                progressBar.style.width = '100%';
+                progressText.textContent = 'Step 1 of 1 - Ready';
+                return;
             }
+
+            const hasVehicle = Boolean(document.getElementById('selected-vehicle-data').value);
+            if (!hasVehicle) {
+                progressBar.style.width = '33.33%';
+                progressText.textContent = 'Step 1 of 3 - Select Car';
+                return;
+            }
+
+            const detailsComplete = isPickupDetailsComplete();
+            const primaryActionBtn = document.getElementById('primary-action-btn');
+
+            if (pickupFlowStep <= 2) {
+                if (primaryActionBtn) primaryActionBtn.textContent = 'Next';
+                progressBar.style.width = detailsComplete ? '66.66%' : '50%';
+                progressText.textContent = detailsComplete
+                    ? 'Step 2 of 3 - Ready for Next'
+                    : 'Step 2 of 3 - Blocked: complete required details';
+                return;
+            }
+
+            if (primaryActionBtn) primaryActionBtn.textContent = 'Next';
+            const hasPhotos = photos.length > 0;
+            progressBar.style.width = hasPhotos ? '100%' : '84%';
+            progressText.textContent = hasPhotos
+                ? 'Step 3 of 3 - Ready for Next'
+                : 'Step 3 of 3 - Blocked: upload photo(s)';
         }
 
         // Premium Features: Favorites
@@ -1561,10 +1788,8 @@
 
         // Load available vehicles from fleet (old dropdown method - kept for compatibility)
         function loadAvailableVehicles() {
-            const fleet = JSON.parse(localStorage.getItem('fleet-data') || '[]');
             const select = document.getElementById('vehicle-select');
-            
-            const available = fleet.filter(v => v.status === 'available');
+            const available = availableVehicles.filter(v => v.status === 'available');
             
             if (available.length === 0) {
                 select.innerHTML = '<option value="">No vehicles available</option>';
@@ -1597,6 +1822,8 @@
                 };
                 reader.readAsDataURL(file);
             });
+
+            updateFormProgress();
         });
         
         async function convertPhotosToLocalDataUrls(photoFiles) {
@@ -1685,72 +1912,107 @@
         // Handle form submission
         document.getElementById('service-form').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
-            let vehicle, customerName, customerPhone;
-            
-            if (serviceType === 'pickup') {
-                // Get vehicle from card selection (visual) or dropdown (fallback)
-                const selectedVehicleData = document.getElementById('selected-vehicle-data').value;
-                const vehicleData = selectedVehicleData || document.getElementById('vehicle-select').value;
-                
-                if (!vehicleData) {
-                    alert('Please select a vehicle');
-                    return;
-                }
-                if (photos.length === 0) {
-                    alert('Please upload driver license photo(s) for pickup');
-                    return;
-                }
-                vehicle = JSON.parse(vehicleData);
-                customerName = document.getElementById('customer-name').value;
-                customerPhone = document.getElementById('customer-phone').value;
-            } else {
-                // Drop-off or swap
-                if (!currentRental) {
-                    alert('Please lookup vehicle registration first');
-                    return;
-                }
-                vehicle = currentRental.vehicle;
-                customerName = currentRental.customerName || currentRental.customer;
-                customerPhone = currentRental.customerPhone || currentRental.phone;
+
+            if (isSubmittingService) {
+                return;
             }
-            
-            // Generate reference ID for photo storage path
-            const serviceRef = document.getElementById('service-ref').value;
-            
-            // Upload photos to Supabase Storage
-            const uploadedPhotos = await uploadPhotosToSupabase(serviceRef, photos);
-            
-            const serviceData = {
-                type: serviceType,
-                serviceRef: serviceRef,
-                customerName: customerName,
-                customerPhone: customerPhone,
-                vehicle: vehicle,
-                mileage: document.getElementById('mileage').value || vehicle.mileage || currentRental?.mileage || '',
-                notes: document.getElementById('notes').value,
-                location: gpsLocation,
-                photos: uploadedPhotos,  // Now contains URLs instead of Base64
-                photoCount: uploadedPhotos.length,
-                timestamp: new Date().toISOString()
-            };
-            
-            if (serviceType === 'pickup') {
-                const pickupRequest = buildScannerPickupRequest(serviceData);
-                await saveBookingRequestToSupabase(pickupRequest);
-            } else {
-                await saveServiceEventToSupabase(serviceData);
+            isSubmittingService = true;
+
+            try {
+                let vehicle, customerName, customerPhone;
+
+                if (serviceType === 'pickup') {
+                    if (pickupFlowStep < 3) {
+                        alert('Please click Next to complete Step 2 before submitting.');
+                        updateFormProgress();
+                        return;
+                    }
+
+                    // Get vehicle from card selection (visual) or dropdown (fallback)
+                    const selectedVehicleData = document.getElementById('selected-vehicle-data').value;
+                    const vehicleData = selectedVehicleData || document.getElementById('vehicle-select').value;
+
+                    if (!vehicleData) {
+                        alert('Please select a vehicle');
+                        return;
+                    }
+                    if (photos.length === 0) {
+                        alert('Please upload driver license photo(s) for pickup');
+                        return;
+                    }
+                    vehicle = JSON.parse(vehicleData);
+                    customerName = document.getElementById('customer-name').value;
+                    customerPhone = document.getElementById('customer-phone').value;
+                } else {
+                    // Drop-off or swap
+                    if (!currentRental) {
+                        alert('Please lookup vehicle registration first');
+                        return;
+                    }
+                    vehicle = currentRental.vehicle;
+                    customerName = currentRental.customerName || currentRental.customer;
+                    customerPhone = currentRental.customerPhone || currentRental.phone;
+                }
+
+                // Generate reference ID for photo storage path
+                const serviceRef = document.getElementById('service-ref').value;
+
+                // Upload photos to Supabase Storage
+                const uploadedPhotos = await uploadPhotosToSupabase(serviceRef, photos);
+
+                const serviceData = {
+                    type: serviceType,
+                    serviceRef: serviceRef,
+                    customerName: customerName,
+                    customerPhone: customerPhone,
+                    vehicle: vehicle,
+                    pricingPlan: (document.getElementById('pricing-plan')?.value || 'daily'),
+                    pricingDuration: Math.max(1, Number(document.getElementById('pricing-duration')?.value) || 1),
+                    rentalType: (document.getElementById('rental-type')?.value || 'rent'),
+                    mileage: document.getElementById('mileage').value || vehicle.mileage || currentRental?.mileage || '',
+                    notes: document.getElementById('notes').value,
+                    location: gpsLocation,
+                    photos: uploadedPhotos,  // Now contains URLs instead of Base64
+                    photoCount: uploadedPhotos.length,
+                    timestamp: new Date().toISOString()
+                };
+
+                if (serviceType === 'pickup') {
+                    const pickupRequest = buildScannerPickupRequest(serviceData);
+                    const insertedRequest = await saveBookingRequestToSupabase(pickupRequest);
+                    if (!insertedRequest || !insertedRequest.id) {
+                        alert('Could not save pickup booking request. Please check Supabase setup and try again.');
+                        return;
+                    }
+                } else {
+                    await saveServiceEventToSupabase(serviceData);
+                }
+
+                // Show success message
+                const successPricing = document.getElementById('success-pricing');
+                const successPricingBreakdown = document.getElementById('success-pricing-breakdown');
+                document.getElementById('ref-display').textContent = serviceData.serviceRef;
+
+                if (serviceType === 'pickup') {
+                    const pricing = getPickupPricingSnapshot(vehicle);
+                    if (successPricing) {
+                        successPricing.textContent = `Estimated total: $${pricing.total.toFixed(2)} (${pricing.plan})`;
+                        successPricing.style.display = 'block';
+                    }
+                    if (successPricingBreakdown) {
+                        successPricingBreakdown.textContent = pricing.breakdownText;
+                        successPricingBreakdown.style.display = 'block';
+                    }
+                } else {
+                    if (successPricing) successPricing.style.display = 'none';
+                    if (successPricingBreakdown) successPricingBreakdown.style.display = 'none';
+                }
+
+                document.getElementById('success-msg').classList.add('show');
+                document.getElementById('service-form').style.display = 'none';
+            } finally {
+                isSubmittingService = false;
             }
-            
-            // Show success message
-            document.getElementById('ref-display').textContent = serviceData.serviceRef;
-            document.getElementById('success-msg').classList.add('show');
-            document.getElementById('service-form').style.display = 'none';
-            
-            // Redirect after 3 seconds
-            setTimeout(() => {
-                window.location.href = 'scanner.html';
-            }, 3000);
         });
         
         // Initialize on page load
@@ -1761,6 +2023,10 @@
         document.getElementById('customer-phone').addEventListener('input', updateFormProgress);
         document.getElementById('mileage').addEventListener('input', updateFormProgress);
         document.getElementById('notes').addEventListener('input', updateFormProgress);
+        document.getElementById('pricing-plan').addEventListener('change', updatePickupPricingPreview);
+        document.getElementById('rental-type').addEventListener('change', updatePickupPricingPreview);
+        document.getElementById('pricing-duration').addEventListener('input', updatePickupPricingPreview);
+        updatePickupPricingPreview();
 
         // Close compare modal when clicking outside
         document.getElementById('compare-modal').addEventListener('click', function(e) {
