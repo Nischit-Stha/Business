@@ -750,6 +750,14 @@
                 </div>
 
                 <div class="form-group">
+                    <label>Type</label>
+                    <select id="rental-type">
+                        <option value="rent">Rent</option>
+                        <option value="rent_to_own">Rent to Own</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
                     <label>Duration</label>
                     <input type="number" id="pricing-duration" min="1" value="1" placeholder="1">
                     <small id="pricing-duration-label">day(s)</small>
@@ -835,6 +843,7 @@
         let isSubmittingService = false;
         const DEFAULT_DAILY_RATE = 80;
         const DEFAULT_WEEKLY_RATE = 250;
+        const RENT_TO_OWN_SURCHARGE = 200;
         
         // Helper to get Supabase client
         function getSupabaseClient() {
@@ -1064,7 +1073,8 @@
             const pickupPricing = calculatePickupPricing(
                 serviceData.vehicle,
                 serviceData.pricingPlan,
-                serviceData.pricingDuration
+                serviceData.pricingDuration,
+                serviceData.rentalType
             );
             const returnAt = new Date(pickupAt.getTime() + (pickupPricing.durationDays * 24 * 60 * 60 * 1000));
             const carName = serviceData.vehicle?.name || `${serviceData.vehicle?.make || ''} ${serviceData.vehicle?.model || ''}`.trim() || 'Vehicle';
@@ -1077,10 +1087,12 @@
                 photoCount: serviceData.photoCount || 0,
                 photoUrls: Array.isArray(serviceData.photos) ? serviceData.photos.map(item => item.url).filter(Boolean) : [],
                 pricingPlan: pickupPricing.plan,
+                rentalType: pickupPricing.rentalType,
                 pricingDuration: pickupPricing.durationDays,
                 pricingTotal: pickupPricing.total,
                 pricingDailyRate: pickupPricing.dayRate,
                 pricingWeeklyRate: pickupPricing.weekRate,
+                pricingSurcharge: pickupPricing.surcharge,
                 submittedAt: serviceData.timestamp,
                 formNotes: serviceData.notes || ''
             };
@@ -1243,47 +1255,57 @@
             return DEFAULT_WEEKLY_RATE;
         }
 
-        function calculatePickupPricing(vehicle, planValue, durationValue) {
+        function calculatePickupPricing(vehicle, planValue, durationValue, rentalTypeValue) {
             const plan = planValue === 'weekly' ? 'weekly' : 'daily';
             const durationDays = Math.max(1, Number(durationValue) || 1);
+            const rentalType = rentalTypeValue === 'rent_to_own' ? 'rent_to_own' : 'rent';
             const dayRate = getVehicleDayRate(vehicle);
             const weekRate = getVehicleWeeklyRate(vehicle);
+            const surcharge = rentalType === 'rent_to_own' ? RENT_TO_OWN_SURCHARGE : 0;
 
             if (plan === 'weekly') {
                 const fullWeeks = Math.floor(durationDays / 7);
                 const extraDays = durationDays % 7;
                 const perDayFromWeekly = weekRate / 7;
-                const total = (fullWeeks * weekRate) + (extraDays * perDayFromWeekly);
+                const baseTotal = (fullWeeks * weekRate) + (extraDays * perDayFromWeekly);
+                const total = baseTotal + surcharge;
                 const breakdownText = fullWeeks > 0
                     ? `${fullWeeks} week(s) x $${weekRate.toFixed(2)} + ${extraDays} day(s) x $${perDayFromWeekly.toFixed(2)}`
                     : `${extraDays} day(s) x $${perDayFromWeekly.toFixed(2)} (weekly pro-rata)`;
 
                 return {
                     plan,
+                    rentalType,
                     durationDays,
                     dayRate,
                     weekRate,
                     fullWeeks,
                     extraDays,
+                    surcharge,
                     unitRate: weekRate,
                     total,
                     durationLabel: 'day(s)',
-                    breakdownText
+                    breakdownText: surcharge > 0 ? `${breakdownText} + Rent to Own $${surcharge.toFixed(2)}` : breakdownText
                 };
             }
 
-            const total = durationDays * dayRate;
+            const baseTotal = durationDays * dayRate;
+            const total = baseTotal + surcharge;
             return {
                 plan,
+                rentalType,
                 durationDays,
                 dayRate,
                 weekRate,
                 fullWeeks: 0,
                 extraDays: durationDays,
+                surcharge,
                 unitRate: dayRate,
                 total,
                 durationLabel: 'day(s)',
-                breakdownText: `${durationDays} day(s) x $${dayRate.toFixed(2)} (daily)`
+                breakdownText: surcharge > 0
+                    ? `${durationDays} day(s) x $${dayRate.toFixed(2)} (daily) + Rent to Own $${surcharge.toFixed(2)}`
+                    : `${durationDays} day(s) x $${dayRate.toFixed(2)} (daily)`
             };
         }
 
@@ -1293,14 +1315,16 @@
             const planSelect = document.getElementById('pricing-plan');
             const durationInput = document.getElementById('pricing-duration');
             const durationLabel = document.getElementById('pricing-duration-label');
+            const rentalTypeSelect = document.getElementById('rental-type');
             const selectedVehicleData = document.getElementById('selected-vehicle-data').value;
 
-            if (!estimateEl || !breakdownEl || !planSelect || !durationInput || !durationLabel) {
+            if (!estimateEl || !breakdownEl || !planSelect || !durationInput || !durationLabel || !rentalTypeSelect) {
                 return;
             }
 
             const plan = planSelect.value === 'weekly' ? 'weekly' : 'daily';
             const duration = Math.max(1, Number(durationInput.value) || 1);
+            const rentalType = rentalTypeSelect.value === 'rent_to_own' ? 'rent_to_own' : 'rent';
             durationLabel.textContent = 'day(s)';
 
             if (!selectedVehicleData) {
@@ -1322,7 +1346,7 @@
                 return;
             }
 
-            const pricing = calculatePickupPricing(vehicle, plan, duration);
+            const pricing = calculatePickupPricing(vehicle, plan, duration, rentalType);
 
             estimateEl.textContent = `$${pricing.total.toFixed(2)}`;
             breakdownEl.textContent = pricing.breakdownText;
@@ -1331,13 +1355,16 @@
         function getPickupPricingSnapshot(vehicle) {
             const planSelect = document.getElementById('pricing-plan');
             const durationInput = document.getElementById('pricing-duration');
+            const rentalTypeSelect = document.getElementById('rental-type');
 
             const plan = (planSelect?.value === 'weekly') ? 'weekly' : 'daily';
             const duration = Math.max(1, Number(durationInput?.value) || 1);
-            const pricing = calculatePickupPricing(vehicle, plan, duration);
+            const rentalType = (rentalTypeSelect?.value === 'rent_to_own') ? 'rent_to_own' : 'rent';
+            const pricing = calculatePickupPricing(vehicle, plan, duration, rentalType);
 
             return {
                 plan: pricing.plan,
+                rentalType: pricing.rentalType,
                 duration: pricing.durationDays,
                 unitRate: pricing.unitRate,
                 total: pricing.total,
@@ -1346,6 +1373,7 @@
                 weekRate: pricing.weekRate,
                 fullWeeks: pricing.fullWeeks,
                 extraDays: pricing.extraDays,
+                surcharge: pricing.surcharge,
                 breakdownText: pricing.breakdownText
             };
         }
@@ -1892,6 +1920,7 @@
                     vehicle: vehicle,
                     pricingPlan: (document.getElementById('pricing-plan')?.value || 'daily'),
                     pricingDuration: Math.max(1, Number(document.getElementById('pricing-duration')?.value) || 1),
+                    rentalType: (document.getElementById('rental-type')?.value || 'rent'),
                     mileage: document.getElementById('mileage').value || vehicle.mileage || currentRental?.mileage || '',
                     notes: document.getElementById('notes').value,
                     location: gpsLocation,
@@ -1947,6 +1976,7 @@
         document.getElementById('mileage').addEventListener('input', updateFormProgress);
         document.getElementById('notes').addEventListener('input', updateFormProgress);
         document.getElementById('pricing-plan').addEventListener('change', updatePickupPricingPreview);
+        document.getElementById('rental-type').addEventListener('change', updatePickupPricingPreview);
         document.getElementById('pricing-duration').addEventListener('input', updatePickupPricingPreview);
         updatePickupPricingPreview();
 

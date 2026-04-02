@@ -1837,7 +1837,12 @@ function calculateRentalAmount(rental, car) {
         .reverse()
         .find(event => Number(event?.pricingDuration || 0) > 0);
     const billingPlan = String(latestPricingEvent?.pricingPlan || 'daily').toLowerCase() === 'weekly' ? 'weekly' : 'daily';
+    const rentalType = String(latestPricingEvent?.rentalType || 'rent').toLowerCase() === 'rent_to_own' ? 'rent_to_own' : 'rent';
     const billedDays = Math.max(1, Number(latestPricingEvent?.pricingDuration || totalDays) || totalDays);
+    const rentToOwnSurcharge = Number(latestPricingEvent?.pricingSurcharge || 0);
+    const surcharge = Number.isFinite(rentToOwnSurcharge)
+        ? rentToOwnSurcharge
+        : (rentalType === 'rent_to_own' ? 200 : 0);
 
     let subTotal = billedDays * dailyRate;
     if (billingPlan === 'weekly') {
@@ -1845,6 +1850,8 @@ function calculateRentalAmount(rental, car) {
         const extraDays = billedDays % 7;
         subTotal = (fullWeeks * weeklyRate) + ((weeklyRate / 7) * extraDays);
     }
+
+    subTotal += surcharge;
 
     const taxRate = 0.13;
     const taxAmount = subTotal * taxRate;
@@ -1857,6 +1864,8 @@ function calculateRentalAmount(rental, car) {
         totalDays: billedDays,
         dailyRate: Number(effectiveDailyRate.toFixed(2)),
         billingPlan,
+        rentalType,
+        surcharge,
         weeklyRate,
         subTotal,
         taxRate,
