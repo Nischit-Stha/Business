@@ -125,6 +125,58 @@ function renderPhotoLinksFromNotes(notes) {
     return `<p><strong>Photos:</strong> ${links}</p>`;
 }
 
+function extractLatestServiceEventByType(notes, type) {
+    const normalizedType = String(type || '').trim().toLowerCase();
+    if (!normalizedType) return null;
+
+    const payloads = extractServicePayloadsFromNotes(notes);
+    if (!payloads.length) return null;
+
+    for (let i = payloads.length - 1; i >= 0; i -= 1) {
+        const payload = payloads[i];
+        if (String(payload?.type || '').trim().toLowerCase() === normalizedType) {
+            return payload;
+        }
+    }
+
+    return null;
+}
+
+function renderBookingCard(booking, extraBadges = []) {
+    const createdAt = booking.created_at || new Date().toISOString();
+    const vehicleText = sanitizeText(booking.car || booking.car_name, `Vehicle #${Number(booking.vehicle_id || 0) || ''}`);
+    const badgeText = [sanitizeText(booking.status, 'pending'), ...extraBadges.filter(Boolean)].join(' • ');
+
+    return `
+        <div class="booking-card ${String(booking.status || '').toLowerCase()}">
+            <div class="booking-header">
+                <span class="booking-type-badge">${badgeText}</span>
+                <span class="booking-ref">#${Number(booking.id || 0)}</span>
+            </div>
+            <div class="booking-details">
+                <p><strong>Customer:</strong> ${sanitizeText(booking.customer)}</p>
+                <p><strong>Phone:</strong> ${sanitizeText(booking.phone)}</p>
+                <p><strong>Email:</strong> ${sanitizeText(booking.email)}</p>
+                <p><strong>Vehicle:</strong> ${vehicleText}</p>
+                <p><strong>Pickup:</strong> ${booking.pickup_at ? new Date(booking.pickup_at).toLocaleString() : 'N/A'}</p>
+                <p><strong>Return:</strong> ${booking.return_at ? new Date(booking.return_at).toLocaleString() : 'N/A'}</p>
+                <p><strong>Created:</strong> ${new Date(createdAt).toLocaleString()}</p>
+                ${renderLocationFromNotes(booking.notes)}
+                ${renderPhotoLinksFromNotes(booking.notes)}
+            </div>
+        </div>
+    `;
+}
+
+function renderBookingSection(title, cardsHtml, emptyText) {
+    return `
+        <section style="margin-bottom: 1.5rem;">
+            <h3 style="font-family: 'Poppins', sans-serif; font-size: 1.15rem; margin-bottom: 0.75rem; color: #1a1a1a;">${escapeHtml(title)}</h3>
+            ${cardsHtml || `<p class="empty-state">${escapeHtml(emptyText)}</p>`}
+        </section>
+    `;
+}
+
 function toCurrency(value) {
     return `$${Number(value || 0).toFixed(2)}`;
 }
@@ -287,29 +339,43 @@ async function renderAllBookings() {
         return;
     }
 
-    bookingsGrid.innerHTML = bookings.map(booking => {
-        const createdAt = booking.created_at || new Date().toISOString();
-        const vehicleText = sanitizeText(booking.car || booking.car_name, `Vehicle #${Number(booking.vehicle_id || 0) || ''}`);
-        return `
-            <div class="booking-card ${String(booking.status || '').toLowerCase()}">
-                <div class="booking-header">
-                    <span class="booking-type-badge">${sanitizeText(booking.status, 'pending')}</span>
-                    <span class="booking-ref">#${Number(booking.id || 0)}</span>
-                </div>
-                <div class="booking-details">
-                    <p><strong>Customer:</strong> ${sanitizeText(booking.customer)}</p>
-                    <p><strong>Phone:</strong> ${sanitizeText(booking.phone)}</p>
-                    <p><strong>Email:</strong> ${sanitizeText(booking.email)}</p>
-                    <p><strong>Vehicle:</strong> ${vehicleText}</p>
-                    <p><strong>Pickup:</strong> ${booking.pickup_at ? new Date(booking.pickup_at).toLocaleString() : 'N/A'}</p>
-                    <p><strong>Return:</strong> ${booking.return_at ? new Date(booking.return_at).toLocaleString() : 'N/A'}</p>
-                    <p><strong>Created:</strong> ${new Date(createdAt).toLocaleString()}</p>
-                    ${renderLocationFromNotes(booking.notes)}
-                    ${renderPhotoLinksFromNotes(booking.notes)}
-                </div>
-            </div>
-        `;
+    const dropoffRequests = [];
+    const swapRequests = [];
+    const pickupRequests = [];
+
+    bookings.forEach(booking => {
+        const dropoffEvent = extractLatestServiceEventByType(booking.notes, 'dropoff');
+        const swapEvent = extractLatestServiceEventByType(booking.notes, 'swap');
+
+        if (dropoffEvent) {
+            dropoffRequests.push({ booking, event: dropoffEvent });
+        }
+
+        if (swapEvent) {
+            swapRequests.push({ booking, event: swapEvent });
+        }
+
+        const source = String(booking.source || '').toLowerCase();
+        if (!dropoffEvent && !swapEvent && (source.includes('pickup') || source === '' || source === 'scanner')) {
+            pickupRequests.push(booking);
+        }
+    });
+
+    const pickupCards = pickupRequests.map(item => renderBookingCard(item, ['PICKUP REQUEST'])).join('');
+    const dropoffCards = dropoffRequests.map(item => {
+        const submittedAt = item.event?.submittedAt ? new Date(item.event.submittedAt).toLocaleString() : 'N/A';
+        return renderBookingCard(item.booking, [`DROP-OFF REQUEST`, `Submitted: ${submittedAt}`]);
     }).join('');
+    const swapCards = swapRequests.map(item => {
+        const submittedAt = item.event?.submittedAt ? new Date(item.event.submittedAt).toLocaleString() : 'N/A';
+        return renderBookingCard(item.booking, [`SWAP REQUEST`, `Submitted: ${submittedAt}`]);
+    }).join('');
+
+    bookingsGrid.innerHTML = `
+        ${renderBookingSection('Pickup Requests', pickupCards, 'No pickup requests found.')}
+        ${renderBookingSection('Drop-off Requests', dropoffCards, 'No drop-off requests found.')}
+        ${renderBookingSection('Swap Requests', swapCards, 'No swap requests found.')}
+    `;
 }
 
 // Render Inventory (Fleet)
