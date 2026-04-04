@@ -1311,7 +1311,7 @@
         async function saveBookingRequestToSupabase(request) {
             try {
                 const client = getSupabaseClient();
-                if (!client) return null;
+                if (!client) return { inserted: false, row: null, error: new Error('Supabase client unavailable') };
 
                 const payload = mapBookingRequestToSupabase(request);
                 const { data, error } = await client
@@ -1320,15 +1320,24 @@
                     .select('*')
                     .single();
 
-                if (error) {
-                    console.warn('Supabase booking request save failed:', error.message || error);
-                    return null;
+                if (!error) {
+                    return { inserted: true, row: data || null, error: null };
                 }
 
-                return data || null;
+                // Some projects allow INSERT but deny SELECT, so retry without select.
+                const { error: insertOnlyError } = await client
+                    .from('booking_requests')
+                    .insert(payload);
+
+                if (!insertOnlyError) {
+                    return { inserted: true, row: null, error: null };
+                }
+
+                console.warn('Supabase booking request save failed:', insertOnlyError.message || insertOnlyError);
+                return { inserted: false, row: null, error: insertOnlyError };
             } catch (error) {
                 console.warn('Supabase booking request save exception:', error);
-                return null;
+                return { inserted: false, row: null, error };
             }
         }
 
@@ -2222,11 +2231,18 @@
                     });
 
                     const pickupRequest = buildScannerPickupRequest(serviceData);
-                    const insertedRequest = await saveBookingRequestToSupabase(pickupRequest);
-                    if (!insertedRequest || !insertedRequest.id) {
-                        alert('Could not save pickup booking request. Please check Supabase setup and try again.');
+                    const saveResult = await saveBookingRequestToSupabase(pickupRequest);
+                    if (!saveResult?.inserted) {
+                        const reason = saveResult?.error?.message ? `\nReason: ${saveResult.error.message}` : '';
+                        alert(`Could not save pickup booking request. Please check Supabase setup and try again.${reason}`);
                         return;
                     }
+
+                    const insertedRequest = saveResult.row || {
+                        id: null,
+                        pickupDate: pickupRequest.pickupDate,
+                        returnDate: pickupRequest.returnDate
+                    };
 
                     const pricing = getPickupPricingSnapshot(vehicle);
                     const detailsPayload = buildServiceDetailsPayload(serviceData, pricing, insertedRequest);
@@ -2267,6 +2283,10 @@
 
                 document.getElementById('success-msg').classList.add('show');
                 document.getElementById('service-form').style.display = 'none';
+            } catch (error) {
+                console.error('Service submit failed:', error);
+                const message = error?.message ? `Submission failed: ${error.message}` : 'Submission failed due to an unexpected error. Please try again.';
+                alert(message);
             } finally {
                 isSubmittingService = false;
             }
