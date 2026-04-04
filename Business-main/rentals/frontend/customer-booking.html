@@ -1,0 +1,1486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Portal | Veera Rentals</title>
+    <meta name="description" content="Customer portal for Veera Rentals: signup/login, browse cars, filter by price/location/type, bargain offers, booking calendar, and order history.">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .portal-page {
+            max-width: 1280px;
+            margin: 1.5rem auto 2.5rem;
+            padding: 0 1rem;
+        }
+
+        .portal-hero {
+            background: linear-gradient(125deg, #0f172a 0%, #1e293b 35%, #2563eb 100%);
+            color: #fff;
+            border-radius: 18px;
+            padding: 1.35rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+            box-shadow: 0 16px 30px -22px rgba(15, 23, 42, 0.85);
+            margin-bottom: 1rem;
+        }
+
+        .portal-hero h1 {
+            margin: 0;
+            font-size: 1.6rem;
+        }
+
+        .portal-hero p {
+            margin: 0.25rem 0 0;
+            opacity: 0.9;
+        }
+
+        .top-actions {
+            display: flex;
+            gap: 0.65rem;
+            flex-wrap: wrap;
+        }
+
+        .portal-grid {
+            display: grid;
+            grid-template-columns: 330px 1fr;
+            gap: 1rem;
+        }
+
+        .panel {
+            background: #fff;
+            border-radius: 16px;
+            padding: 1rem;
+            border: 1px solid #e6edf8;
+            box-shadow: 0 10px 22px -18px rgba(15, 23, 42, 0.5);
+            margin-bottom: 1rem;
+        }
+
+        .panel h2 {
+            margin: 0 0 0.75rem;
+            font-size: 1.08rem;
+            color: #0f172a;
+        }
+
+        .panel h3 {
+            margin: 0 0 0.55rem;
+            font-size: 0.95rem;
+            color: #0f172a;
+        }
+
+        .muted {
+            color: #64748b;
+            font-size: 0.86rem;
+        }
+
+        .auth-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .auth-tab {
+            border: 1px solid #d7e2f3;
+            border-radius: 999px;
+            padding: 0.45rem 0.82rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            background: #f8fbff;
+        }
+
+        .auth-tab.active {
+            background: linear-gradient(135deg, #2563eb, #0ea5e9);
+            color: #fff;
+            border-color: #2563eb;
+        }
+
+        .auth-block[hidden] {
+            display: none;
+        }
+
+        .form-mini {
+            display: grid;
+            gap: 0.65rem;
+        }
+
+        .form-mini input,
+        .form-mini select,
+        .form-mini textarea {
+            width: 100%;
+            border: 1px solid #d6dfed;
+            border-radius: 10px;
+            padding: 0.62rem 0.72rem;
+            font-size: 0.88rem;
+            font-family: inherit;
+            background: #fbfdff;
+        }
+
+        .form-mini textarea {
+            min-height: 92px;
+            resize: vertical;
+        }
+
+        .form-mini input:focus,
+        .form-mini select:focus,
+        .form-mini textarea:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.65rem;
+        }
+
+        .filter-grid {
+            display: grid;
+            grid-template-columns: 1.3fr repeat(3, 1fr);
+            gap: 0.65rem;
+        }
+
+        .cars-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 0.8rem;
+            margin-top: 0.75rem;
+        }
+
+        .car-card {
+            border: 1px solid #dce6f5;
+            border-radius: 12px;
+            padding: 0.82rem;
+            background: linear-gradient(180deg, #fff, #f8fbff);
+            cursor: pointer;
+            transition: all 0.22s ease;
+        }
+
+        .car-card:hover,
+        .car-card.active {
+            border-color: #2563eb;
+            box-shadow: 0 16px 30px -24px rgba(37, 99, 235, 0.65);
+            transform: translateY(-2px);
+        }
+
+        .car-meta {
+            margin-top: 0.45rem;
+            display: grid;
+            gap: 0.28rem;
+            font-size: 0.82rem;
+            color: #475569;
+        }
+
+        .price {
+            color: #0f172a;
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .status-chip {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            padding: 0.22rem 0.55rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            background: #eef4ff;
+            color: #1d4ed8;
+        }
+
+        .status-pending { background: #fff7ed; color: #b45309; }
+        .status-accepted { background: #ecfdf5; color: #047857; }
+        .status-rejected { background: #fef2f2; color: #b91c1c; }
+        .status-countered { background: #eff6ff; color: #1d4ed8; }
+
+        .booking-summary {
+            border: 1px solid #dce6f5;
+            border-radius: 12px;
+            padding: 0.78rem;
+            background: #f8fbff;
+            display: grid;
+            gap: 0.3rem;
+            margin-top: 0.6rem;
+            font-size: 0.86rem;
+        }
+
+        .calendar-box {
+            border: 1px dashed #bfd2ef;
+            border-radius: 12px;
+            padding: 0.75rem;
+            background: #fbfdff;
+            margin-top: 0.55rem;
+        }
+
+        .list {
+            display: grid;
+            gap: 0.6rem;
+            margin-top: 0.55rem;
+        }
+
+        .list-item {
+            border: 1px solid #e2e8f4;
+            border-radius: 10px;
+            padding: 0.7rem;
+            background: #fff;
+        }
+
+        .list-item-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.3rem;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .row-actions {
+            display: flex;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+            margin-top: 0.75rem;
+        }
+
+        .success-box,
+        .info-box {
+            display: none;
+            border-radius: 10px;
+            padding: 0.72rem 0.82rem;
+            margin-top: 0.6rem;
+            font-size: 0.86rem;
+            font-weight: 600;
+        }
+
+        .success-box {
+            background: #ecfdf5;
+            border: 1px solid #10b981;
+            color: #065f46;
+        }
+
+        .info-box {
+            background: #eff6ff;
+            border: 1px solid #3b82f6;
+            color: #1e40af;
+        }
+
+        .empty {
+            text-align: center;
+            color: #64748b;
+            padding: 1rem;
+            border: 1px dashed #c9d6ea;
+            border-radius: 10px;
+            background: #f8fbff;
+            font-size: 0.85rem;
+        }
+
+        .payment-placeholder {
+            border: 1px dashed #f59e0b;
+            background: #fffbeb;
+            color: #92400e;
+            border-radius: 10px;
+            padding: 0.7rem;
+            font-size: 0.83rem;
+        }
+
+        .payment-methods {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .payment-card {
+            border: 1px solid #dbe7f8;
+            background: #f8fbff;
+            border-radius: 10px;
+            padding: 0.75rem;
+        }
+
+        .payment-card h3 {
+            margin: 0 0 0.35rem;
+            color: #1f2937;
+            font-size: 0.95rem;
+        }
+
+        @media (max-width: 1040px) {
+            .portal-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .filter-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 680px) {
+            .row,
+            .filter-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .portal-hero h1 {
+                font-size: 1.35rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="portal-page">
+        <section class="portal-hero">
+            <div>
+                <h1>Veera Rentals Customer Portal</h1>
+                <p>Browse cars, negotiate your deal, book with confidence, and track every order.</p>
+            </div>
+            <div class="top-actions">
+                <a href="index.html" class="btn btn-secondary">Admin Dashboard</a>
+                <button class="btn btn-secondary" id="logout-btn" onclick="logoutCustomer()" hidden>Logout</button>
+            </div>
+        </section>
+
+        <div class="portal-grid">
+            <aside>
+                <section class="panel" id="auth-panel">
+                    <h2>Signup / Login</h2>
+                    <p class="muted">Google login is optional and planned for next phase.</p>
+                    <div class="auth-tabs">
+                        <button type="button" class="auth-tab active" id="tab-login">Login</button>
+                        <button type="button" class="auth-tab" id="tab-signup">Signup</button>
+                    </div>
+
+                    <div class="auth-block" id="login-block">
+                        <form id="login-form" class="form-mini">
+                            <input type="email" id="login-email" placeholder="Email" required>
+                            <input type="password" id="login-password" placeholder="Password" required>
+                            <button type="submit" class="btn btn-primary">Login</button>
+                            <button type="button" class="btn btn-secondary" disabled>Continue with Google (later)</button>
+                        </form>
+                    </div>
+
+                    <div class="auth-block" id="signup-block" hidden>
+                        <form id="signup-form" class="form-mini">
+                            <input type="text" id="signup-name" placeholder="Full name" required>
+                            <input type="tel" id="signup-phone" placeholder="Phone number" required>
+                            <input type="email" id="signup-email" placeholder="Email" required>
+                            <input type="password" id="signup-password" placeholder="Password" minlength="6" required>
+                            <button type="submit" class="btn btn-primary">Create account</button>
+                        </form>
+                    </div>
+                    <div id="auth-info" class="info-box"></div>
+                </section>
+
+                <section class="panel" id="bargain-panel" hidden>
+                    <h2>Bargain System</h2>
+                    <p class="muted">Offer your best daily rate. Owner can accept, reject, or counter.</p>
+                    <form id="offer-form" class="form-mini">
+                        <select id="offer-car" required>
+                            <option value="">Select car for offer</option>
+                        </select>
+                        <input type="number" id="offer-price" min="1" step="1" placeholder="Your offer per day" required>
+                        <textarea id="offer-note" placeholder="Message to owner (optional)"></textarea>
+                        <button type="submit" class="btn btn-primary">Send Offer</button>
+                    </form>
+                    <div id="offer-success" class="success-box"></div>
+                    <div id="offer-list" class="list"></div>
+                </section>
+
+                <section class="panel" id="payment-panel" hidden>
+                    <h2>Payment</h2>
+                    <div class="payment-methods">
+                        <div class="payment-card">
+                            <h3>PayPal</h3>
+                            <p class="muted">Fast online payment through your PayPal account.</p>
+                            <button type="button" class="btn btn-primary" id="pay-with-paypal-btn">Pay with PayPal</button>
+                        </div>
+                        <div class="payment-card">
+                            <h3>Bank Transfer / Bank ID</h3>
+                            <p class="muted" id="bank-details-text"></p>
+                            <div class="row" style="margin-top:0.5rem;">
+                                <button type="button" class="btn btn-secondary" id="copy-bank-details-btn">Copy Bank Details</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form id="payment-confirm-form" class="form-mini" style="margin-top:0.8rem;">
+                        <h3 style="margin:0;">Share Payment Reference</h3>
+                        <select id="payment-method" required>
+                            <option value="">Select method</option>
+                            <option value="paypal">PayPal</option>
+                            <option value="bank-transfer">Bank Transfer / Bank ID</option>
+                        </select>
+                        <input type="number" id="payment-amount" min="1" step="0.01" placeholder="Amount paid" required>
+                        <input type="text" id="payment-reference" placeholder="Transaction / reference number" required>
+                        <textarea id="payment-note" placeholder="Optional note"></textarea>
+                        <button type="submit" class="btn btn-primary">Submit Payment Proof</button>
+                    </form>
+
+                    <div id="payment-success" class="success-box"></div>
+                    <div id="payment-history" class="list"></div>
+                    <div class="payment-placeholder" style="margin-top:0.6rem;">
+                        Payment status still requires owner verification in admin before final confirmation.
+                    </div>
+                </section>
+            </aside>
+
+            <section>
+                <section class="panel" id="browse-panel" hidden>
+                    <h2>Browse Cars</h2>
+                    <div class="filter-grid">
+                        <input type="text" id="search-input" placeholder="Search make/model/license/plate">
+                        <select id="price-filter">
+                            <option value="all">Price: All</option>
+                            <option value="0-100">$0 - $100/day</option>
+                            <option value="101-200">$101 - $200/day</option>
+                            <option value="201-9999">$201+/day</option>
+                        </select>
+                        <select id="location-filter">
+                            <option value="all">Location: All</option>
+                        </select>
+                        <select id="type-filter">
+                            <option value="all">Car Type: All</option>
+                        </select>
+                    </div>
+                    <div id="cars-grid" class="cars-grid"></div>
+                </section>
+
+                <section class="panel" id="booking-panel" hidden>
+                    <h2>Booking Calendar</h2>
+                    <p class="muted">Choose your dates, review estimate, and submit request.</p>
+                    <form id="booking-form" class="form-mini">
+                        <div class="row">
+                            <div>
+                                <label for="pickup-date" class="muted">Pickup</label>
+                                <input type="datetime-local" id="pickup-date" required>
+                            </div>
+                            <div>
+                                <label for="return-date" class="muted">Return</label>
+                                <input type="datetime-local" id="return-date" required>
+                            </div>
+                        </div>
+                        <textarea id="booking-note" placeholder="Any special request?"></textarea>
+                        <div class="booking-summary" id="booking-summary">
+                            <div><strong>Selected car:</strong> <span id="summary-car">None</span></div>
+                            <div><strong>Daily rate:</strong> <span id="summary-rate">$0</span></div>
+                            <div><strong>Total estimate:</strong> <span id="summary-total">$0</span></div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Submit Booking Request</button>
+                    </form>
+                    <div id="booking-success" class="success-box"></div>
+
+                    <div class="calendar-box">
+                        <h3>Quick Availability Check</h3>
+                        <div class="row" style="margin-top: 0.45rem;">
+                            <input type="date" id="calendar-date">
+                            <button type="button" class="btn btn-secondary" onclick="checkAvailabilityByDate()">Check</button>
+                        </div>
+                        <div id="availability-result" class="muted" style="margin-top: 0.45rem;"></div>
+                    </div>
+                </section>
+
+                <section class="panel" id="history-panel" hidden>
+                    <h2>Order History</h2>
+                    <div id="history-list" class="list"></div>
+                </section>
+            </section>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <script src="../supabase-config.js"></script>
+    <script>
+        const USERS_KEY = 'customer-users-data';
+        const SESSION_KEY = 'customer-session-v1';
+        const OFFERS_KEY = 'price-offers-data';
+        const REQUESTS_KEY = 'booking-requests-data';
+        const PAYMENT_INTENTS_KEY = 'customer-payment-intents-v1';
+
+        const PAYMENT_CONFIG = {
+            paypalUrl: 'https://paypal.me/veerarentals',
+            bankName: 'Veera Rentals Pty Ltd',
+            bankBsb: '062-123',
+            bankAccount: '12345678',
+            bankId: 'VEERA-AU-01'
+        };
+
+        let selectedCarId = null;
+
+        function getSupabaseClient() {
+            if (typeof window.getVeeraSupabaseClient === 'function') {
+                return window.getVeeraSupabaseClient();
+            }
+            return null;
+        }
+
+        function mapSupabaseVehicleToLocal(vehicle) {
+            return {
+                id: Number(vehicle.id),
+                name: vehicle.name,
+                make: vehicle.make,
+                model: vehicle.model,
+                license: vehicle.plate,
+                rego: vehicle.plate,
+                status: vehicle.status || 'available',
+                rate: Number(vehicle.rate_day || 250),
+                priceDay: Number(vehicle.rate_day || 250),
+                priceWeek: Number(vehicle.rate_week || 0),
+                location: vehicle.location || 'Central Depot',
+                images: Array.isArray(vehicle.images) ? vehicle.images : [],
+                availabilityCalendar: Array.isArray(vehicle.availability) ? vehicle.availability : []
+            };
+        }
+
+        async function syncFleetFromSupabase() {
+            const client = getSupabaseClient();
+            if (!client) return false;
+
+            try {
+                const { data, error } = await client
+                    .from('vehicles')
+                    .select('id,name,make,model,plate,status,rate_day,rate_week,location,images,availability')
+                    .order('id', { ascending: true });
+
+                if (error) {
+                    console.warn('Customer Supabase vehicles read failed:', error.message || error);
+                    return false;
+                }
+
+                if (!Array.isArray(data) || !data.length) {
+                    return false;
+                }
+
+                const mappedFleet = data.map(mapSupabaseVehicleToLocal);
+                setData('fleet-data', mappedFleet);
+                return true;
+            } catch (error) {
+                console.warn('Customer Supabase vehicles read exception:', error);
+                return false;
+            }
+        }
+
+        function mapSupabaseRequestToLocal(request) {
+            return {
+                id: Number(request.id),
+                customer: request.customer || request.customer_name || 'Customer',
+                phone: request.phone || request.customer_phone || 'N/A',
+                email: request.email || request.customer_email || 'N/A',
+                car: request.car || request.car_name || `Vehicle #${Number(request.vehicle_id || 0) || ''}`.trim(),
+                carId: Number(request.vehicle_id || request.car_id || 0) || null,
+                pickupDate: request.pickup_at ? new Date(request.pickup_at) : new Date(),
+                returnDate: request.return_at ? new Date(request.return_at) : new Date(),
+                notes: request.notes || '',
+                status: request.status || 'pending',
+                source: request.source || 'customer-portal',
+                createdAt: request.created_at || new Date().toISOString()
+            };
+        }
+
+        async function createBookingRequestInSupabase(request, user) {
+            const client = getSupabaseClient();
+            if (!client) return null;
+
+            const payload = {
+                customer: request.customer,
+                phone: request.phone,
+                email: request.email,
+                car: request.car,
+                vehicle_id: Number(request.carId || 0) || null,
+                pickup_at: new Date(request.pickupDate).toISOString(),
+                return_at: new Date(request.returnDate).toISOString(),
+                notes: request.notes || null,
+                status: request.status || 'pending',
+                source: request.source || 'customer-portal',
+                created_at: request.createdAt || new Date().toISOString(),
+                customer_email: user?.email || null,
+                customer_name: user?.name || null,
+                customer_phone: user?.phone || null
+            };
+
+            try {
+                const { data, error } = await client
+                    .from('booking_requests')
+                    .insert(payload)
+                    .select('*')
+                    .single();
+
+                if (error) {
+                    console.warn('Supabase customer booking insert failed:', error.message || error);
+                    return null;
+                }
+
+                return data;
+            } catch (error) {
+                console.warn('Supabase customer booking insert exception:', error);
+                return null;
+            }
+        }
+
+        async function syncMyBookingRequestsFromSupabase() {
+            const user = getCurrentUser();
+            const client = getSupabaseClient();
+            if (!user || !client) return false;
+
+            try {
+                const { data, error } = await client
+                    .from('booking_requests')
+                    .select('*')
+                    .or(`email.eq.${user.email},customer_email.eq.${user.email}`)
+                    .order('created_at', { ascending: false });
+
+                if (error) {
+                    console.warn('Supabase customer booking read failed:', error.message || error);
+                    return false;
+                }
+
+                if (!Array.isArray(data)) {
+                    return false;
+                }
+
+                const localRequests = getData(REQUESTS_KEY, []);
+                const mappedRequests = data.map(mapSupabaseRequestToLocal);
+
+                const mergedMap = new Map();
+                localRequests.forEach(item => mergedMap.set(String(item.id), item));
+                mappedRequests.forEach(item => mergedMap.set(String(item.id), item));
+
+                setData(REQUESTS_KEY, Array.from(mergedMap.values()));
+                return true;
+            } catch (error) {
+                console.warn('Supabase customer booking read exception:', error);
+                return false;
+            }
+        }
+
+        async function createOfferInSupabase(offer, user) {
+            const client = getSupabaseClient();
+            if (!client) return null;
+
+            const payload = {
+                customer_id: Number(user?.id || 0) || null,
+                customer_name: user?.name || null,
+                customer_email: user?.email || null,
+                customer_phone: user?.phone || null,
+                vehicle_id: Number(offer.carId || 0) || null,
+                car_name: offer.carName || null,
+                car_model: offer.carModel || null,
+                listed_rate: Number(offer.listedRate || 0),
+                offered_rate: Number(offer.offeredRate || 0),
+                note: offer.note || null,
+                status: offer.status || 'pending',
+                owner_response: offer.ownerResponse || null,
+                created_at: offer.createdAt || new Date().toISOString(),
+                updated_at: offer.updatedAt || new Date().toISOString()
+            };
+
+            try {
+                const { data, error } = await client
+                    .from('offers')
+                    .insert(payload)
+                    .select('*')
+                    .single();
+
+                if (error) {
+                    console.warn('Supabase offer insert failed:', error.message || error);
+                    return null;
+                }
+
+                if (data?.id) {
+                    const openingText = offer.note || `Initial offer: $${Number(offer.offeredRate || 0).toFixed(2)}/day against listed $${Number(offer.listedRate || 0).toFixed(2)}/day`;
+                    await client.from('offer_messages').insert({
+                        offer_id: Number(data.id),
+                        sender_role: 'customer',
+                        message: openingText,
+                        message_type: 'offer',
+                        created_at: offer.createdAt || new Date().toISOString()
+                    });
+                }
+
+                return data;
+            } catch (error) {
+                console.warn('Supabase offer insert exception:', error);
+                return null;
+            }
+        }
+
+        async function syncMyOffersFromSupabase() {
+            const user = getCurrentUser();
+            const client = getSupabaseClient();
+            if (!user || !client) return false;
+
+            try {
+                const { data, error } = await client
+                    .from('offers')
+                    .select('*')
+                    .or(`customer_email.eq.${user.email},customer_id.eq.${Number(user.id || 0)}`)
+                    .order('created_at', { ascending: false });
+
+                if (error || !Array.isArray(data)) {
+                    if (error) console.warn('Supabase offers read failed:', error.message || error);
+                    return false;
+                }
+
+                const mapped = data.map(item => ({
+                    id: Number(item.id),
+                    customerId: Number(item.customer_id || 0) || null,
+                    customerName: item.customer_name || user.name,
+                    customerEmail: item.customer_email || user.email,
+                    customerPhone: item.customer_phone || user.phone,
+                    carId: Number(item.vehicle_id || 0) || null,
+                    carName: item.car_name || 'Vehicle',
+                    carModel: item.car_model || '',
+                    listedRate: Number(item.listed_rate || 0),
+                    offeredRate: Number(item.offered_rate || 0),
+                    note: item.note || '',
+                    status: item.status || 'pending',
+                    ownerResponse: item.owner_response || '',
+                    createdAt: item.created_at || new Date().toISOString(),
+                    updatedAt: item.updated_at || null
+                }));
+
+                setData(OFFERS_KEY, mapped);
+                return true;
+            } catch (error) {
+                console.warn('Supabase offers read exception:', error);
+                return false;
+            }
+        }
+
+        async function createPaymentIntentInSupabase(intent, user) {
+            const client = getSupabaseClient();
+            if (!client) return null;
+
+            try {
+                const payload = {
+                    user_id: Number(user?.id || 0) || null,
+                    customer_email: user?.email || null,
+                    customer_name: user?.name || null,
+                    method: intent.method,
+                    amount: Number(intent.amount || 0),
+                    reference: intent.reference,
+                    status: intent.status || 'pending-verification',
+                    note: intent.note || null,
+                    created_at: intent.createdAt || new Date().toISOString()
+                };
+
+                const { data, error } = await client
+                    .from('payment_intents')
+                    .insert(payload)
+                    .select('*')
+                    .single();
+
+                if (error) {
+                    console.warn('Supabase payment intent insert failed:', error.message || error);
+                    return null;
+                }
+
+                return data;
+            } catch (error) {
+                console.warn('Supabase payment intent insert exception:', error);
+                return null;
+            }
+        }
+
+        async function syncMyPaymentIntentsFromSupabase() {
+            const user = getCurrentUser();
+            const client = getSupabaseClient();
+            if (!user || !client) return false;
+
+            try {
+                const { data, error } = await client
+                    .from('payment_intents')
+                    .select('*')
+                    .or(`customer_email.eq.${user.email},user_id.eq.${Number(user.id || 0)}`)
+                    .order('created_at', { ascending: false });
+
+                if (error || !Array.isArray(data)) {
+                    if (error) console.warn('Supabase payment intents read failed:', error.message || error);
+                    return false;
+                }
+
+                const mapped = data.map(item => ({
+                    id: Number(item.id),
+                    customerId: Number(item.user_id || 0) || null,
+                    customerName: item.customer_name || user.name,
+                    customerEmail: item.customer_email || user.email,
+                    method: item.method || 'bank-transfer',
+                    amount: Number(item.amount || 0),
+                    reference: item.reference || '',
+                    note: item.note || '',
+                    status: item.status || 'pending-verification',
+                    createdAt: item.created_at || new Date().toISOString()
+                }));
+
+                setData(PAYMENT_INTENTS_KEY, mapped);
+                return true;
+            } catch (error) {
+                console.warn('Supabase payment intents read exception:', error);
+                return false;
+            }
+        }
+
+        function getData(key, fallback) {
+            try {
+                const value = localStorage.getItem(key);
+                return value ? JSON.parse(value) : fallback;
+            } catch {
+                return fallback;
+            }
+        }
+
+        function setData(key, value) {
+            localStorage.setItem(key, JSON.stringify(value));
+        }
+
+        function getCurrentUser() {
+            return getData(SESSION_KEY, null);
+        }
+
+        function hashPassword(password) {
+            return btoa(unescape(encodeURIComponent(password)));
+        }
+
+        function ensureFleetMetadata(car) {
+            const location = car.location || car.branch || 'Central Depot';
+            const type = car.type || (String(car.model || '').match(/suv/i) ? 'SUV' : String(car.model || '').match(/van/i) ? 'Van' : String(car.model || '').match(/hatch/i) ? 'Hatchback' : 'Sedan');
+            return { ...car, location, type };
+        }
+
+        function formatDateTimeLocal(date) {
+            const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+            return local.toISOString().slice(0, 16);
+        }
+
+        function initializeDateFields() {
+            const pickupInput = document.getElementById('pickup-date');
+            const returnInput = document.getElementById('return-date');
+            const now = new Date();
+            const minPickup = new Date(now.getTime() + 60 * 60 * 1000);
+            const minReturn = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+
+            pickupInput.min = formatDateTimeLocal(now);
+            pickupInput.value = formatDateTimeLocal(minPickup);
+            returnInput.min = formatDateTimeLocal(minReturn);
+            returnInput.value = formatDateTimeLocal(minReturn);
+
+            pickupInput.addEventListener('change', () => {
+                const pickupDate = new Date(pickupInput.value);
+                if (Number.isNaN(pickupDate.getTime())) return;
+                const minimumReturnDate = new Date(pickupDate.getTime() + 60 * 60 * 1000);
+                returnInput.min = formatDateTimeLocal(minimumReturnDate);
+                if (!returnInput.value || new Date(returnInput.value) <= pickupDate) {
+                    returnInput.value = formatDateTimeLocal(minimumReturnDate);
+                }
+                updateBookingSummary();
+            });
+
+            returnInput.addEventListener('change', updateBookingSummary);
+        }
+
+        function setAuthTab(mode) {
+            const loginTab = document.getElementById('tab-login');
+            const signupTab = document.getElementById('tab-signup');
+            const loginBlock = document.getElementById('login-block');
+            const signupBlock = document.getElementById('signup-block');
+
+            const isLogin = mode === 'login';
+            loginTab.classList.toggle('active', isLogin);
+            signupTab.classList.toggle('active', !isLogin);
+            loginBlock.hidden = !isLogin;
+            signupBlock.hidden = isLogin;
+        }
+
+        function showAuthInfo(message) {
+            const box = document.getElementById('auth-info');
+            box.textContent = message;
+            box.style.display = 'block';
+        }
+
+        function setPortalAuthenticatedState(isAuthenticated) {
+            const sectionIds = ['bargain-panel', 'browse-panel', 'booking-panel', 'history-panel', 'payment-panel'];
+            sectionIds.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.hidden = !isAuthenticated;
+                }
+            });
+
+            const logoutButton = document.getElementById('logout-btn');
+            if (logoutButton) {
+                logoutButton.hidden = !isAuthenticated;
+            }
+        }
+
+        function handleSignup(event) {
+            event.preventDefault();
+            const name = document.getElementById('signup-name').value.trim();
+            const phone = document.getElementById('signup-phone').value.trim();
+            const email = document.getElementById('signup-email').value.trim().toLowerCase();
+            const password = document.getElementById('signup-password').value;
+
+            if (!name || !phone || !email || password.length < 6) {
+                showAuthInfo('Please complete all fields and use a 6+ character password.');
+                return;
+            }
+
+            const users = getData(USERS_KEY, []);
+            if (users.some(user => user.email === email)) {
+                showAuthInfo('Email already exists. Please login instead.');
+                setAuthTab('login');
+                return;
+            }
+
+            const newUser = {
+                id: Date.now(),
+                name,
+                phone,
+                email,
+                passwordHash: hashPassword(password),
+                createdAt: new Date().toISOString()
+            };
+
+            users.push(newUser);
+            setData(USERS_KEY, users);
+            setData(SESSION_KEY, {
+                id: newUser.id,
+                name: newUser.name,
+                phone: newUser.phone,
+                email: newUser.email
+            });
+
+            showAuthInfo(`Welcome ${newUser.name}! Your account is ready.`);
+            document.getElementById('signup-form').reset();
+            initializePortal();
+        }
+
+        function handleLogin(event) {
+            event.preventDefault();
+            const email = document.getElementById('login-email').value.trim().toLowerCase();
+            const password = document.getElementById('login-password').value;
+
+            const users = getData(USERS_KEY, []);
+            const passwordHash = hashPassword(password);
+            const user = users.find(item => item.email === email && item.passwordHash === passwordHash);
+
+            if (!user) {
+                showAuthInfo('Invalid email or password.');
+                return;
+            }
+
+            setData(SESSION_KEY, {
+                id: user.id,
+                name: user.name,
+                phone: user.phone,
+                email: user.email
+            });
+
+            showAuthInfo(`Welcome back, ${user.name}.`);
+            document.getElementById('login-form').reset();
+            initializePortal();
+        }
+
+        function logoutCustomer() {
+            localStorage.removeItem(SESSION_KEY);
+            selectedCarId = null;
+            setPortalAuthenticatedState(false);
+            showAuthInfo('You have been logged out.');
+            document.getElementById('cars-grid').innerHTML = '';
+            document.getElementById('offer-list').innerHTML = '';
+            document.getElementById('history-list').innerHTML = '';
+        }
+
+        function getAvailableCars() {
+            const fleet = getData('fleet-data', []).map(ensureFleetMetadata);
+            return fleet.filter(car => car.status === 'available');
+        }
+
+        function buildFilterOptions(cars) {
+            const locationSelect = document.getElementById('location-filter');
+            const typeSelect = document.getElementById('type-filter');
+
+            const locations = [...new Set(cars.map(car => car.location))].sort();
+            const types = [...new Set(cars.map(car => car.type))].sort();
+
+            locationSelect.innerHTML = '<option value="all">Location: All</option>' + locations.map(location => `<option value="${location}">${location}</option>`).join('');
+            typeSelect.innerHTML = '<option value="all">Car Type: All</option>' + types.map(type => `<option value="${type}">${type}</option>`).join('');
+        }
+
+        function filterCars(cars) {
+            const query = document.getElementById('search-input').value.trim().toLowerCase();
+            const priceRange = document.getElementById('price-filter').value;
+            const location = document.getElementById('location-filter').value;
+            const type = document.getElementById('type-filter').value;
+
+            return cars.filter(car => {
+                const searchable = `${car.name || ''} ${car.make || ''} ${car.model || ''} ${car.license || ''} ${car.rego || ''}`.toLowerCase();
+                if (query && !searchable.includes(query)) return false;
+
+                if (priceRange !== 'all') {
+                    const [min, max] = priceRange.split('-').map(Number);
+                    const rate = Number(car.rate || 0);
+                    if (rate < min || rate > max) return false;
+                }
+
+                if (location !== 'all' && car.location !== location) return false;
+                if (type !== 'all' && car.type !== type) return false;
+                return true;
+            });
+        }
+
+        function renderCars() {
+            const cars = getAvailableCars();
+            const list = filterCars(cars);
+            const container = document.getElementById('cars-grid');
+
+            if (!list.length) {
+                container.innerHTML = '<div class="empty">No cars match your current filters.</div>';
+                updateOfferCarSelect([]);
+                if (selectedCarId) {
+                    selectedCarId = null;
+                    updateBookingSummary();
+                }
+                return;
+            }
+
+            container.innerHTML = list.map(car => {
+                const selected = Number(selectedCarId) === Number(car.id) ? 'active' : '';
+                return `
+                    <article class="car-card ${selected}" data-id="${car.id}">
+                        <div class="list-item-title">
+                            <span>${car.name || 'Vehicle'} ${car.model ? `- ${car.model}` : ''}</span>
+                            <span class="status-chip">Available</span>
+                        </div>
+                        <div class="price">$${Number(car.rate || 0).toFixed(2)}/day</div>
+                        <div class="car-meta">
+                            <span>📍 ${car.location}</span>
+                            <span>🚗 ${car.type}</span>
+                            <span>📋 ${car.license || car.rego || 'N/A'}</span>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+
+            container.querySelectorAll('.car-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    selectedCarId = Number(card.dataset.id);
+                    renderCars();
+                    updateBookingSummary();
+                });
+            });
+
+            updateOfferCarSelect(cars);
+        }
+
+        function updateOfferCarSelect(cars = getAvailableCars()) {
+            const offerSelect = document.getElementById('offer-car');
+            if (!offerSelect) return;
+
+            offerSelect.innerHTML = '<option value="">Select car for offer</option>' + cars.map(car => (`
+                <option value="${car.id}">${car.name || 'Vehicle'} (${car.model || 'Model'}) - $${Number(car.rate || 0).toFixed(2)}/day</option>
+            `)).join('');
+        }
+
+        function updateBookingSummary() {
+            const cars = getAvailableCars();
+            const selectedCar = cars.find(car => Number(car.id) === Number(selectedCarId));
+            const pickupDate = new Date(document.getElementById('pickup-date').value);
+            const returnDate = new Date(document.getElementById('return-date').value);
+
+            const carText = selectedCar ? `${selectedCar.name || 'Vehicle'} ${selectedCar.model ? `- ${selectedCar.model}` : ''}` : 'None';
+            const rate = selectedCar ? Number(selectedCar.rate || 0) : 0;
+
+            let total = 0;
+            if (!Number.isNaN(pickupDate.getTime()) && !Number.isNaN(returnDate.getTime()) && returnDate > pickupDate && selectedCar) {
+                const days = Math.max(1, Math.ceil((returnDate - pickupDate) / (1000 * 60 * 60 * 24)));
+                total = days * rate;
+            }
+
+            document.getElementById('summary-car').textContent = carText;
+            document.getElementById('summary-rate').textContent = `$${rate.toFixed(2)}`;
+            document.getElementById('summary-total').textContent = `$${total.toFixed(2)}`;
+        }
+
+        function showSuccess(targetId, message) {
+            const box = document.getElementById(targetId);
+            box.textContent = message;
+            box.style.display = 'block';
+        }
+
+        function getBankDetailsText() {
+            return `Account Name: ${PAYMENT_CONFIG.bankName} | BSB: ${PAYMENT_CONFIG.bankBsb} | Account: ${PAYMENT_CONFIG.bankAccount} | Bank ID: ${PAYMENT_CONFIG.bankId}`;
+        }
+
+        function copyBankDetails() {
+            const details = getBankDetailsText();
+            navigator.clipboard.writeText(details)
+                .then(() => showSuccess('payment-success', 'Bank details copied. Paste this into your banking app.'))
+                .catch(() => alert(`Copy failed. Use this manually:\n${details}`));
+        }
+
+        function openPayPal() {
+            window.open(PAYMENT_CONFIG.paypalUrl, '_blank', 'noopener,noreferrer');
+        }
+
+        function renderPaymentHistory() {
+            const user = getCurrentUser();
+            const container = document.getElementById('payment-history');
+            if (!user || !container) return;
+
+            const items = getData(PAYMENT_INTENTS_KEY, [])
+                .filter(item => String(item.customerEmail || '').toLowerCase() === String(user.email || '').toLowerCase())
+                .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+            if (!items.length) {
+                container.innerHTML = '<div class="empty">No payment references submitted yet.</div>';
+                return;
+            }
+
+            container.innerHTML = items.map(item => `
+                <div class="list-item">
+                    <div class="list-item-title">
+                        <span>${item.method === 'paypal' ? 'PayPal' : 'Bank Transfer'} • $${Number(item.amount || 0).toFixed(2)}</span>
+                        <span class="status-chip status-pending">pending-verification</span>
+                    </div>
+                    <div class="muted">Reference: ${item.reference}</div>
+                    ${item.note ? `<div class="muted">Note: ${item.note}</div>` : ''}
+                    <div class="muted">${new Date(item.createdAt).toLocaleString()}</div>
+                </div>
+            `).join('');
+        }
+
+        async function handlePaymentConfirm(event) {
+            event.preventDefault();
+            const user = getCurrentUser();
+            if (!user) {
+                alert('Please login first.');
+                return;
+            }
+
+            const method = document.getElementById('payment-method').value;
+            const amount = Number(document.getElementById('payment-amount').value);
+            const reference = document.getElementById('payment-reference').value.trim();
+            const note = document.getElementById('payment-note').value.trim();
+
+            if (!method || !Number.isFinite(amount) || amount <= 0 || !reference) {
+                alert('Please complete method, amount, and reference.');
+                return;
+            }
+
+            const intents = getData(PAYMENT_INTENTS_KEY, []);
+            const intent = {
+                id: intents.length ? Math.max(...intents.map(item => Number(item.id) || 0)) + 1 : 1,
+                customerId: user.id,
+                customerName: user.name,
+                customerEmail: user.email,
+                method,
+                amount,
+                reference,
+                note,
+                status: 'pending-verification',
+                createdAt: new Date().toISOString()
+            };
+
+            const supabaseIntent = await createPaymentIntentInSupabase(intent, user);
+            if (supabaseIntent && Number(supabaseIntent.id)) {
+                intent.id = Number(supabaseIntent.id);
+            }
+
+            intents.push(intent);
+
+            setData(PAYMENT_INTENTS_KEY, intents);
+            document.getElementById('payment-confirm-form').reset();
+            showSuccess('payment-success', 'Payment proof submitted. Owner will verify shortly.');
+            renderPaymentHistory();
+        }
+
+        function initializePaymentPanel() {
+            const bankDetailsText = document.getElementById('bank-details-text');
+            if (bankDetailsText) {
+                bankDetailsText.textContent = getBankDetailsText();
+            }
+
+            const paypalButton = document.getElementById('pay-with-paypal-btn');
+            if (paypalButton) {
+                paypalButton.addEventListener('click', openPayPal);
+            }
+
+            const copyButton = document.getElementById('copy-bank-details-btn');
+            if (copyButton) {
+                copyButton.addEventListener('click', copyBankDetails);
+            }
+
+            const paymentForm = document.getElementById('payment-confirm-form');
+            if (paymentForm) {
+                paymentForm.addEventListener('submit', handlePaymentConfirm);
+            }
+        }
+
+        async function handleOfferSubmit(event) {
+            event.preventDefault();
+            const user = getCurrentUser();
+            if (!user) return;
+
+            const carId = Number(document.getElementById('offer-car').value);
+            const offerPrice = Number(document.getElementById('offer-price').value);
+            const note = document.getElementById('offer-note').value.trim();
+
+            if (!carId || !Number.isFinite(offerPrice) || offerPrice <= 0) {
+                alert('Please choose a car and enter a valid offer price.');
+                return;
+            }
+
+            const car = getAvailableCars().find(item => Number(item.id) === carId);
+            if (!car) {
+                alert('This car is no longer available.');
+                renderCars();
+                return;
+            }
+
+            const offers = getData(OFFERS_KEY, []);
+            const offer = {
+                id: offers.length ? Math.max(...offers.map(item => Number(item.id) || 0)) + 1 : 1,
+                customerId: user.id,
+                customerName: user.name,
+                customerEmail: user.email,
+                customerPhone: user.phone,
+                carId: car.id,
+                carName: car.name,
+                carModel: car.model,
+                listedRate: Number(car.rate || 0),
+                offeredRate: offerPrice,
+                note,
+                status: 'pending',
+                ownerResponse: '',
+                createdAt: new Date().toISOString()
+            };
+
+            const supabaseOffer = await createOfferInSupabase(offer, user);
+            if (supabaseOffer && Number(supabaseOffer.id)) {
+                offer.id = Number(supabaseOffer.id);
+            }
+
+            offers.push(offer);
+            setData(OFFERS_KEY, offers);
+            document.getElementById('offer-form').reset();
+            showSuccess('offer-success', `Offer #${offer.id} submitted. Owner will accept, reject, or counter.`);
+            renderOffers();
+        }
+
+        async function handleBookingSubmit(event) {
+            event.preventDefault();
+            const user = getCurrentUser();
+            if (!user) {
+                alert('Please login first.');
+                return;
+            }
+
+            if (!selectedCarId) {
+                alert('Please select a car card first.');
+                return;
+            }
+
+            const pickupDate = new Date(document.getElementById('pickup-date').value);
+            const returnDate = new Date(document.getElementById('return-date').value);
+            const note = document.getElementById('booking-note').value.trim();
+
+            if (Number.isNaN(pickupDate.getTime()) || Number.isNaN(returnDate.getTime()) || returnDate <= pickupDate) {
+                alert('Please provide valid pickup and return time.');
+                return;
+            }
+
+            const car = getAvailableCars().find(item => Number(item.id) === Number(selectedCarId));
+            if (!car) {
+                alert('Selected car is unavailable now. Please choose another.');
+                renderCars();
+                return;
+            }
+
+            const requests = getData(REQUESTS_KEY, []);
+            const requestId = requests.length ? Math.max(...requests.map(item => Number(item.id) || 0)) + 1 : 1;
+
+            const request = {
+                id: requestId,
+                customer: user.name,
+                phone: user.phone,
+                email: user.email,
+                car: car.name,
+                carId: car.id,
+                pickupDate,
+                returnDate,
+                notes: note,
+                status: 'pending',
+                source: 'customer-portal',
+                createdAt: new Date().toISOString()
+            };
+
+            const supabaseRequest = await createBookingRequestInSupabase(request, user);
+            if (supabaseRequest && Number(supabaseRequest.id)) {
+                request.id = Number(supabaseRequest.id);
+            }
+
+            requests.push(request);
+            setData(REQUESTS_KEY, requests);
+
+            document.getElementById('booking-form').reset();
+            initializeDateFields();
+            updateBookingSummary();
+            showSuccess('booking-success', `Booking request #${request.id} submitted successfully.`);
+            renderHistory();
+        }
+
+        function statusClass(status) {
+            if (status === 'accepted') return 'status-accepted';
+            if (status === 'rejected') return 'status-rejected';
+            if (status === 'countered') return 'status-countered';
+            return 'status-pending';
+        }
+
+        function renderOffers() {
+            const user = getCurrentUser();
+            const container = document.getElementById('offer-list');
+            if (!user || !container) return;
+
+            const offers = getData(OFFERS_KEY, [])
+                .filter(item => Number(item.customerId) === Number(user.id) || String(item.customerEmail).toLowerCase() === String(user.email).toLowerCase())
+                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+            if (!offers.length) {
+                container.innerHTML = '<div class="empty">No offers yet.</div>';
+                return;
+            }
+
+            container.innerHTML = offers.map(offer => `
+                <div class="list-item">
+                    <div class="list-item-title">
+                        <span>${offer.carName || 'Vehicle'} ${offer.carModel ? `(${offer.carModel})` : ''}</span>
+                        <span class="status-chip ${statusClass(offer.status)}">${offer.status}</span>
+                    </div>
+                    <div class="muted">Listed: $${Number(offer.listedRate || 0).toFixed(2)}/day • Offered: $${Number(offer.offeredRate || 0).toFixed(2)}/day</div>
+                    <div class="muted">${new Date(offer.createdAt).toLocaleString()}</div>
+                    ${offer.ownerResponse ? `<div class="muted">Owner: ${offer.ownerResponse}</div>` : ''}
+                </div>
+            `).join('');
+        }
+
+        function renderHistory() {
+            const user = getCurrentUser();
+            const container = document.getElementById('history-list');
+            if (!user || !container) return;
+
+            const requests = getData(REQUESTS_KEY, [])
+                .filter(item => String(item.email || '').toLowerCase() === String(user.email).toLowerCase())
+                .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+            const rentals = getData('rentals-data', [])
+                .filter(item => String(item.email || '').toLowerCase() === String(user.email).toLowerCase())
+                .sort((a, b) => new Date(b.createdAt || b.pickupDate || 0) - new Date(a.createdAt || a.pickupDate || 0));
+
+            const cards = [
+                ...requests.map(item => ({
+                    type: 'Request',
+                    status: item.status || 'pending',
+                    title: `${item.car || 'Vehicle'} • ${item.customer || user.name}`,
+                    date: item.createdAt,
+                    detail: `Pickup ${new Date(item.pickupDate).toLocaleString()} → Return ${new Date(item.returnDate).toLocaleString()}`
+                })),
+                ...rentals.map(item => ({
+                    type: 'Rental',
+                    status: item.status || 'active',
+                    title: `${item.car || 'Vehicle'} • ${item.customer || user.name}`,
+                    date: item.createdAt || item.pickupDate,
+                    detail: `Pickup ${new Date(item.pickupDate).toLocaleString()} → Return ${new Date(item.returnDate).toLocaleString()}`
+                }))
+            ].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
+            if (!cards.length) {
+                container.innerHTML = '<div class="empty">No orders yet. Submit your first booking request.</div>';
+                return;
+            }
+
+            container.innerHTML = cards.map(item => `
+                <div class="list-item">
+                    <div class="list-item-title">
+                        <span>${item.type}: ${item.title}</span>
+                        <span class="status-chip ${statusClass(item.status)}">${item.status}</span>
+                    </div>
+                    <div class="muted">${item.detail}</div>
+                    <div class="muted">${new Date(item.date).toLocaleString()}</div>
+                </div>
+            `).join('');
+        }
+
+        function checkAvailabilityByDate() {
+            const dateInput = document.getElementById('calendar-date').value;
+            const result = document.getElementById('availability-result');
+            if (!dateInput) {
+                result.textContent = 'Select a date first.';
+                return;
+            }
+
+            const targetDate = new Date(`${dateInput}T12:00:00`);
+            const rentals = getData('rentals-data', []);
+            const occupiedCarIds = new Set(
+                rentals
+                    .filter(item => (item.status || 'active') === 'active')
+                    .filter(item => {
+                        const pickup = new Date(item.pickupDate);
+                        const ret = new Date(item.returnDate);
+                        return targetDate >= pickup && targetDate <= ret;
+                    })
+                    .map(item => Number(item.carId))
+            );
+
+            const availableCars = getAvailableCars().filter(car => !occupiedCarIds.has(Number(car.id)));
+            result.textContent = availableCars.length
+                ? `${availableCars.length} car(s) available on ${targetDate.toLocaleDateString()}.`
+                : `No cars available on ${targetDate.toLocaleDateString()}.`;
+        }
+
+        function initializeFilters() {
+            ['search-input', 'price-filter', 'location-filter', 'type-filter'].forEach(id => {
+                const element = document.getElementById(id);
+                element.addEventListener('input', renderCars);
+                element.addEventListener('change', renderCars);
+            });
+        }
+
+        async function initializePortal() {
+            const user = getCurrentUser();
+            const authenticated = Boolean(user && user.email);
+            setPortalAuthenticatedState(authenticated);
+
+            if (!authenticated) {
+                return;
+            }
+
+            const cars = getAvailableCars();
+            buildFilterOptions(cars);
+            renderCars();
+            updateBookingSummary();
+            await syncMyBookingRequestsFromSupabase();
+            await syncMyOffersFromSupabase();
+            await syncMyPaymentIntentsFromSupabase();
+            renderOffers();
+            renderHistory();
+            renderPaymentHistory();
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            document.getElementById('tab-login').addEventListener('click', () => setAuthTab('login'));
+            document.getElementById('tab-signup').addEventListener('click', () => setAuthTab('signup'));
+            document.getElementById('signup-form').addEventListener('submit', handleSignup);
+            document.getElementById('login-form').addEventListener('submit', handleLogin);
+
+            initializeDateFields();
+            initializeFilters();
+            initializePaymentPanel();
+            document.getElementById('offer-form').addEventListener('submit', handleOfferSubmit);
+            document.getElementById('booking-form').addEventListener('submit', handleBookingSubmit);
+            await syncFleetFromSupabase();
+            initializePortal();
+        });
+    </script>
+</body>
+</html>
