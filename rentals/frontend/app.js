@@ -335,7 +335,9 @@ function mapSupabaseVehicleToLocal(vehicle) {
         rate: Number(vehicle.rate_day || DEFAULT_RATE),
         priceDay: Number(vehicle.rate_day || DEFAULT_RATE),
         priceWeek: Number(vehicle.rate_week || DEFAULT_WEEKLY_RATE),
-        location: vehicle.location || 'Main Branch',
+        location: typeof vehicle.location === 'object' && vehicle.location !== null 
+            ? JSON.stringify(vehicle.location) 
+            : vehicle.location || 'Main Branch',
         images: Array.isArray(vehicle.images) ? vehicle.images : [],
         availabilityCalendar: Array.isArray(vehicle.availability) ? vehicle.availability : []
     });

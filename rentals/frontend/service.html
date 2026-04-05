@@ -1303,19 +1303,28 @@
                         return;
                     }
 
-                    availableVehicles = data.map(vehicle => ({
-                        id: Number(vehicle.id),
-                        name: vehicle.name,
-                        make: vehicle.make,
-                        model: vehicle.model,
-                        rego: vehicle.plate,
-                        license: vehicle.plate,
-                        status: vehicle.status || 'available',
-                        rate: Number(vehicle.rate_day || DEFAULT_DAILY_RATE),
-                        priceDay: Number(vehicle.rate_day || DEFAULT_DAILY_RATE),
-                        priceWeek: Number(vehicle.rate_week || DEFAULT_WEEKLY_RATE),
-                        images: Array.isArray(vehicle.images) ? vehicle.images : []
-                    }));
+                    availableVehicles = data.map(vehicle => {
+                        // Ensure location is a string, not an object
+                        let locationValue = vehicle.location;
+                        if (typeof locationValue === 'object' && locationValue !== null) {
+                            locationValue = JSON.stringify(locationValue);
+                        }
+                        
+                        return {
+                            id: Number(vehicle.id),
+                            name: vehicle.name,
+                            make: vehicle.make,
+                            model: vehicle.model,
+                            rego: vehicle.plate,
+                            license: vehicle.plate,
+                            status: vehicle.status || 'available',
+                            rate: Number(vehicle.rate_day || DEFAULT_DAILY_RATE),
+                            priceDay: Number(vehicle.rate_day || DEFAULT_DAILY_RATE),
+                            priceWeek: Number(vehicle.rate_week || DEFAULT_WEEKLY_RATE),
+                            location: locationValue || 'Main Branch',
+                            images: Array.isArray(vehicle.images) ? vehicle.images : []
+                        };
+                    });
 
                     renderVehicleCards(availableVehicles);
                 } catch (error) {
@@ -2384,7 +2393,7 @@
                     budgetWeekly: getRequestedBudget(vehicle),
                     mileage: document.getElementById('mileage').value || vehicle.mileage || currentRental?.mileage || DEFAULT_ODOMETER,
                     notes: document.getElementById('notes').value,
-                    location: gpsLocation,
+                    location: gpsLocation ? { lat: gpsLocation.lat, lng: gpsLocation.lng } : null,
                     photos: uploadedPhotos,  // Now contains URLs instead of Base64
                     photoCount: uploadedPhotos.length,
                     timestamp: new Date().toISOString()
