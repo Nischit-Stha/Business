@@ -30,7 +30,7 @@
             </div>
             <nav class="nav">
                 <a href="#dashboard" class="nav-link active" data-tab="dashboard">Dashboard</a>
-                <a href="#bookings" class="nav-link" data-tab="bookings">Bookings</a>
+                <a href="#bookings" class="nav-link" data-tab="bookings">Bookings <span id="nav-bookings-alert" class="nav-alert-dot" hidden>0</span></a>
                 <a href="#fleet" class="nav-link" data-tab="fleet">Fleet</a>
                 <a href="#reports" class="nav-link" data-tab="reports">Reports</a>
             </nav>
@@ -240,6 +240,14 @@
                             <p>Monthly Earnings</p>
                             <h3 id="earnings-monthly">$0.00</h3>
                         </article>
+                        <article class="analytics-kpi">
+                            <p>Unpaid Forecast</p>
+                            <h3 id="earnings-unpaid-forecast">$0.00</h3>
+                        </article>
+                        <article class="analytics-kpi">
+                            <p>Top Customer</p>
+                            <h3 id="earnings-top-customer">N/A</h3>
+                        </article>
                     </div>
                     <div class="section-header" style="margin-top: 1rem;">
                         <h2>Car-wise Performance</h2>
@@ -323,6 +331,36 @@
                             <p>Due Next 24h</p>
                             <h3 id="bm-due-soon">0</h3>
                         </article>
+                    </div>
+                </section>
+
+                <section class="rentals-section" id="booking-calendar-section">
+                    <div class="section-header">
+                        <h2>Admin Calendar View (Next 14 Days)</h2>
+                        <span class="badge" id="booking-calendar-count">0</span>
+                    </div>
+                    <div id="booking-calendar-list" class="stack-list">
+                        <p style="text-align: center; color: #6b7280; padding: 1.5rem;">No upcoming bookings in the next 14 days.</p>
+                    </div>
+                </section>
+
+                <section class="rentals-section" id="customer-risk-section">
+                    <div class="section-header">
+                        <h2>Customer Risk Panel</h2>
+                        <span class="badge" id="customer-risk-count">0</span>
+                    </div>
+                    <div id="customer-risk-list" class="stack-list">
+                        <p style="text-align: center; color: #6b7280; padding: 1.5rem;">No customer risk flags right now.</p>
+                    </div>
+                </section>
+
+                <section class="rentals-section" id="location-ops-section">
+                    <div class="section-header">
+                        <h2>Location Operations Map</h2>
+                        <span class="badge" id="location-ops-count">0</span>
+                    </div>
+                    <div id="location-ops-list" class="stack-list">
+                        <p style="text-align: center; color: #6b7280; padding: 1.5rem;">No captured locations yet.</p>
                     </div>
                 </section>
 
@@ -702,6 +740,7 @@
     </script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="../supabase-config.js"></script>
+    <script src="shared-utils.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

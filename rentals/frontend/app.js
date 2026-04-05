@@ -38,6 +38,7 @@ let requestSearchQuery = '';
 let requestSortMode = 'newest';
 let activeNegotiationOfferId = null;
 let suppressRemoteSync = false;
+let lastAdminAlertSignal = 0;
 
 function normalizeCarRate(rate) {
     const numericRate = Number(rate);
@@ -1121,6 +1122,90 @@ function getOperationalInsights() {
     };
 }
 
+function playAdminAlertTone() {
+    try {
+        const Context = window.AudioContext || window.webkitAudioContext;
+        if (!Context) return;
+
+        const context = new Context();
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.type = 'sine';
+        oscillator.frequency.value = 880;
+        gain.gain.setValueAtTime(0.001, context.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.08, context.currentTime + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.22);
+        oscillator.connect(gain);
+        gain.connect(context.destination);
+        oscillator.start();
+        oscillator.stop(context.currentTime + 0.24);
+    } catch {
+        // Audio alerts are best-effort only.
+    }
+}
+
+function extractLocationDataFromBookingNotes(notesText = '') {
+    const events = parseServiceEventsFromNotes(notesText);
+    if (!events.length) return null;
+
+    for (let i = events.length - 1; i >= 0; i -= 1) {
+        const event = events[i];
+        const lat = Number(event?.location?.lat);
+        const lng = Number(event?.location?.lng);
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            const latText = lat.toFixed(6);
+            const lngText = lng.toFixed(6);
+            return {
+                lat,
+                lng,
+                text: `${latText}, ${lngText}`,
+                mapUrl: `https://maps.google.com/?q=${encodeURIComponent(`${latText},${lngText}`)}`
+            };
+        }
+    }
+
+    return null;
+}
+
+function getCustomerRiskProfile(customerKey = {}, referenceRequest = null) {
+    const email = String(customerKey.email || '').trim().toLowerCase();
+    const phone = String(customerKey.phone || '').trim();
+    const name = String(customerKey.name || '').trim().toLowerCase();
+
+    const belongsToCustomer = (item) => {
+        const itemEmail = String(item?.email || item?.customerEmail || item?.customer_email || '').trim().toLowerCase();
+        const itemPhone = String(item?.phone || item?.customerPhone || item?.customer_phone || '').trim();
+        const itemName = String(item?.customer || item?.customerName || item?.customer_name || '').trim().toLowerCase();
+        return (email && itemEmail === email) || (phone && itemPhone === phone) || (name && itemName === name);
+    };
+
+    const relatedRequests = getBookingRequests().filter(belongsToCustomer);
+    const rejectedCount = relatedRequests.filter(item => String(item.status || '').toLowerCase() === 'rejected').length;
+    const pendingCount = relatedRequests.filter(item => String(item.status || '').toLowerCase() === 'pending').length;
+    const relatedInvoices = invoices.filter(belongsToCustomer);
+    const unpaidCount = relatedInvoices.filter(item => Number(item.totalAmount || 0) > Number(item.paidAmount || 0)).length;
+    const overdueRentals = rentals.filter(belongsToCustomer).filter(item => {
+        const status = String(item.status || 'active').toLowerCase();
+        return status === 'active' && new Date(item.returnDate) < new Date();
+    }).length;
+
+    let score = 0;
+    score += rejectedCount * 2;
+    score += unpaidCount * 3;
+    score += overdueRentals * 4;
+    score += pendingCount > 2 ? 1 : 0;
+
+    const level = score >= 8 ? 'high' : score >= 4 ? 'medium' : 'low';
+    const reasons = [];
+    if (overdueRentals > 0) reasons.push(`${overdueRentals} overdue rental(s)`);
+    if (unpaidCount > 0) reasons.push(`${unpaidCount} unpaid invoice(s)`);
+    if (rejectedCount > 0) reasons.push(`${rejectedCount} rejected request(s)`);
+    if (pendingCount > 2) reasons.push(`${pendingCount} pending request(s)`);
+    if (!reasons.length && referenceRequest) reasons.push('No major risk indicators');
+
+    return { score, level, reasons };
+}
+
 function getDashboardNotifications() {
     const notifications = [];
     const now = new Date();
@@ -1152,6 +1237,38 @@ function getDashboardNotifications() {
             text: `Overdue return: ${rental.customer || 'Customer'} (${rental.car || 'Vehicle'}).`,
             actionLabel: 'Open',
             actionKey: 'overdue-returns'
+        });
+    });
+
+    const pendingBargains = priceOffers
+        .filter(offer => String(offer.status || 'pending').toLowerCase() === 'pending')
+        .slice(0, 2);
+    pendingBargains.forEach(offer => {
+        notifications.push({
+            level: 'info',
+            createdAt: offer.createdAt || new Date().toISOString(),
+            text: `Pending bargain from ${offer.customerName || 'Customer'} for ${offer.carName || 'Vehicle'}.`,
+            actionLabel: 'Review',
+            actionKey: 'pending-bargains'
+        });
+    });
+
+    const dropSwapEvents = bookingRequests
+        .filter(request => {
+            const events = parseServiceEventsFromNotes(request.notes);
+            return events.some(event => {
+                const type = String(event?.type || '').toLowerCase();
+                return type === 'dropoff' || type === 'swap';
+            });
+        })
+        .slice(0, 2);
+    dropSwapEvents.forEach(request => {
+        notifications.push({
+            level: 'warning',
+            createdAt: request.createdAt || new Date().toISOString(),
+            text: `Service event update for ${request.customer || 'Customer'} (${request.car || 'Vehicle'}).`,
+            actionLabel: 'Open',
+            actionKey: 'pending-approvals'
         });
     });
 
@@ -1204,6 +1321,151 @@ function renderDashboardNotifications() {
             </article>
         `;
     }).join('');
+}
+
+function updateLiveAdminAlerts() {
+    const navAlert = document.getElementById('nav-bookings-alert');
+    if (!navAlert) return;
+
+    const insights = getOperationalInsights();
+    const alertCount = insights.pendingApprovals + insights.pendingBargains + insights.overdueReturns;
+    navAlert.hidden = alertCount <= 0;
+    navAlert.textContent = String(alertCount);
+
+    if (alertCount > lastAdminAlertSignal) {
+        playAdminAlertTone();
+    }
+    lastAdminAlertSignal = alertCount;
+}
+
+function renderAdminCalendarView() {
+    const list = document.getElementById('booking-calendar-list');
+    const count = document.getElementById('booking-calendar-count');
+    if (!list || !count) return;
+
+    const now = new Date();
+    const cutoff = new Date(now);
+    cutoff.setDate(cutoff.getDate() + 14);
+
+    const requests = getBookingRequests()
+        .filter(item => ['pending', 'active', 'approved'].includes(String(item.status || '').toLowerCase()))
+        .filter(item => {
+            const pickup = new Date(item.pickupDate);
+            return !Number.isNaN(pickup.getTime()) && pickup >= now && pickup <= cutoff;
+        })
+        .sort((a, b) => new Date(a.pickupDate) - new Date(b.pickupDate));
+
+    count.textContent = String(requests.length);
+    if (!requests.length) {
+        list.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 1.5rem;">No upcoming bookings in the next 14 days.</p>';
+        return;
+    }
+
+    list.innerHTML = requests.slice(0, 16).map(item => {
+        const carName = item.car || `Vehicle #${Number(item.carId || 0) || ''}`;
+        const pickup = new Date(item.pickupDate);
+        const dropoff = new Date(item.returnDate);
+        const conflict = getBookingConflictInfo(item);
+        return `
+            <div class="ops-card">
+                <p><strong>${item.customer || 'Customer'}</strong> - ${carName}</p>
+                <p>Pickup: ${pickup.toLocaleString()} | Return: ${dropoff.toLocaleString()}</p>
+                <p>Status: ${String(item.status || 'pending').toUpperCase()}${conflict.count > 0 ? ` | ⚠ Conflict ${conflict.count}` : ''}</p>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderCustomerRiskPanel() {
+    const list = document.getElementById('customer-risk-list');
+    const count = document.getElementById('customer-risk-count');
+    if (!list || !count) return;
+
+    const pendingRequests = getBookingRequests().filter(item => String(item.status || '').toLowerCase() === 'pending');
+    const profiles = pendingRequests.map(item => {
+        const profile = getCustomerRiskProfile({
+            name: item.customer,
+            email: item.email,
+            phone: item.phone
+        }, item);
+
+        return {
+            request: item,
+            ...profile
+        };
+    }).sort((a, b) => b.score - a.score);
+
+    const flagged = profiles.filter(item => item.score > 0);
+    count.textContent = String(flagged.length);
+
+    if (!flagged.length) {
+        list.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 1.5rem;">No customer risk flags right now.</p>';
+        return;
+    }
+
+    list.innerHTML = flagged.slice(0, 10).map(item => `
+        <div class="ops-card">
+            <p><strong>${item.request.customer || 'Customer'}</strong> - <span class="risk-chip ${item.level}">${item.level.toUpperCase()} (${item.score})</span></p>
+            <p>${item.reasons.join(' • ')}</p>
+            <p>Email: ${item.request.email || 'N/A'} | Phone: ${item.request.phone || 'N/A'}</p>
+        </div>
+    `).join('');
+}
+
+function renderLocationOperationsPanel() {
+    const list = document.getElementById('location-ops-list');
+    const count = document.getElementById('location-ops-count');
+    if (!list || !count) return;
+
+    const rows = getBookingRequests()
+        .map(item => {
+            const location = extractLocationDataFromBookingNotes(item.notes);
+            if (!location) return null;
+            return {
+                customer: item.customer || 'Customer',
+                car: item.car || 'Vehicle',
+                createdAt: item.createdAt || new Date().toISOString(),
+                location
+            };
+        })
+        .filter(Boolean)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    count.textContent = String(rows.length);
+    if (!rows.length) {
+        list.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 1.5rem;">No captured locations yet.</p>';
+        return;
+    }
+
+    list.innerHTML = rows.slice(0, 12).map(item => `
+        <div class="ops-card">
+            <p><strong>${item.customer}</strong> - ${item.car}</p>
+            <p>GPS: ${item.location.text}</p>
+            <p><a href="${item.location.mapUrl}" target="_blank" rel="noreferrer">Open Latest Location</a> • ${new Date(item.createdAt).toLocaleString()}</p>
+        </div>
+    `).join('');
+}
+
+function renderRevenueCommandCenter() {
+    const unpaidForecastEl = document.getElementById('earnings-unpaid-forecast');
+    const topCustomerEl = document.getElementById('earnings-top-customer');
+
+    if (unpaidForecastEl) {
+        const finance = getInvoiceFinanceSummary();
+        unpaidForecastEl.textContent = `$${Number(finance.totalUnpaid || 0).toFixed(2)}`;
+    }
+
+    if (topCustomerEl) {
+        const customerRevenue = new Map();
+        invoices.forEach(invoice => {
+            const key = String(invoice.customer || 'Customer').trim() || 'Customer';
+            const current = Number(customerRevenue.get(key) || 0);
+            customerRevenue.set(key, current + Number(invoice.totalAmount || 0));
+        });
+
+        const top = [...customerRevenue.entries()].sort((a, b) => b[1] - a[1])[0];
+        topCustomerEl.textContent = top ? `${top[0]} ($${top[1].toFixed(0)})` : 'N/A';
+    }
 }
 
 let editingCarId = null;
@@ -1515,6 +1777,11 @@ function updateStats() {
     }
 
     renderDashboardNotifications();
+    updateLiveAdminAlerts();
+    renderAdminCalendarView();
+    renderCustomerRiskPanel();
+    renderLocationOperationsPanel();
+    renderRevenueCommandCenter();
 
     renderRevenueGraph();
     renderRevenueAnalytics();
@@ -2361,6 +2628,12 @@ function renderBookingRequests() {
         const requestLocation = extractLocationFromBookingNotes(request.notes);
         const licenseNumber = extractLicenseNumberFromBookingNotes(request.notes);
         const licensePhotoUrls = extractLicensePhotoUrlsFromBookingNotes(request.notes);
+        const riskProfile = getCustomerRiskProfile({
+            name: request.customer,
+            email: request.email,
+            phone: request.phone
+        }, request);
+        const riskChip = `<span class="risk-chip ${riskProfile.level}">${riskProfile.level.toUpperCase()} (${riskProfile.score})</span>`;
         const licensePhotosHtml = licensePhotoUrls.length
             ? `<div style="display:flex; gap:0.45rem; flex-wrap:wrap; margin-top:0.3rem;">${licensePhotoUrls.map((url, index) => `
                 <a href="${url}" target="_blank" rel="noreferrer" title="License Photo ${index + 1}">
@@ -2378,13 +2651,13 @@ function renderBookingRequests() {
                 <div style="display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap; align-items:flex-start;">
                     <div>
                         <h4 style="margin:0 0 0.35rem 0; color:#111827;">${request.customer || 'Customer'} — ${carName}</h4>
-                        <p style="margin:0; color:#6b7280; font-size:0.9rem;">📅 Requested: ${createdAt.toLocaleString()} • ${statusHint} • ${sourceLabel}</p>
+                        <p style="margin:0; color:#6b7280; font-size:0.9rem;">📅 Requested: ${createdAt.toLocaleString()} • ${statusHint} • ${sourceLabel} • Risk ${riskChip}</p>
                         ${conflictInfo.count > 0 ? `<div style="margin-top:0.45rem; display:inline-flex; align-items:center; gap:0.4rem; background:#fff7ed; color:#9a3412; border:1px solid #fdba74; border-radius:999px; padding:0.3rem 0.75rem; font-size:0.82rem; font-weight:700;">⚠ Booking conflict: ${conflictLabel}</div>` : ''}
                     </div>
                     <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
                         <button class="btn-small btn-edit" onclick="showRequestCustomerProfile(${Number(request.id)})">👤 Customer</button>
-                        <button class="btn-small btn-primary" onclick="approveBookingRequest(${Number(request.id)})">✅ Approve</button>
-                        <button class="btn-small btn-edit" onclick="rejectBookingRequest(${Number(request.id)})">❌ Reject</button>
+                        <button class="btn-small btn-primary" onclick="approveBookingRequestOneClick(${Number(request.id)})">⚡ Approve + Invoice</button>
+                        <button class="btn-small btn-edit" onclick="rejectBookingRequestWithReason(${Number(request.id)})">❌ Reject w/Reason</button>
                     </div>
                 </div>
                 <div style="margin-top:0.75rem; display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0.5rem 1rem;">
@@ -2757,7 +3030,7 @@ function approveBookingRequest(requestId) {
     showToast(`Booking approved for ${request.customer || 'Customer'}`, 'success');
 }
 
-function rejectBookingRequest(requestId) {
+function rejectBookingRequest(requestId, reason = '') {
     const requests = getBookingRequests();
     const request = requests.find(item => Number(item.id) === Number(requestId));
     if (!request) {
@@ -2767,10 +3040,25 @@ function rejectBookingRequest(requestId) {
 
     request.status = 'rejected';
     request.rejectedAt = new Date().toISOString();
+    if (hasMeaningfulValue(reason)) {
+        const prefix = request.notes ? `${String(request.notes).trim()}\n` : '';
+        request.notes = `${prefix}REJECT_REASON::${String(reason).trim()}`;
+    }
     saveBookingRequests(requests);
     renderBookingRequests();
     updateStats();
     showToast('Booking request rejected.', 'info');
+}
+
+function rejectBookingRequestWithReason(requestId) {
+    const reason = window.prompt('Reason for rejection (visible to admin team):', 'Missing details');
+    if (reason === null) return;
+    rejectBookingRequest(requestId, reason);
+}
+
+function approveBookingRequestOneClick(requestId) {
+    approveBookingRequest(requestId);
+    showToast(`Booking #${requestId} approved with invoice workflow.`, 'success');
 }
 
 function parseServiceEventsFromNotes(notesText = '') {
@@ -2838,21 +3126,9 @@ function extractLicensePhotoUrlsFromBookingNotes(notesText = '') {
 }
 
 function extractLocationFromBookingNotes(notesText = '') {
-    const events = parseServiceEventsFromNotes(notesText);
-    if (events.length) {
-        for (let i = events.length - 1; i >= 0; i -= 1) {
-            const event = events[i];
-            const lat = Number(event?.location?.lat);
-            const lng = Number(event?.location?.lng);
-            if (Number.isFinite(lat) && Number.isFinite(lng)) {
-                const latText = lat.toFixed(6);
-                const lngText = lng.toFixed(6);
-                return `${latText}, ${lngText} <a href="https://maps.google.com/?q=${encodeURIComponent(`${latText},${lngText}`)}" target="_blank" rel="noreferrer">Open Map</a>`;
-            }
-        }
-    }
-
-    return 'Not captured';
+    const location = extractLocationDataFromBookingNotes(notesText);
+    if (!location) return 'Not captured';
+    return `${location.text} <a href="${location.mapUrl}" target="_blank" rel="noreferrer">Open Map</a>`;
 }
 
 function getVisibleNotesFromBookingNotes(notesText = '') {

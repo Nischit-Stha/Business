@@ -136,6 +136,22 @@ body {
     box-shadow: 0 8px 20px -8px rgba(59, 130, 246, 0.8);
 }
 
+.nav-alert-dot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    margin-left: 6px;
+    border-radius: 999px;
+    background: #dc2626;
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
 .header-actions {
     margin-left: auto;
 }
@@ -396,6 +412,43 @@ body {
 .stack-list {
     display: grid;
     gap: 1rem;
+}
+
+.ops-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 0.85rem 1rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.ops-card p {
+    margin: 0.2rem 0;
+    color: #374151;
+}
+
+.risk-chip {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.74rem;
+    font-weight: 700;
+}
+
+.risk-chip.high {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.risk-chip.medium {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.risk-chip.low {
+    background: #dcfce7;
+    color: #166534;
 }
 
 .overview-grid {
