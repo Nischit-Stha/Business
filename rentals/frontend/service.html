@@ -866,6 +866,40 @@
                 .filter(isHttpUrl);
         }
 
+        function parseVehiclePayload(rawValue) {
+            const raw = String(rawValue || '').trim();
+            if (!raw) return null;
+
+            const tryParse = (value) => {
+                try {
+                    const parsed = JSON.parse(value);
+                    return parsed && typeof parsed === 'object' ? parsed : null;
+                } catch {
+                    return null;
+                }
+            };
+
+            // Primary parse path for JSON payloads.
+            let parsed = tryParse(raw);
+            if (parsed) return parsed;
+
+            // If HTML-escaped JSON reaches here, decode and retry.
+            const decoded = raw
+                .replace(/&quot;/g, '"')
+                .replace(/&#34;/g, '"')
+                .replace(/&amp;/g, '&');
+            parsed = tryParse(decoded);
+            if (parsed) return parsed;
+
+            // Support legacy/fallback where only vehicle id is stored.
+            const numericId = Number(raw);
+            if (Number.isFinite(numericId) && numericId > 0) {
+                return availableVehicles.find(vehicle => Number(vehicle.id) === numericId) || null;
+            }
+
+            return null;
+        }
+
         function setPrimaryActionLoading(isLoading) {
             const button = document.getElementById('primary-action-btn');
             if (!button) return;
@@ -1767,7 +1801,7 @@
 
             // Also populate the hidden select for form validation
             const select = document.getElementById('vehicle-select');
-            select.innerHTML = `<option value="${JSON.stringify(vehicle).replace(/"/g, '&quot;')}" selected>${getVehicleName(vehicle)} - ${vehicle.rego || vehicle.license || 'N/A'}</option>`;
+            select.innerHTML = `<option value="${String(vehicle.id)}" selected>${getVehicleName(vehicle)} - ${vehicle.rego || vehicle.license || 'N/A'}</option>`;
 
             const summary = document.getElementById('selected-car-summary');
             const summaryText = document.getElementById('selected-car-summary-text');
@@ -2243,7 +2277,11 @@
                         alert('Please upload driver license photo(s) for pickup');
                         return;
                     }
-                    vehicle = JSON.parse(vehicleData);
+                    vehicle = parseVehiclePayload(vehicleData);
+                    if (!vehicle) {
+                        alert('Selected vehicle data could not be read. Please re-select the vehicle and try again.');
+                        return;
+                    }
                     customerName = document.getElementById('customer-name').value;
                     customerPhone = document.getElementById('customer-phone').value;
                     customerEmail = document.getElementById('customer-email').value;
