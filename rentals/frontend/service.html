@@ -716,7 +716,7 @@
             </div>
             
             <!-- Hidden input to store selected vehicle -->
-            <input type="hidden" id="selected-vehicle-data">
+            <input type="hidden" id="selected-vehicle-data" name="selected-vehicle-data">
 
             <div id="pickup-details-section" class="pickup-details-section hidden">
             <div id="selected-car-sticky" class="selected-car-sticky">
@@ -734,17 +734,17 @@
                 <div id="pickup-step-1-section">
                 <div class="form-group">
                     <label>Customer Name</label>
-                    <input type="text" id="customer-name" required placeholder="Enter full name">
+                    <input type="text" id="customer-name" name="customer-name" required placeholder="Enter full name">
                 </div>
                 
                 <div class="form-group">
                     <label>Contact Number</label>
-                    <input type="tel" id="customer-phone" required placeholder="0466877527">
+                    <input type="tel" id="customer-phone" name="customer-phone" required placeholder="0466877527">
                 </div>
 
                 <div class="form-group">
                     <label>Email</label>
-                    <input type="email" id="customer-email" required placeholder="name@example.com">
+                    <input type="email" id="customer-email" name="customer-email" required placeholder="name@example.com">
                 </div>
 
                 <div class="form-group">
@@ -754,7 +754,7 @@
                         <p><strong id="upload-title">Tap to upload license photos</strong></p>
                         <small id="upload-hint">Front and back of driver license</small>
                     </div>
-                    <input type="file" id="photo-input" accept="image/*" capture="environment" multiple style="display: none;">
+                    <input type="file" id="photo-input" name="photo-input" accept="image/*" capture="environment" multiple style="display: none;">
                     <div class="photo-preview" id="photo-preview"></div>
                 </div>
                 </div>
@@ -776,10 +776,10 @@
 
                 <div class="form-group">
                     <label>Your Budget (Per Week)</label>
-                    <input type="number" id="pricing-budget" min="0" step="1" value="250" placeholder="Enter your weekly budget">
+                    <input type="number" id="pricing-budget" name="pricing-budget" min="0" step="1" value="250" placeholder="Enter your weekly budget">
                     <small id="pricing-budget-label">Default matches weekly rent price. Change it if you want a discount.</small>
                 </div>
-                <input type="hidden" id="pricing-plan" value="weekly">
+                <input type="hidden" id="pricing-plan" name="pricing-plan" value="weekly">
                 </div>
 
                 <div id="pickup-step-3-section">
@@ -792,7 +792,7 @@
                 <!-- Notes -->
                 <div class="form-group">
                     <label>Additional Notes</label>
-                    <textarea id="notes" placeholder="Any damage or issues to report..."></textarea>
+                    <textarea id="notes" name="notes" placeholder="Any damage or issues to report..."></textarea>
                 </div>
                 </div>
             </div>
@@ -800,7 +800,7 @@
             <!-- Vehicle Selection Dropdown (backup/hidden for pickup) -->
             <div class="form-group" id="vehicle-selection" style="display: none;">
                 <label id="vehicle-label">Select Vehicle</label>
-                <select id="vehicle-select">
+                <select id="vehicle-select" name="vehicle-select">
                     <option value="">Choose vehicle...</option>
                 </select>
             </div>
@@ -808,16 +808,16 @@
             <!-- Odometer Reading -->
             <div class="form-group" id="odometer-group" style="display:none;">
                 <label>Odometer Reading (Admin Only)</label>
-                <input type="number" id="mileage" required placeholder="Auto-filled by system" value="500" readonly>
+                <input type="number" id="mileage" name="mileage" required placeholder="Auto-filled by system" value="500" readonly>
             </div>
 
             <!-- GPS Location (hidden from customer, captured in background) -->
-            <input type="hidden" id="location" readonly>
+            <input type="hidden" id="location" name="location" readonly>
             
             <!-- Service Reference ID (auto-generated) -->
             <div class="form-group">
                 <label>Service Reference ID</label>
-                <input type="text" id="service-ref" readonly style="background: #f7fafc; font-weight: 600;">
+                <input type="text" id="service-ref" name="service-ref" readonly style="background: #f7fafc; font-weight: 600;">
             </div>
             
             <div id="form-action-buttons">
