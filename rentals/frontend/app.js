@@ -2341,6 +2341,16 @@ function renderBookingRequests() {
         const statusHint = requestedCar?.status === 'available' ? '✅ Available' : '⚠️ Currently unavailable';
         const sourceLabel = String(request.source || 'customer-portal') === 'scanner-pickup' ? 'Scanner Pickup' : 'Customer Portal';
         const visibleNotes = getVisibleNotesFromBookingNotes(request.notes);
+        const requestLocation = extractLocationFromBookingNotes(request.notes);
+        const licenseNumber = extractLicenseNumberFromBookingNotes(request.notes);
+        const licensePhotoUrls = extractLicensePhotoUrlsFromBookingNotes(request.notes);
+        const licensePhotosHtml = licensePhotoUrls.length
+            ? `<div style="display:flex; gap:0.45rem; flex-wrap:wrap; margin-top:0.3rem;">${licensePhotoUrls.map((url, index) => `
+                <a href="${url}" target="_blank" rel="noreferrer" title="License Photo ${index + 1}">
+                    <img src="${url}" alt="License Photo ${index + 1}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid #d1d5db;display:block;" onerror="this.style.display='none'">
+                </a>
+            `).join('')}</div>`
+            : 'N/A';
         const conflictInfo = getBookingConflictInfo(request);
         const conflictLabel = conflictInfo.count > 0
             ? `${conflictInfo.count} other booking${conflictInfo.count === 1 ? '' : 's'} on this car${conflictInfo.names.length ? `: ${conflictInfo.names.join(', ')}` : ''}`
@@ -2366,6 +2376,9 @@ function renderBookingRequests() {
                     <p style="margin:0; color:#374151;"><strong>Plate:</strong> ${plate}</p>
                     <p style="margin:0; color:#374151;"><strong>Pickup:</strong> ${pickup.toLocaleString()}</p>
                     <p style="margin:0; color:#374151;"><strong>Return:</strong> ${dropoff.toLocaleString()}</p>
+                    <p style="margin:0; color:#374151;"><strong>Location:</strong> ${requestLocation}</p>
+                    <p style="margin:0; color:#374151;"><strong>License Number:</strong> ${licenseNumber || 'N/A'}</p>
+                    <p style="margin:0; color:#374151;"><strong>License Photos:</strong> ${licensePhotosHtml}</p>
                     ${visibleNotes ? `<p style="margin:0; color:#374151;"><strong>Notes:</strong> ${visibleNotes}</p>` : ''}
                 </div>
             </div>
@@ -2766,10 +2779,63 @@ function parseServiceEventsFromNotes(notesText = '') {
     return events;
 }
 
+function extractLicenseNumberFromBookingNotes(notesText = '') {
+    if (!hasMeaningfulValue(notesText)) return '';
+
+    const line = String(notesText)
+        .split('\n')
+        .map(item => String(item || '').trim())
+        .find(item => item.startsWith('LICENSE_NUMBER::'));
+
+    if (!line) return '';
+    return line.slice('LICENSE_NUMBER::'.length).trim();
+}
+
+function extractLicensePhotoUrlsFromBookingNotes(notesText = '') {
+    if (!hasMeaningfulValue(notesText)) return [];
+
+    const line = String(notesText)
+        .split('\n')
+        .map(item => String(item || '').trim())
+        .find(item => item.startsWith('LICENSE_PHOTOS::'));
+
+    if (!line) return [];
+
+    const raw = line.slice('LICENSE_PHOTOS::'.length).trim();
+    if (!raw) return [];
+
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed)
+            ? parsed.map(url => String(url || '').trim()).filter(url => /^https?:\/\//i.test(url))
+            : [];
+    } catch {
+        return [];
+    }
+}
+
+function extractLocationFromBookingNotes(notesText = '') {
+    const events = parseServiceEventsFromNotes(notesText);
+    if (events.length) {
+        for (let i = events.length - 1; i >= 0; i -= 1) {
+            const event = events[i];
+            const lat = Number(event?.location?.lat);
+            const lng = Number(event?.location?.lng);
+            if (Number.isFinite(lat) && Number.isFinite(lng)) {
+                const latText = lat.toFixed(6);
+                const lngText = lng.toFixed(6);
+                return `${latText}, ${lngText} <a href="https://maps.google.com/?q=${encodeURIComponent(`${latText},${lngText}`)}" target="_blank" rel="noreferrer">Open Map</a>`;
+            }
+        }
+    }
+
+    return 'Not captured';
+}
+
 function getVisibleNotesFromBookingNotes(notesText = '') {
     if (!hasMeaningfulValue(notesText)) return '';
 
-    const markers = ['SCANNER_FORM::', 'SERVICE_EVENT::'];
+    const markers = ['SCANNER_FORM::', 'SERVICE_EVENT::', 'LICENSE_NUMBER::', 'LICENSE_PHOTOS::'];
     const cleanLines = String(notesText)
         .split('\n')
         .map(line => String(line || '').trim())
