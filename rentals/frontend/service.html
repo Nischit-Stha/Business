@@ -1369,7 +1369,7 @@
                 customer: request.customer || null,
                 phone: request.phone || null,
                 email: request.email || null,
-                customer_id: Number(request.customerId || 0) || null,
+                // customer_id is optional and may not exist in schema yet
                 car: request.car || null,
                 vehicle_id: Number(request.carId || 0) || null,
                 pickup_at: request.pickupDate ? new Date(request.pickupDate).toISOString() : null,
@@ -1379,6 +1379,12 @@
                 source: request.source || 'scanner-pickup',
                 created_at: request.createdAt ? new Date(request.createdAt).toISOString() : new Date().toISOString()
             };
+
+            // Only add customer_id if we have a valid ID (assume column exists in schema)
+            const customerId = Number(request.customerId || 0);
+            if (Number.isFinite(customerId) && customerId > 0) {
+                payload.customer_id = customerId;
+            }
 
             const numericId = Number(request.id);
             if (Number.isFinite(numericId) && numericId > 0 && numericId <= 2147483647) {
