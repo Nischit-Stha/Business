@@ -3018,7 +3018,6 @@ function approveBookingRequest(requestId) {
     car.status = 'rented';
     saveBookingRequests(requests);
     syncRentalsFromBookingRequestsCache();
-    generateInvoiceFromRental(Number(request.id));
     saveData();
 
     updateStats();
@@ -3527,7 +3526,6 @@ function handleNewBooking(e) {
     
     // Add rental
     rentals.push(newRental);
-    const generatedInvoice = generateInvoiceFromRental(newRental.id);
     
     // Save and update
     saveData();
@@ -3795,7 +3793,59 @@ function openRentedCarDetails(carId) {
 }
 
 function renderInvoiceCenter() {
-    renderEnhancedInvoiceList();
+    const list = document.getElementById('invoice-list');
+    const count = document.getElementById('invoice-count');
+    if (!list || !count) return;
+
+    count.textContent = invoices.length;
+
+    if (invoices.length === 0) {
+        list.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">No invoices generated yet</p>';
+        return;
+    }
+
+    list.innerHTML = invoices.map(invoice => {
+        const unpaid = Math.max(0, Number(invoice.totalAmount || 0) - Number(invoice.paidAmount || 0));
+        
+        let statusBadge = 'PAID';
+        let statusColor = '#059669';
+        if (unpaid > 0) {
+            const dueDate = new Date(invoice.dueDate);
+            const today = new Date();
+            const daysOverdue = Math.floor((today - dueDate) / (1000 * 60 * 60 * 24));
+            
+            if (daysOverdue > 0) {
+                statusBadge = `OVERDUE ${daysOverdue}d`;
+                statusColor = '#dc2626';
+            } else {
+                statusBadge = 'OPEN';
+                statusColor = '#dc2626';
+            }
+        }
+        
+        let agreementInfo = '';
+        if (invoice.agreement) {
+            agreementInfo = ` • ${invoice.agreementLabel || invoice.agreement}`;
+            if (invoice.completedCycles > 0) {
+                agreementInfo += ` (${invoice.completedCycles} cycles + ${invoice.remainingDays}d)`;
+            }
+        }
+        
+        return `
+            <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:1rem 1.1rem; display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+                <div>
+                    <h4 style="margin:0 0 0.35rem 0; color:#111827;">${invoice.invoiceNumber}</h4>
+                    <p style="margin:0; color:#4b5563;">${invoice.customer} • ${invoice.carName}</p>
+                    <p style="margin:0.2rem 0 0; color:#6b7280; font-size:0.9rem;">Issued: ${new Date(invoice.issueDate).toLocaleDateString()}${agreementInfo}</p>
+                </div>
+                <div style="text-align:right;">
+                    <p style="margin:0; font-weight:700; color:#111827;">$${Number(invoice.totalAmount || 0).toFixed(2)}</p>
+                    <p style="margin:0.2rem 0 0; color:${statusColor}; font-weight:600;">${statusBadge} ${unpaid > 0 ? `($${unpaid.toFixed(2)})` : ''}</p>
+                    <button class="btn-small btn-primary" style="margin-top:0.45rem;" onclick="openInvoiceByNumber('${invoice.invoiceNumber}')">View</button>
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
 function renderInvoiceModal(invoice) {
@@ -3803,12 +3853,9 @@ function renderInvoiceModal(invoice) {
     if (!content) return;
 
     const unpaid = Math.max(0, Number(invoice.totalAmount || 0) - Number(invoice.paidAmount || 0));
-    const schedule = getPaymentScheduleForInvoice(invoice);
-    const daysInfo = getDaysUntilDue(invoice);
     
-    let scheduleHTML = renderPaymentSchedule(invoice);
-    
-    content.innerHTML = `
+    // Build header with agreement info
+    let headerHTML = `
         <div style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem; background:#fff;">
             <div style="display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
                 <div>
@@ -3818,31 +3865,63 @@ function renderInvoiceModal(invoice) {
                 </div>
                 <div style="text-align:right;">
                     <p style="margin:0; color:#6b7280;">Status</p>
-                    <p style="margin:0.25rem 0 0; font-weight:700; color:${unpaid > 0 ? (daysInfo.isOverdue ? '#dc2626' : '#f59e0b') : '#059669'};">${schedule.status}</p>
+                    <p style="margin:0.25rem 0 0; font-weight:700; color:${unpaid > 0 ? '#dc2626' : '#059669'};">${unpaid > 0 ? 'OPEN' : 'PAID'}</p>
                 </div>
             </div>
         </div>
+    `;
+    
+    // Agreement details for open-ended rentals
+    let agreementHTML = '';
+    if (invoice.agreement) {
+        agreementHTML = `
+            <div style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem; background:#f0f9ff;">
+                <h4 style="margin:0 0 0.5rem 0; color:#0c4a6e;">📋 Rental Agreement</h4>
+                <p style="margin:0; color:#1e40af;"><strong>Type:</strong> ${invoice.agreementLabel} Payment Rental</p>
+                <p style="margin:0.2rem 0 0; color:#1e40af;"><strong>Cycle Rate:</strong> $${Number(invoice.cycleRate || 0).toFixed(2)} per ${invoice.agreementLabel.toLowerCase()}</p>
+                <p style="margin:0.2rem 0 0; color:#1e40af;"><strong>Cycle Days:</strong> ${invoice.cycleDays} days</p>
+                <p style="margin:0.2rem 0 0; color:#1e40af;"><strong>Rental From:</strong> ${new Date(invoice.rentalStartDate).toLocaleString()} (ongoing)</p>
+                ${invoice.dropoffDate ? `<p style="margin:0.2rem 0 0; color:#1e40af;"><strong>Dropped Off:</strong> ${new Date(invoice.dropoffDate).toLocaleString()}</p>` : ''}
+            </div>
+        `;
+    }
+    
+    // Rental summary
+    let summaryHTML = `
         <div style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem; background:#fff;">
             <p style="margin:0; color:#374151;"><strong>Customer:</strong> ${invoice.customer}</p>
             <p style="margin:0.2rem 0 0; color:#374151;"><strong>Phone:</strong> ${invoice.customerPhone || 'N/A'}</p>
             <p style="margin:0.2rem 0 0; color:#374151;"><strong>Email:</strong> ${invoice.customerEmail || 'N/A'}</p>
             <p style="margin:0.2rem 0 0; color:#374151;"><strong>Vehicle:</strong> ${invoice.carName}</p>
         </div>
+    `;
+    
+    // Charge breakdown
+    let chargeHTML = `
         <div style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem; background:#fff;">
-            <p style="margin:0; color:#374151;"><strong>Rental Period:</strong> ${new Date(invoice.pickupDate).toLocaleString()} → ${new Date(invoice.returnDate).toLocaleString()}</p>
-            <p style="margin:0.2rem 0 0; color:#374151;"><strong>Days:</strong> ${invoice.totalDays}</p>
-            <p style="margin:0.2rem 0 0; color:#374151;"><strong>Rate:</strong> $${Number(invoice.dailyRate || 0).toFixed(2)} / day</p>
-        </div>
-        <div style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem; background:#fff;">
-            <p style="margin:0; color:#374151;"><strong>Subtotal:</strong> $${Number(invoice.subTotal || 0).toFixed(2)}</p>
-            <p style="margin:0.2rem 0 0; color:#374151;"><strong>Tax:</strong> $${Number(invoice.taxAmount || 0).toFixed(2)}</p>
-            <p style="margin:0.2rem 0 0; color:#374151;"><strong>Total:</strong> $${Number(invoice.totalAmount || 0).toFixed(2)}</p>
+            <h4 style="margin:0 0 0.5rem 0; color:#111827;">Charge Breakdown</h4>
+            <p style="margin:0; color:#374151;"><strong>Total Days:</strong> ${invoice.totalDaysCharged} days</p>
+            <p style="margin:0.2rem 0 0; color:#374151;"><strong>Completed Cycles:</strong> ${invoice.completedCycles} ${(invoice.agreementLabel || 'cycle').toLowerCase()}(s)</p>
+            <p style="margin:0.2rem 0 0; color:#374151;"><strong>Remaining Days:</strong> ${invoice.remainingDays} days</p>
+            <p style="margin:0.2rem 0 0; color:#374151;"><strong>Cycles Amount:</strong> $${Number(invoice.cyclesAmount || 0).toFixed(2)}</p>
+            <p style="margin:0.2rem 0 0; color:#374151;"><strong>Pro-Rata Amount:</strong> $${Number(invoice.proRataAmount || 0).toFixed(2)}</p>
+            <p style="margin:0.5rem 0 0; border-top:1px solid #e5e7eb; padding-top:0.5rem;"><strong>Total:</strong> $${Number(invoice.totalAmount || 0).toFixed(2)}</p>
             <p style="margin:0.2rem 0 0; color:#374151;"><strong>Paid:</strong> $${Number(invoice.paidAmount || 0).toFixed(2)}</p>
             <p style="margin:0.2rem 0 0; font-weight:700; color:${unpaid > 0 ? '#dc2626' : '#059669'};"><strong>Outstanding:</strong> $${unpaid.toFixed(2)}</p>
         </div>
-        ${scheduleHTML}
     `;
-
+    
+    // Notes
+    let notesHTML = '';
+    if (invoice.notes) {
+        notesHTML = `
+            <div style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem; background:#fafafa;">
+                <p style="margin:0; color:#6b7280; font-size:0.9rem;"><strong>Notes:</strong> ${invoice.notes}</p>
+            </div>
+        `;
+    }
+    
+    content.innerHTML = headerHTML + agreementHTML + summaryHTML + chargeHTML + notesHTML;
     showModal('invoice-modal');
 }
 
@@ -3856,15 +3935,20 @@ function openInvoiceByNumber(invoiceNumber) {
 }
 
 function openInvoiceForRental(rentalId) {
-    const invoice = getRentalInvoice(rentalId);
+    const rental = rentals.find(r => Number(r.id) === Number(rentalId));
+    if (!rental) {
+        showToast('Rental not found', 'warning');
+        return;
+    }
     
-    if (invoice) {
-        renderInvoiceCenter();
-        renderInvoiceModal(invoice);
-        showToast(`Invoice ready: ${invoice.invoiceNumber}`, 'success');
+    // Check if invoice already exists for this rental
+    const existingInvoice = invoices.find(inv => inv.rentalId === rental.id && inv.agreement);
+    
+    if (existingInvoice) {
+        renderInvoiceModal(existingInvoice);
     } else {
-        // Show cycle selector if invoice doesn't exist yet
-        showPaymentCycleSelector(rentalId);
+        // Show agreement selector for first invoice
+        showRentalAgreementModal(rentalId);
     }
 }
 
@@ -3880,7 +3964,19 @@ function completeRental(rentalId) {
 
     rental.status = 'completed';
     rental.completedAt = new Date();
-    syncInvoiceWithRentalStatus(rental);
+    
+    // Generate final pro-rata invoice on dropoff
+    const lastAgreementInvoice = invoices
+        .filter(i => i.rentalId === rental.id && i.agreement)
+        .sort((a, b) => new Date(b.issueDate) - new Date(a.issueDate))[0];
+    
+    if (lastAgreementInvoice) {
+        // Generate final invoice with pro-rata charges
+        const finalInvoice = generateFinalDropoffInvoice(rentalId, new Date());
+        if (finalInvoice) {
+            showToast(`Final invoice created: ${finalInvoice.invoiceNumber}`, 'success');
+        }
+    }
 
     const car = fleet.find(c => c.id === rental.carId);
     if (car) {
@@ -3899,267 +3995,226 @@ function completeRental(rentalId) {
     showToast(`Rental #${rental.id} marked as completed`, 'success');
 }
 
-// ===== PAYMENT CYCLE MANAGEMENT =====
-const PAYMENT_CYCLES = {
-    DAILY: { label: 'Daily', days: 1, key: 'daily' },
+// ===== OPEN-ENDED RENTAL PAYMENT SYSTEM =====
+// For rentals with no fixed end date - customer keeps car and pays by agreement cycle
+
+const RENTAL_AGREEMENTS = {
     WEEKLY: { label: 'Weekly', days: 7, key: 'weekly' },
     FORTNIGHTLY: { label: 'Fortnightly', days: 14, key: 'fortnightly' },
     MONTHLY: { label: 'Monthly', days: 30, key: 'monthly' }
 };
 
-function calculatePaymentCycles(startDate, endDate, cycleType) {
-    const cycleDays = PAYMENT_CYCLES[cycleType]?.days || PAYMENT_CYCLES.WEEKLY.days;
+function calculateCyclesCompleted(startDate, endDate, cycleDays) {
     const start = new Date(startDate);
     const end = new Date(endDate);
     const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-    const numberOfCycles = Math.ceil(totalDays / cycleDays);
-    
-    const cycles = [];
-    for (let i = 0; i < numberOfCycles; i++) {
-        const cycleStart = new Date(start);
-        cycleStart.setDate(cycleStart.getDate() + i * cycleDays);
-        
-        const cycleEnd = new Date(cycleStart);
-        cycleEnd.setDate(cycleEnd.getDate() + cycleDays - 1);
-        
-        cycles.push({
-            cycleNumber: i + 1,
-            startDate: cycleStart.toISOString().split('T')[0],
-            dueDate: cycleEnd.toISOString().split('T')[0],
-            status: 'unpaid',
-            paidDate: null,
-            paidAmount: 0
-        });
-    }
-    return cycles;
-}
-
-function getPaymentScheduleForInvoice(invoice) {
-    if (!invoice.paymentCycles) {
-        return {
-            totalCycles: 1,
-            paidCycles: invoice.paidAmount > 0 ? 1 : 0,
-            pendingCycles: invoice.paidAmount > 0 ? 0 : 1,
-            status: invoice.paidAmount > 0 ? 'PAID' : 'OPEN'
-        };
-    }
-    
-    const cycles = invoice.paymentCycles;
-    const paidCycles = cycles.filter(c => c.status === 'paid').length;
-    const pendingCycles = cycles.filter(c => c.status === 'unpaid').length;
+    const completedCycles = Math.floor(totalDays / cycleDays);
+    const remainingDays = totalDays % cycleDays;
     
     return {
-        totalCycles: cycles.length,
-        paidCycles: paidCycles,
-        pendingCycles: pendingCycles,
-        cycles: cycles,
-        status: pendingCycles === 0 ? 'PAID' : paidCycles > 0 ? 'PARTIAL' : 'OPEN'
+        completedCycles,
+        remainingDays,
+        totalDays,
+        proRataMultiplier: (totalDays / cycleDays).toFixed(2) // e.g., 10 days with weekly = 1.43
     };
 }
 
-function getDaysUntilDue(invoice) {
-    if (!invoice.paymentCycles || invoice.paymentCycles.length === 0) {
-        const dueDate = new Date(invoice.dueDate);
-        const today = new Date();
-        const daysRemaining = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
-        return { days: Math.max(-999, daysRemaining), isOverdue: daysRemaining < 0 };
+function generateInvoiceForRentalCycles(rentalId, cycleType, cycleRate, endDate = null) {
+    const rental = rentals.find(r => Number(r.id) === Number(rentalId));
+    if (!rental) {
+        showToast('Rental not found', 'warning');
+        return null;
     }
-    
-    const pendingCycle = invoice.paymentCycles.find(c => c.status === 'unpaid');
-    if (!pendingCycle) return { days: 0, isOverdue: false };
-    
-    const dueDate = new Date(pendingCycle.dueDate);
-    const today = new Date();
-    const daysRemaining = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
-    return { days: daysRemaining, isOverdue: daysRemaining < 0 };
-}
 
-function markPaymentCyclePaid(invoiceNumber, cycleNumber, paidAmount) {
-    const invoice = invoices.find(inv => inv.invoiceNumber === invoiceNumber);
-    if (!invoice || !invoice.paymentCycles) return false;
+    const start = new Date(rental.pickupDate || rental.createdAt);
+    const end = endDate ? new Date(endDate) : new Date(); // Use provided date or today
+    const cycleDays = RENTAL_AGREEMENTS[cycleType]?.days || 7;
     
-    const cycle = invoice.paymentCycles.find(c => c.cycleNumber === cycleNumber);
-    if (!cycle) return false;
+    const cycleInfo = calculateCyclesCompleted(start, end, cycleDays);
+    const chargeAmount = (cycleInfo.proRataMultiplier * cycleRate).toFixed(2);
     
-    cycle.status = 'paid';
-    cycle.paidDate = new Date().toISOString().split('T')[0];
-    cycle.paidAmount = paidAmount;
+    const invoiceNum = String(invoices.filter(i => i.rentalId === rental.id).length + 1);
+    const issueDate = new Date().toISOString();
     
-    // Update total paid amount
-    const totalPaidCycles = invoice.paymentCycles
-        .filter(c => c.status === 'paid')
-        .reduce((sum, c) => sum + (c.paidAmount || 0), 0);
-    invoice.paidAmount = totalPaidCycles;
+    const newInvoice = {
+        id: Date.now(),
+        invoiceNumber: `INV-${rental.id}-${invoiceNum}`,
+        rentalId: rental.id,
+        customer: rental.customer || 'Customer',
+        customerId: rental.customerId || rental.customer_id || null,
+        customerPhone: rental.phone || 'N/A',
+        customerEmail: rental.email || 'N/A',
+        carId: rental.carId,
+        carName: rental.car || 'Vehicle',
+        status: 'open',
+        
+        // Rental terms
+        agreement: cycleType,
+        agreementLabel: RENTAL_AGREEMENTS[cycleType]?.label || 'Custom',
+        cycleDays: cycleDays,
+        cycleRate: Number(cycleRate),
+        
+        // Dates and calculation
+        pickupDate: start.toISOString(),
+        rentalStartDate: start.toISOString(),
+        rentalEndDate: end.toISOString(),
+        issueDate: issueDate,
+        dueDate: new Date(end.getTime() + cycleDays * 24 * 60 * 60 * 1000).toISOString(), // Due X days after invoice
+        
+        // Amounts
+        completedCycles: cycleInfo.completedCycles,
+        remainingDays: cycleInfo.remainingDays,
+        totalDaysCharged: cycleInfo.totalDays,
+        cyclesAmount: (cycleInfo.completedCycles * cycleRate).toFixed(2),
+        proRataAmount: cycleInfo.remainingDays > 0 ? ((cycleInfo.remainingDays / cycleDays) * cycleRate).toFixed(2) : '0.00',
+        subTotal: chargeAmount,
+        taxAmount: '0.00',
+        totalAmount: chargeAmount,
+        paidAmount: 0,
+        
+        notes: `Open-ended rental: ${cycleInfo.completedCycles} full ${RENTAL_AGREEMENTS[cycleType]?.label.toLowerCase() || 'cycle'}(s) + ${cycleInfo.remainingDays} days`,
+        createdAt: issueDate,
+        updatedAt: issueDate
+    };
     
+    invoices.unshift(newInvoice);
     saveData();
-    return true;
+    return newInvoice;
 }
 
-function renderPaymentSchedule(invoice) {
-    const schedule = getPaymentScheduleForInvoice(invoice);
-    const daysInfo = getDaysUntilDue(invoice);
-    
-    if (!invoice.paymentCycles || invoice.paymentCycles.length === 0) {
-        return `<p style="color:#6b7280; margin:0;">Regular invoice - Single payment</p>`;
+function generateFinalDropoffInvoice(rentalId, dropoffDate) {
+    const rental = rentals.find(r => Number(r.id) === Number(rentalId));
+    if (!rental) {
+        showToast('Rental not found', 'warning');
+        return null;
     }
+
+    // Check if there was a rental agreement stored
+    const lastInvoice = invoices.filter(i => i.rentalId === rental.id).sort((a, b) => new Date(b.rentalStartDate) - new Date(a.rentalStartDate))[0];
     
-    const cycleLbl = invoice.cycleType || 'WEEKLY';
-    const cycleText = PAYMENT_CYCLES[cycleLbl]?.label || 'Weekly';
-    
-    let html = `
-        <div style="background:#f9fafb; padding:1rem; border-radius:8px; margin:0.5rem 0;">
-            <p style="margin:0; color:#111827; font-weight:600;">${cycleText} Payment Schedule</p>
-            <p style="margin:0.25rem 0 0; color:#6b7280; font-size:0.9rem;">${schedule.paidCycles} of ${schedule.totalCycles} cycles paid</p>
-    `;
-    
-    if (daysInfo.isOverdue && schedule.pendingCycles > 0) {
-        html += `<p style="margin:0.25rem 0 0; color:#dc2626; font-weight:600;">⚠️ OVERDUE by ${Math.abs(daysInfo.days)} days</p>`;
-    } else if (daysInfo.days >= 0 && schedule.pendingCycles > 0) {
-        html += `<p style="margin:0.25rem 0 0; color:#f59e0b; font-weight:600;">⏰ Due in ${daysInfo.days} day${daysInfo.days !== 1 ? 's' : ''}</p>`;
+    if (!lastInvoice) {
+        showToast('No rental agreement found. Create invoice first.', 'warning');
+        return null;
     }
+
+    const cycleType = lastInvoice.agreement;
+    const cycleRate = lastInvoice.cycleRate;
+    const cycleDays = lastInvoice.cycleDays;
     
-    html += '<div style="margin-top:0.75rem;">';
+    const start = new Date(rental.pickupDate || rental.createdAt);
+    const end = new Date(dropoffDate);
+    const cycleInfo = calculateCyclesCompleted(start, end, cycleDays);
     
-    invoice.paymentCycles.forEach(cycle => {
-        const isPaid = cycle.status === 'paid';
-        const isLate = !isPaid && new Date(cycle.dueDate) < new Date();
+    const finalAmount = (cycleInfo.proRataMultiplier * cycleRate).toFixed(2);
+    
+    const invoiceNum = String(invoices.filter(i => i.rentalId === rental.id).length + 1);
+    const issueDate = new Date().toISOString();
+    
+    const finalInvoice = {
+        id: Date.now(),
+        invoiceNumber: `INV-${rental.id}-${invoiceNum}-FINAL`,
+        rentalId: rental.id,
+        customer: rental.customer || 'Customer',
+        customerId: rental.customerId || rental.customer_id || null,
+        customerPhone: rental.phone || 'N/A',
+        customerEmail: rental.email || 'N/A',
+        carId: rental.carId,
+        carName: rental.car || 'Vehicle',
+        status: 'open',
         
-        html += `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem; background:${isPaid ? '#d1fae5' : isLate ? '#fee2e2' : '#eff6ff'}; margin:0.25rem 0; border-radius:6px; border-left:3px solid ${isPaid ? '#10b981' : isLate ? '#ef4444' : '#3b82f6'};">
-                <span style="color:#374151; font-weight:500;">Cycle ${cycle.cycleNumber}: ${new Date(cycle.startDate).toLocaleDateString()} → ${new Date(cycle.dueDate).toLocaleDateString()}</span>
-                <div style="text-align:right;">
-                    <span style="color:${isPaid ? '#059669' : '#dc2626'}; font-weight:600; margin-right:0.5rem;">${isPaid ? '✓ PAID' : 'PENDING'}</span>
-                    <button class="btn-small" style="padding:0.25rem 0.5rem; font-size:0.85rem; ${isPaid ? 'opacity:0.5;' : ''}" onclick="showMarkCyclePaidModal('${invoice.invoiceNumber}', ${cycle.cycleNumber})" ${isPaid ? 'disabled' : ''}>
-                        ${isPaid ? 'Marked' : 'Mark Paid'}
-                    </button>
-                </div>
-            </div>
-        `;
-    });
+        agreement: cycleType,
+        agreementLabel: RENTAL_AGREEMENTS[cycleType]?.label || 'Custom',
+        cycleDays: cycleDays,
+        cycleRate: cycleRate,
+        
+        pickupDate: start.toISOString(),
+        rentalStartDate: start.toISOString(),
+        rentalEndDate: end.toISOString(),
+        dropoffDate: end.toISOString(),
+        issueDate: issueDate,
+        dueDate: new Date(end.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString(), // Due in 3 days
+        
+        completedCycles: cycleInfo.completedCycles,
+        remainingDays: cycleInfo.remainingDays,
+        totalDaysCharged: cycleInfo.totalDays,
+        cyclesAmount: (cycleInfo.completedCycles * cycleRate).toFixed(2),
+        proRataAmount: cycleInfo.remainingDays > 0 ? ((cycleInfo.remainingDays / cycleDays) * cycleRate).toFixed(2) : '0.00',
+        subTotal: finalAmount,
+        taxAmount: '0.00',
+        totalAmount: finalAmount,
+        paidAmount: 0,
+        
+        notes: `FINAL: ${cycleInfo.completedCycles} full ${RENTAL_AGREEMENTS[cycleType]?.label.toLowerCase()}(s) + ${cycleInfo.remainingDays} pro-rata days (${(cycleInfo.remainingDays/cycleDays*100).toFixed(0)}% of next cycle)`,
+        isDropoffInvoice: true,
+        createdAt: issueDate,
+        updatedAt: issueDate
+    };
     
-    html += '</div></div>';
-    return html;
+    invoices.unshift(finalInvoice);
+    saveData();
+    return finalInvoice;
 }
 
-function showMarkCyclePaidModal(invoiceNumber, cycleNumber) {
-    const invoice = invoices.find(inv => inv.invoiceNumber === invoiceNumber);
-    if (!invoice) return;
-    
-    const cycle = invoice.paymentCycles?.find(c => c.cycleNumber === cycleNumber);
-    if (!cycle) return;
-    
-    const amountPerCycle = Number(invoice.totalAmount || 0) / (invoice.paymentCycles?.length || 1);
-    const paidAmountStr = prompt(
-        `Mark Cycle ${cycleNumber} as paid\n\nDue: ${cycle.dueDate}\nSuggested amount: $${amountPerCycle.toFixed(2)}\n\nEnter amount (or press Cancel):`,
-        amountPerCycle.toFixed(2)
-    );
-    
-    if (paidAmountStr === null) return;
-    
-    const paidAmount = Number(paidAmountStr);
-    if (!Number.isFinite(paidAmount) || paidAmount <= 0) {
-        showToast('Invalid amount', 'warning');
-        return;
-    }
-    
-    if (markPaymentCyclePaid(invoiceNumber, cycleNumber, paidAmount)) {
-        showToast(`Cycle ${cycleNumber} marked as paid ($${paidAmount.toFixed(2)})`, 'success');
-        updateStats();
-        renderInvoiceCenter();
-    } else {
-        showToast('Error marking cycle as paid', 'error');
-    }
-}
-
-function renderEnhancedInvoiceList() {
-    const list = document.getElementById('invoice-list');
-    const count = document.getElementById('invoice-count');
-    if (!list || !count) return;
-
-    count.textContent = invoices.length;
-
-    if (invoices.length === 0) {
-        list.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">No invoices generated yet</p>';
-        return;
-    }
-
-    list.innerHTML = invoices.map(invoice => {
-        const unpaid = Math.max(0, Number(invoice.totalAmount || 0) - Number(invoice.paidAmount || 0));
-        const schedule = getPaymentScheduleForInvoice(invoice);
-        const daysInfo = getDaysUntilDue(invoice);
-        
-        let statusBadge = 'PAID';
-        let statusColor = '#059669';
-        if (unpaid > 0) {
-            if (daysInfo.isOverdue) {
-                statusBadge = `OVERDUE ${Math.abs(daysInfo.days)}d`;
-                statusColor = '#dc2626';
-            } else {
-                statusBadge = schedule.paidCycles > 0 ? 'PARTIAL' : 'OPEN';
-                statusColor = schedule.paidCycles > 0 ? '#f59e0b' : '#dc2626';
-            }
-        }
-        
-        let scheduleInfo = '';
-        if (invoice.paymentCycles) {
-            scheduleInfo = ` • ${schedule.paidCycles}/${schedule.totalCycles} ${(invoice.cycleType || 'WEEKLY').toLowerCase()}`;
-        }
-        
-        return `
-            <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:1rem 1.1rem; display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
-                <div>
-                    <h4 style="margin:0 0 0.35rem 0; color:#111827;">${invoice.invoiceNumber}</h4>
-                    <p style="margin:0; color:#4b5563;">${invoice.customer} • ${invoice.carName}</p>
-                    <p style="margin:0.2rem 0 0; color:#6b7280; font-size:0.9rem;">Issued: ${new Date(invoice.issueDate).toLocaleDateString()} • Due: ${new Date(invoice.dueDate).toLocaleDateString()}${scheduleInfo}</p>
-                </div>
-                <div style="text-align:right;">
-                    <p style="margin:0; font-weight:700; color:#111827;">$${Number(invoice.totalAmount || 0).toFixed(2)}</p>
-                    <p style="margin:0.2rem 0 0; color:${statusColor}; font-weight:600;">${unpaid > 0 ? statusBadge : 'PAID'} ${unpaid > 0 ? `($${unpaid.toFixed(2)})` : ''}</p>
-                    <button class="btn-small btn-primary" style="margin-top:0.45rem;" onclick="openInvoiceByNumber('${invoice.invoiceNumber}')">View</button>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-function showPaymentCycleSelector(rentalId) {
-    const options = Object.keys(PAYMENT_CYCLES)
-        .map(key => `<option value="${key}">${PAYMENT_CYCLES[key].label} (every ${PAYMENT_CYCLES[key].days} days)</option>`)
+function showRentalAgreementModal(rentalId) {
+    const options = Object.keys(RENTAL_AGREEMENTS)
+        .map(key => {
+            const agreement = RENTAL_AGREEMENTS[key];
+            return `<option value="${key}">${agreement.label} (every ${agreement.days} days)</option>`;
+        })
         .join('');
     
     const modal = document.createElement('div');
     modal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:999;';
     modal.innerHTML = `
-        <div style="background:#fff; border-radius:12px; padding:2rem; max-width:400px; box-shadow:0 10px 40px rgba(0,0,0,0.2);">
-            <h3 style="margin:0 0 1rem 0; color:#111827;">Select Payment Cycle</h3>
-            <p style="color:#6b7280; margin:0 0 1.5rem 0;">How should this invoice be paid?</p>
-            <select id="cycle-select" style="width:100%; padding:0.5rem; border:1px solid #d1d5db; border-radius:6px; font-size:1rem; margin-bottom:1rem;">
-                <option value="">Single Payment (entire amount)</option>
-                ${options}
-            </select>
+        <div style="background:#fff; border-radius:12px; padding:2rem; max-width:450px; box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+            <h3 style="margin:0 0 1rem 0; color:#111827;">Rental Agreement</h3>
+            <p style="color:#6b7280; margin:0 0 1rem 0; font-size:0.95rem;">Customer keeps car indefinitely. Invoice for completed cycles.</p>
+            
+            <label style="display:block; margin-bottom:1rem;">
+                <span style="color:#374151; font-weight:600; display:block; margin-bottom:0.5rem;">Payment Cycle</span>
+                <select id="agreement-select" style="width:100%; padding:0.6rem; border:1px solid #d1d5db; border-radius:6px; font-size:0.95rem;">
+                    ${options}
+                </select>
+            </label>
+            
+            <label style="display:block; margin-bottom:1rem;">
+                <span style="color:#374151; font-weight:600; display:block; margin-bottom:0.5rem;">Rate per Cycle</span>
+                <input type="number" id="rate-input" placeholder="e.g., 250" min="1" step="0.01" style="width:calc(100% - 12px); padding:0.6rem; border:1px solid #d1d5db; border-radius:6px; font-size:0.95rem;"/>
+            </label>
+            
             <div style="display:flex; gap:1rem;">
                 <button onclick="this.closest('div').parentElement.remove()" class="btn-small" style="flex:1; background:#e5e7eb; color:#111827;">Cancel</button>
-                <button onclick="confirmPaymentCycle('${rentalId}')" class="btn-small btn-primary" style="flex:1;">Generate Invoice</button>
+                <button onclick="confirmRentalAgreement('${rentalId}')" class="btn-small btn-primary" style="flex:1;">Create Invoice</button>
             </div>
         </div>
     `;
     document.body.appendChild(modal);
 }
 
-function confirmPaymentCycle(rentalId) {
-    const selector = document.getElementById('cycle-select');
-    const cycleType = selector.value || null;
+function confirmRentalAgreement(rentalId) {
+    const agreeSelect = document.getElementById('agreement-select');
+    const rateInput = document.getElementById('rate-input');
+    
+    const cycleType = agreeSelect.value;
+    const cycleRate = Number(rateInput.value);
+    
+    if (!cycleType || !Number.isFinite(cycleRate) || cycleRate <= 0) {
+        showToast('Please select agreement and enter rate', 'warning');
+        return;
+    }
     
     // Close modal
-    selector.closest('div').parentElement.parentElement.remove();
+    agreeSelect.closest('div').parentElement.parentElement.remove();
     
-    const invoice = generateInvoiceFromRental(Number(rentalId), cycleType);
+    const invoice = generateInvoiceForRentalCycles(Number(rentalId), cycleType, cycleRate);
     if (invoice) {
+        updateStats();
         renderInvoiceCenter();
         renderInvoiceModal(invoice);
-        showToast(`Invoice generated ${cycleType ? `with ${PAYMENT_CYCLES[cycleType].label.toLowerCase()} cycles` : 'with single payment'} `, 'success');
+        showToast(`Invoice created: ${invoice.agreementLabel} rental - $${invoice.totalAmount}`, 'success');
     }
 }
+
 
 // ===== TOAST NOTIFICATIONS =====
 function showToast(message, type = 'info', duration = 3000) {
