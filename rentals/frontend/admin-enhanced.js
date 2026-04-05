@@ -1,6 +1,10 @@
 // Enhanced Admin Panel JavaScript for Veera Rentals (Supabase-only)
 
 function getSupabaseClient() {
+    if (window.VeeraShared && typeof window.VeeraShared.getSupabaseClient === 'function') {
+        return window.VeeraShared.getSupabaseClient();
+    }
+
     if (typeof window.getVeeraSupabaseClient === 'function') {
         return window.getVeeraSupabaseClient();
     }
@@ -8,6 +12,10 @@ function getSupabaseClient() {
 }
 
 function sanitizeText(value, fallback = 'N/A') {
+    if (window.VeeraShared && typeof window.VeeraShared.sanitizeText === 'function') {
+        return window.VeeraShared.sanitizeText(value, fallback);
+    }
+
     if (value === null || value === undefined || value === '') return fallback;
     return String(value);
 }
@@ -114,15 +122,36 @@ function renderLocationFromNotes(notes) {
     return `<p><strong>Location:</strong> ${latText}, ${lngText} <a href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener noreferrer">Open Map</a></p>`;
 }
 
+function renderPhotoGallery(photoUrls, label = 'Photos') {
+    const urls = Array.isArray(photoUrls)
+        ? photoUrls.map(url => String(url || '').trim()).filter(isHttpUrl)
+        : [];
+    if (!urls.length) return '';
+
+    const gallery = urls
+        .map((url, index) => `
+            <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" title="Open ${label} ${index + 1}">
+                <img
+                    src="${escapeHtml(url)}"
+                    alt="${escapeHtml(label)} ${index + 1}"
+                    style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;display:block;"
+                    onerror="this.style.display='none'"
+                />
+            </a>
+        `)
+        .join('');
+
+    return `
+        <div style="margin-top:0.5rem;">
+            <strong>${escapeHtml(label)}:</strong>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.35rem;">${gallery}</div>
+        </div>
+    `;
+}
+
 function renderPhotoLinksFromNotes(notes) {
     const photoUrls = extractPhotoUrlsFromNotes(notes);
-    if (!photoUrls.length) return '';
-
-    const links = photoUrls
-        .map((url, index) => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Photo ${index + 1}</a>`)
-        .join(' | ');
-
-    return `<p><strong>Photos:</strong> ${links}</p>`;
+    return renderPhotoGallery(photoUrls, 'License Photos');
 }
 
 function extractLatestServiceEventByType(notes, type) {
@@ -506,7 +535,9 @@ async function renderCustomers() {
                         <p><strong>Last Booking:</strong> ${customer.lastBookingAt ? new Date(customer.lastBookingAt).toLocaleString() : 'N/A'}</p>
                         <p><strong>Vehicles Used:</strong> ${customer.vehicles && customer.vehicles.length ? customer.vehicles.join(', ') : 'None yet'}</p>
                         <p><strong>Total Spent:</strong> ${toCurrency(customer.totalSpent || 0)}</p>
-                        <p><strong>License Photos:</strong> ${customer.licensePhotoUrls && customer.licensePhotoUrls.length ? customer.licensePhotoUrls.map((url, index) => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Photo ${index + 1}</a>`).join(' | ') : 'None saved'}</p>
+                        ${customer.licensePhotoUrls && customer.licensePhotoUrls.length
+                            ? renderPhotoGallery(customer.licensePhotoUrls, 'License Photos')
+                            : '<p><strong>License Photos:</strong> None saved</p>'}
                         ${customer.notes ? `<p><strong>Notes:</strong> ${sanitizeText(customer.notes)}</p>` : ''}
                     </div>
                     <div class="invoice-actions">
