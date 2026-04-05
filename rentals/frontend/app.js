@@ -2169,7 +2169,7 @@ function getRentalInvoice(rentalId) {
     return invoices.find(invoice => Number(invoice.rentalId) === Number(rentalId));
 }
 
-function generateInvoiceFromRental(rentalId) {
+function generateInvoiceFromRental(rentalId, cycleType = null) {
     const rental = rentals.find(item => Number(item.id) === Number(rentalId));
     if (!rental) {
         showToast('Rental not found for invoice generation.', 'warning');
@@ -2210,7 +2210,9 @@ function generateInvoiceFromRental(rentalId) {
         paidAmount: 0,
         notes: rental.notes || '',
         createdAt: issueDate,
-        updatedAt: issueDate
+        updatedAt: issueDate,
+        cycleType: cycleType || null,
+        paymentCycles: cycleType ? calculatePaymentCycles(amount.pickupDate, amount.returnDate, cycleType) : null
     };
 
     invoices.unshift(newInvoice);
@@ -3793,34 +3795,7 @@ function openRentedCarDetails(carId) {
 }
 
 function renderInvoiceCenter() {
-    const list = document.getElementById('invoice-list');
-    const count = document.getElementById('invoice-count');
-    if (!list || !count) return;
-
-    count.textContent = invoices.length;
-
-    if (invoices.length === 0) {
-        list.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">No invoices generated yet</p>';
-        return;
-    }
-
-    list.innerHTML = invoices.map(invoice => {
-        const unpaid = Math.max(0, Number(invoice.totalAmount || 0) - Number(invoice.paidAmount || 0));
-        return `
-            <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:1rem 1.1rem; display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
-                <div>
-                    <h4 style="margin:0 0 0.35rem 0; color:#111827;">${invoice.invoiceNumber}</h4>
-                    <p style="margin:0; color:#4b5563;">${invoice.customer} • ${invoice.carName}</p>
-                    <p style="margin:0.2rem 0 0; color:#6b7280; font-size:0.9rem;">Issued: ${new Date(invoice.issueDate).toLocaleDateString()} • Due: ${new Date(invoice.dueDate).toLocaleDateString()}</p>
-                </div>
-                <div style="text-align:right;">
-                    <p style="margin:0; font-weight:700; color:#111827;">$${Number(invoice.totalAmount || 0).toFixed(2)}</p>
-                    <p style="margin:0.2rem 0 0; color:${unpaid > 0 ? '#dc2626' : '#059669'}; font-weight:600;">${unpaid > 0 ? `Unpaid $${unpaid.toFixed(2)}` : 'Paid'}</p>
-                    <button class="btn-small btn-primary" style="margin-top:0.45rem;" onclick="openInvoiceByNumber('${invoice.invoiceNumber}')">View</button>
-                </div>
-            </div>
-        `;
-    }).join('');
+    renderEnhancedInvoiceList();
 }
 
 function renderInvoiceModal(invoice) {
@@ -3828,6 +3803,11 @@ function renderInvoiceModal(invoice) {
     if (!content) return;
 
     const unpaid = Math.max(0, Number(invoice.totalAmount || 0) - Number(invoice.paidAmount || 0));
+    const schedule = getPaymentScheduleForInvoice(invoice);
+    const daysInfo = getDaysUntilDue(invoice);
+    
+    let scheduleHTML = renderPaymentSchedule(invoice);
+    
     content.innerHTML = `
         <div style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem; background:#fff;">
             <div style="display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
@@ -3838,7 +3818,7 @@ function renderInvoiceModal(invoice) {
                 </div>
                 <div style="text-align:right;">
                     <p style="margin:0; color:#6b7280;">Status</p>
-                    <p style="margin:0.25rem 0 0; font-weight:700; color:${unpaid > 0 ? '#dc2626' : '#059669'};">${unpaid > 0 ? 'OPEN' : 'PAID'}</p>
+                    <p style="margin:0.25rem 0 0; font-weight:700; color:${unpaid > 0 ? (daysInfo.isOverdue ? '#dc2626' : '#f59e0b') : '#059669'};">${schedule.status}</p>
                 </div>
             </div>
         </div>
@@ -3860,6 +3840,7 @@ function renderInvoiceModal(invoice) {
             <p style="margin:0.2rem 0 0; color:#374151;"><strong>Paid:</strong> $${Number(invoice.paidAmount || 0).toFixed(2)}</p>
             <p style="margin:0.2rem 0 0; font-weight:700; color:${unpaid > 0 ? '#dc2626' : '#059669'};"><strong>Outstanding:</strong> $${unpaid.toFixed(2)}</p>
         </div>
+        ${scheduleHTML}
     `;
 
     showModal('invoice-modal');
@@ -3875,12 +3856,16 @@ function openInvoiceByNumber(invoiceNumber) {
 }
 
 function openInvoiceForRental(rentalId) {
-    const invoice = generateInvoiceFromRental(rentalId);
-    if (!invoice) return;
-
-    renderInvoiceCenter();
-    renderInvoiceModal(invoice);
-    showToast(`Invoice ready: ${invoice.invoiceNumber}`, 'success');
+    const invoice = getRentalInvoice(rentalId);
+    
+    if (invoice) {
+        renderInvoiceCenter();
+        renderInvoiceModal(invoice);
+        showToast(`Invoice ready: ${invoice.invoiceNumber}`, 'success');
+    } else {
+        // Show cycle selector if invoice doesn't exist yet
+        showPaymentCycleSelector(rentalId);
+    }
 }
 
 function completeRental(rentalId) {
@@ -3912,6 +3897,268 @@ function completeRental(rentalId) {
     populateCarSelect();
 
     showToast(`Rental #${rental.id} marked as completed`, 'success');
+}
+
+// ===== PAYMENT CYCLE MANAGEMENT =====
+const PAYMENT_CYCLES = {
+    DAILY: { label: 'Daily', days: 1, key: 'daily' },
+    WEEKLY: { label: 'Weekly', days: 7, key: 'weekly' },
+    FORTNIGHTLY: { label: 'Fortnightly', days: 14, key: 'fortnightly' },
+    MONTHLY: { label: 'Monthly', days: 30, key: 'monthly' }
+};
+
+function calculatePaymentCycles(startDate, endDate, cycleType) {
+    const cycleDays = PAYMENT_CYCLES[cycleType]?.days || PAYMENT_CYCLES.WEEKLY.days;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    const numberOfCycles = Math.ceil(totalDays / cycleDays);
+    
+    const cycles = [];
+    for (let i = 0; i < numberOfCycles; i++) {
+        const cycleStart = new Date(start);
+        cycleStart.setDate(cycleStart.getDate() + i * cycleDays);
+        
+        const cycleEnd = new Date(cycleStart);
+        cycleEnd.setDate(cycleEnd.getDate() + cycleDays - 1);
+        
+        cycles.push({
+            cycleNumber: i + 1,
+            startDate: cycleStart.toISOString().split('T')[0],
+            dueDate: cycleEnd.toISOString().split('T')[0],
+            status: 'unpaid',
+            paidDate: null,
+            paidAmount: 0
+        });
+    }
+    return cycles;
+}
+
+function getPaymentScheduleForInvoice(invoice) {
+    if (!invoice.paymentCycles) {
+        return {
+            totalCycles: 1,
+            paidCycles: invoice.paidAmount > 0 ? 1 : 0,
+            pendingCycles: invoice.paidAmount > 0 ? 0 : 1,
+            status: invoice.paidAmount > 0 ? 'PAID' : 'OPEN'
+        };
+    }
+    
+    const cycles = invoice.paymentCycles;
+    const paidCycles = cycles.filter(c => c.status === 'paid').length;
+    const pendingCycles = cycles.filter(c => c.status === 'unpaid').length;
+    
+    return {
+        totalCycles: cycles.length,
+        paidCycles: paidCycles,
+        pendingCycles: pendingCycles,
+        cycles: cycles,
+        status: pendingCycles === 0 ? 'PAID' : paidCycles > 0 ? 'PARTIAL' : 'OPEN'
+    };
+}
+
+function getDaysUntilDue(invoice) {
+    if (!invoice.paymentCycles || invoice.paymentCycles.length === 0) {
+        const dueDate = new Date(invoice.dueDate);
+        const today = new Date();
+        const daysRemaining = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+        return { days: Math.max(-999, daysRemaining), isOverdue: daysRemaining < 0 };
+    }
+    
+    const pendingCycle = invoice.paymentCycles.find(c => c.status === 'unpaid');
+    if (!pendingCycle) return { days: 0, isOverdue: false };
+    
+    const dueDate = new Date(pendingCycle.dueDate);
+    const today = new Date();
+    const daysRemaining = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+    return { days: daysRemaining, isOverdue: daysRemaining < 0 };
+}
+
+function markPaymentCyclePaid(invoiceNumber, cycleNumber, paidAmount) {
+    const invoice = invoices.find(inv => inv.invoiceNumber === invoiceNumber);
+    if (!invoice || !invoice.paymentCycles) return false;
+    
+    const cycle = invoice.paymentCycles.find(c => c.cycleNumber === cycleNumber);
+    if (!cycle) return false;
+    
+    cycle.status = 'paid';
+    cycle.paidDate = new Date().toISOString().split('T')[0];
+    cycle.paidAmount = paidAmount;
+    
+    // Update total paid amount
+    const totalPaidCycles = invoice.paymentCycles
+        .filter(c => c.status === 'paid')
+        .reduce((sum, c) => sum + (c.paidAmount || 0), 0);
+    invoice.paidAmount = totalPaidCycles;
+    
+    saveData();
+    return true;
+}
+
+function renderPaymentSchedule(invoice) {
+    const schedule = getPaymentScheduleForInvoice(invoice);
+    const daysInfo = getDaysUntilDue(invoice);
+    
+    if (!invoice.paymentCycles || invoice.paymentCycles.length === 0) {
+        return `<p style="color:#6b7280; margin:0;">Regular invoice - Single payment</p>`;
+    }
+    
+    const cycleLbl = invoice.cycleType || 'WEEKLY';
+    const cycleText = PAYMENT_CYCLES[cycleLbl]?.label || 'Weekly';
+    
+    let html = `
+        <div style="background:#f9fafb; padding:1rem; border-radius:8px; margin:0.5rem 0;">
+            <p style="margin:0; color:#111827; font-weight:600;">${cycleText} Payment Schedule</p>
+            <p style="margin:0.25rem 0 0; color:#6b7280; font-size:0.9rem;">${schedule.paidCycles} of ${schedule.totalCycles} cycles paid</p>
+    `;
+    
+    if (daysInfo.isOverdue && schedule.pendingCycles > 0) {
+        html += `<p style="margin:0.25rem 0 0; color:#dc2626; font-weight:600;">⚠️ OVERDUE by ${Math.abs(daysInfo.days)} days</p>`;
+    } else if (daysInfo.days >= 0 && schedule.pendingCycles > 0) {
+        html += `<p style="margin:0.25rem 0 0; color:#f59e0b; font-weight:600;">⏰ Due in ${daysInfo.days} day${daysInfo.days !== 1 ? 's' : ''}</p>`;
+    }
+    
+    html += '<div style="margin-top:0.75rem;">';
+    
+    invoice.paymentCycles.forEach(cycle => {
+        const isPaid = cycle.status === 'paid';
+        const isLate = !isPaid && new Date(cycle.dueDate) < new Date();
+        
+        html += `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem; background:${isPaid ? '#d1fae5' : isLate ? '#fee2e2' : '#eff6ff'}; margin:0.25rem 0; border-radius:6px; border-left:3px solid ${isPaid ? '#10b981' : isLate ? '#ef4444' : '#3b82f6'};">
+                <span style="color:#374151; font-weight:500;">Cycle ${cycle.cycleNumber}: ${new Date(cycle.startDate).toLocaleDateString()} → ${new Date(cycle.dueDate).toLocaleDateString()}</span>
+                <div style="text-align:right;">
+                    <span style="color:${isPaid ? '#059669' : '#dc2626'}; font-weight:600; margin-right:0.5rem;">${isPaid ? '✓ PAID' : 'PENDING'}</span>
+                    <button class="btn-small" style="padding:0.25rem 0.5rem; font-size:0.85rem; ${isPaid ? 'opacity:0.5;' : ''}" onclick="showMarkCyclePaidModal('${invoice.invoiceNumber}', ${cycle.cycleNumber})" ${isPaid ? 'disabled' : ''}>
+                        ${isPaid ? 'Marked' : 'Mark Paid'}
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div></div>';
+    return html;
+}
+
+function showMarkCyclePaidModal(invoiceNumber, cycleNumber) {
+    const invoice = invoices.find(inv => inv.invoiceNumber === invoiceNumber);
+    if (!invoice) return;
+    
+    const cycle = invoice.paymentCycles?.find(c => c.cycleNumber === cycleNumber);
+    if (!cycle) return;
+    
+    const amountPerCycle = Number(invoice.totalAmount || 0) / (invoice.paymentCycles?.length || 1);
+    const paidAmountStr = prompt(
+        `Mark Cycle ${cycleNumber} as paid\n\nDue: ${cycle.dueDate}\nSuggested amount: $${amountPerCycle.toFixed(2)}\n\nEnter amount (or press Cancel):`,
+        amountPerCycle.toFixed(2)
+    );
+    
+    if (paidAmountStr === null) return;
+    
+    const paidAmount = Number(paidAmountStr);
+    if (!Number.isFinite(paidAmount) || paidAmount <= 0) {
+        showToast('Invalid amount', 'warning');
+        return;
+    }
+    
+    if (markPaymentCyclePaid(invoiceNumber, cycleNumber, paidAmount)) {
+        showToast(`Cycle ${cycleNumber} marked as paid ($${paidAmount.toFixed(2)})`, 'success');
+        updateStats();
+        renderInvoiceCenter();
+    } else {
+        showToast('Error marking cycle as paid', 'error');
+    }
+}
+
+function renderEnhancedInvoiceList() {
+    const list = document.getElementById('invoice-list');
+    const count = document.getElementById('invoice-count');
+    if (!list || !count) return;
+
+    count.textContent = invoices.length;
+
+    if (invoices.length === 0) {
+        list.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">No invoices generated yet</p>';
+        return;
+    }
+
+    list.innerHTML = invoices.map(invoice => {
+        const unpaid = Math.max(0, Number(invoice.totalAmount || 0) - Number(invoice.paidAmount || 0));
+        const schedule = getPaymentScheduleForInvoice(invoice);
+        const daysInfo = getDaysUntilDue(invoice);
+        
+        let statusBadge = 'PAID';
+        let statusColor = '#059669';
+        if (unpaid > 0) {
+            if (daysInfo.isOverdue) {
+                statusBadge = `OVERDUE ${Math.abs(daysInfo.days)}d`;
+                statusColor = '#dc2626';
+            } else {
+                statusBadge = schedule.paidCycles > 0 ? 'PARTIAL' : 'OPEN';
+                statusColor = schedule.paidCycles > 0 ? '#f59e0b' : '#dc2626';
+            }
+        }
+        
+        let scheduleInfo = '';
+        if (invoice.paymentCycles) {
+            scheduleInfo = ` • ${schedule.paidCycles}/${schedule.totalCycles} ${(invoice.cycleType || 'WEEKLY').toLowerCase()}`;
+        }
+        
+        return `
+            <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:1rem 1.1rem; display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+                <div>
+                    <h4 style="margin:0 0 0.35rem 0; color:#111827;">${invoice.invoiceNumber}</h4>
+                    <p style="margin:0; color:#4b5563;">${invoice.customer} • ${invoice.carName}</p>
+                    <p style="margin:0.2rem 0 0; color:#6b7280; font-size:0.9rem;">Issued: ${new Date(invoice.issueDate).toLocaleDateString()} • Due: ${new Date(invoice.dueDate).toLocaleDateString()}${scheduleInfo}</p>
+                </div>
+                <div style="text-align:right;">
+                    <p style="margin:0; font-weight:700; color:#111827;">$${Number(invoice.totalAmount || 0).toFixed(2)}</p>
+                    <p style="margin:0.2rem 0 0; color:${statusColor}; font-weight:600;">${unpaid > 0 ? statusBadge : 'PAID'} ${unpaid > 0 ? `($${unpaid.toFixed(2)})` : ''}</p>
+                    <button class="btn-small btn-primary" style="margin-top:0.45rem;" onclick="openInvoiceByNumber('${invoice.invoiceNumber}')">View</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function showPaymentCycleSelector(rentalId) {
+    const options = Object.keys(PAYMENT_CYCLES)
+        .map(key => `<option value="${key}">${PAYMENT_CYCLES[key].label} (every ${PAYMENT_CYCLES[key].days} days)</option>`)
+        .join('');
+    
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:999;';
+    modal.innerHTML = `
+        <div style="background:#fff; border-radius:12px; padding:2rem; max-width:400px; box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+            <h3 style="margin:0 0 1rem 0; color:#111827;">Select Payment Cycle</h3>
+            <p style="color:#6b7280; margin:0 0 1.5rem 0;">How should this invoice be paid?</p>
+            <select id="cycle-select" style="width:100%; padding:0.5rem; border:1px solid #d1d5db; border-radius:6px; font-size:1rem; margin-bottom:1rem;">
+                <option value="">Single Payment (entire amount)</option>
+                ${options}
+            </select>
+            <div style="display:flex; gap:1rem;">
+                <button onclick="this.closest('div').parentElement.remove()" class="btn-small" style="flex:1; background:#e5e7eb; color:#111827;">Cancel</button>
+                <button onclick="confirmPaymentCycle('${rentalId}')" class="btn-small btn-primary" style="flex:1;">Generate Invoice</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+function confirmPaymentCycle(rentalId) {
+    const selector = document.getElementById('cycle-select');
+    const cycleType = selector.value || null;
+    
+    // Close modal
+    selector.closest('div').parentElement.parentElement.remove();
+    
+    const invoice = generateInvoiceFromRental(Number(rentalId), cycleType);
+    if (invoice) {
+        renderInvoiceCenter();
+        renderInvoiceModal(invoice);
+        showToast(`Invoice generated ${cycleType ? `with ${PAYMENT_CYCLES[cycleType].label.toLowerCase()} cycles` : 'with single payment'} `, 'success');
+    }
 }
 
 // ===== TOAST NOTIFICATIONS =====
