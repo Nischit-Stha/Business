@@ -748,6 +748,11 @@
                 </div>
 
                 <div class="form-group">
+                    <label>Driver License Number</label>
+                    <input type="text" id="customer-license-number" name="customer-license-number" required placeholder="Enter license number">
+                </div>
+
+                <div class="form-group">
                     <label id="upload-label">Driver License Photos</label>
                     <div class="photo-upload" onclick="document.getElementById('photo-input').click()">
                         <div class="photo-upload-icon">+</div>
@@ -1089,6 +1094,7 @@
                 if (pickupStep3) pickupStep3.style.display = 'none';
                 pickupFlowStep = 1;
                 document.getElementById('progress-text').textContent = 'Step 1 of 3 - Select Car';
+                document.getElementById('customer-license-number').required = true;
                 loadAvailableVehiclesAsCards();
             } else if (serviceType === 'dropoff') {
                 title.textContent = 'Vehicle Drop-off';
@@ -1108,6 +1114,7 @@
                 document.getElementById('customer-name').required = false;
                 document.getElementById('customer-phone').required = false;
                 document.getElementById('customer-email').required = false;
+                document.getElementById('customer-license-number').required = false;
                 document.getElementById('vehicle-select').required = false;
                 const dropoffPhone = document.getElementById('dropoff-phone');
                 const dropoffEmail = document.getElementById('dropoff-email');
@@ -1134,6 +1141,7 @@
                 document.getElementById('customer-name').required = true;
                 document.getElementById('customer-phone').required = true;
                 document.getElementById('customer-email').required = true;
+                document.getElementById('customer-license-number').required = false;
                 document.getElementById('vehicle-select').required = false;
                 if (pickupStep1) pickupStep1.style.display = 'block';
                 if (pickupStep2) pickupStep2.style.display = 'block';
@@ -1330,6 +1338,7 @@
             const scannerPayload = {
                 serviceRef: serviceData.serviceRef,
                 type: serviceData.type,
+                licenseNumber: serviceData.customerLicenseNumber || '',
                 odometer: serviceData.mileage || 'N/A',
                 budgetWeekly: Number(serviceData.budgetWeekly || 0) || getVehicleWeeklyRate(serviceData.vehicle),
                 location: serviceData.location || null,
@@ -1657,6 +1666,7 @@
                 customerName: serviceData.customerName || 'Customer',
                 customerPhone: serviceData.customerPhone || '',
                 customerEmail: serviceData.customerEmail || '',
+                customerLicenseNumber: serviceData.customerLicenseNumber || '',
                 customerId: Number(serviceData.customerId || 0) || null,
                 vehicleName: getVehicleName(serviceData.vehicle),
                 vehicleRego: serviceData.vehicle?.rego || serviceData.vehicle?.license || '',
@@ -1878,8 +1888,9 @@
             const hasVehicle = Boolean(document.getElementById('selected-vehicle-data').value);
             const hasName = Boolean(document.getElementById('customer-name').value.trim());
             const hasPhone = Boolean(document.getElementById('customer-phone').value.trim());
+            const hasLicenseNumber = Boolean(document.getElementById('customer-license-number').value.trim());
             const hasLicensePhotos = photos.length > 0;
-            return hasVehicle && hasName && hasPhone && hasLicensePhotos;
+            return hasVehicle && hasName && hasPhone && hasLicenseNumber && hasLicensePhotos;
         }
 
         function handlePrimaryAction() {
@@ -1900,7 +1911,7 @@
                 console.log('Step 1: checking if details complete');
                 if (!isPickupDetailsComplete()) {
                     updateFormProgress();
-                    alert('Step 1 is blocked. Please complete customer name, contact number, and driver license photos.');
+                    alert('Step 1 is blocked. Please complete customer name, contact number, license number, and driver license photos.');
                     console.log('Step 1 incomplete, blocking advance');
                     return;
                 }
@@ -2288,7 +2299,7 @@
             console.log('Starting form submission...');
 
             try {
-                let vehicle, customerName, customerPhone, customerEmail, customerRecord;
+                let vehicle, customerName, customerPhone, customerEmail, customerLicenseNumber, customerRecord;
 
                 if (serviceType === 'pickup') {
                     if (pickupFlowStep < 3) {
@@ -2325,10 +2336,12 @@
                     customerName = document.getElementById('customer-name').value;
                     customerPhone = document.getElementById('customer-phone').value;
                     customerEmail = document.getElementById('customer-email').value;
+                    customerLicenseNumber = document.getElementById('customer-license-number').value.trim();
                     customerRecord = await saveCustomerToSupabase({
                         fullName: customerName,
                         email: customerEmail,
-                        phone: customerPhone
+                        phone: customerPhone,
+                        notes: customerLicenseNumber ? `License No: ${customerLicenseNumber}` : ''
                     });
                 } else {
                     // Drop-off or swap
@@ -2342,6 +2355,7 @@
                     customerName = currentRental.customerName || currentRental.customer;
                     customerPhone = currentRental.customerPhone || currentRental.phone;
                     customerEmail = currentRental.customerEmail || currentRental.email || '';
+                    customerLicenseNumber = '';
                 }
 
                 // Generate reference ID for photo storage path
@@ -2356,6 +2370,7 @@
                     customerName: customerName,
                     customerPhone: customerPhone,
                     customerEmail: customerEmail || '',
+                    customerLicenseNumber: customerLicenseNumber || '',
                     customerId: Number(customerRecord?.id || currentRental?.customerId || 0) || null,
                     vehicle: vehicle,
                     pricingPlan: (document.getElementById('pricing-plan')?.value || 'weekly'),
@@ -2377,7 +2392,8 @@
                         phone: customerPhone,
                         currentVehicle: getVehicleName(vehicle),
                         lastRequestType: 'pickup',
-                        licensePhotoUrls: getPublicPhotoUrls(uploadedPhotos)
+                        licensePhotoUrls: getPublicPhotoUrls(uploadedPhotos),
+                        notes: customerLicenseNumber ? `License No: ${customerLicenseNumber}` : ''
                     });
 
                     const pickupRequest = buildScannerPickupRequest(serviceData);
@@ -2449,6 +2465,7 @@
         // Add progress tracking to form inputs
         document.getElementById('customer-name').addEventListener('input', updateFormProgress);
         document.getElementById('customer-phone').addEventListener('input', updateFormProgress);
+        document.getElementById('customer-license-number').addEventListener('input', updateFormProgress);
         document.getElementById('mileage').addEventListener('input', updateFormProgress);
         document.getElementById('notes').addEventListener('input', updateFormProgress);
         document.getElementById('pricing-plan').addEventListener('change', updatePickupPricingPreview);

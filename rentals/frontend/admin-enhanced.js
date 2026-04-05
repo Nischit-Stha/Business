@@ -171,10 +171,33 @@ function extractLatestServiceEventByType(notes, type) {
     return null;
 }
 
+function extractLatestLicenseNumberFromNotes(notes) {
+    const payloads = extractServicePayloadsFromNotes(notes);
+    if (!payloads.length) return '';
+
+    for (let i = payloads.length - 1; i >= 0; i -= 1) {
+        const licenseNumber = String(payloads[i]?.licenseNumber || '').trim();
+        if (licenseNumber) {
+            return licenseNumber;
+        }
+    }
+
+    return '';
+}
+
+function extractLicenseNumberFromCustomerNotes(notes) {
+    const text = String(notes || '').trim();
+    if (!text) return '';
+
+    const match = text.match(/license\s*no\s*:\s*(.+)/i);
+    return match ? String(match[1] || '').trim() : '';
+}
+
 function renderBookingCard(booking, extraBadges = []) {
     const createdAt = booking.created_at || new Date().toISOString();
     const vehicleText = sanitizeText(booking.car || booking.car_name, `Vehicle #${Number(booking.vehicle_id || 0) || ''}`);
     const badgeText = [sanitizeText(booking.status, 'pending'), ...extraBadges.filter(Boolean)].join(' • ');
+    const licenseNumber = extractLatestLicenseNumberFromNotes(booking.notes);
 
     return `
         <div class="booking-card ${String(booking.status || '').toLowerCase()}">
@@ -186,6 +209,7 @@ function renderBookingCard(booking, extraBadges = []) {
                 <p><strong>Customer:</strong> ${sanitizeText(booking.customer)}</p>
                 <p><strong>Phone:</strong> ${sanitizeText(booking.phone)}</p>
                 <p><strong>Email:</strong> ${sanitizeText(booking.email)}</p>
+                <p><strong>License Number:</strong> ${sanitizeText(licenseNumber, 'N/A')}</p>
                 <p><strong>Vehicle:</strong> ${vehicleText}</p>
                 <p><strong>Pickup:</strong> ${booking.pickup_at ? new Date(booking.pickup_at).toLocaleString() : 'N/A'}</p>
                 <p><strong>Return:</strong> ${booking.return_at ? new Date(booking.return_at).toLocaleString() : 'N/A'}</p>
@@ -306,6 +330,7 @@ async function fetchCustomers() {
             const latestBooking = sortedBookings[0] || null;
             const latestBookingPayloads = latestBooking ? extractServicePayloadsFromNotes(latestBooking.notes) : [];
             const latestServiceEvent = latestBookingPayloads.length ? latestBookingPayloads[latestBookingPayloads.length - 1] : null;
+            const latestLicenseNumber = latestBooking ? extractLatestLicenseNumberFromNotes(latestBooking.notes) : '';
 
             const bookingVehicles = [...new Set(linkedBookings.map(booking => sanitizeText(booking.car || booking.car_name, 'Vehicle')).filter(Boolean))];
             const totalSpent = linkedInvoices.reduce((sum, invoice) => sum + Number(invoice.total_amount || invoice.totalAmount || 0), 0);
@@ -327,6 +352,7 @@ async function fetchCustomers() {
                 vehicles: bookingVehicles,
                 currentVehicle: customer.current_vehicle || latestBooking?.car || latestBooking?.car_name || bookingVehicles[0] || null,
                 lastRequestType: customer.last_request_type || latestServiceEvent?.type || latestBooking?.source || null,
+                licenseNumber: latestLicenseNumber || extractLicenseNumberFromCustomerNotes(customer.notes),
                 licensePhotoUrls: Array.isArray(customer.license_photo_urls) ? customer.license_photo_urls : licensePhotoUrls,
                 lastBookingAt: customer.last_booking_at || lastBookingDate?.toISOString() || null
             };
@@ -530,6 +556,7 @@ async function renderCustomers() {
                     <div class="vehicle-details">
                         <p><strong>Phone:</strong> ${sanitizeText(customer.phone)}</p>
                         <p><strong>Email:</strong> ${sanitizeText(customer.email)}</p>
+                        <p><strong>License Number:</strong> ${sanitizeText(customer.licenseNumber, 'N/A')}</p>
                         <p><strong>Current Vehicle:</strong> ${sanitizeText(customer.currentVehicle)}</p>
                         <p><strong>Request Type:</strong> ${sanitizeText(customer.lastRequestType)}</p>
                         <p><strong>Last Booking:</strong> ${customer.lastBookingAt ? new Date(customer.lastBookingAt).toLocaleString() : 'N/A'}</p>
