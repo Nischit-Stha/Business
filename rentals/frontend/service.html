@@ -855,6 +855,51 @@
         const DEFAULT_WEEKLY_RATE = 250;
         const RENT_TO_OWN_SURCHARGE = 200;
         const DEFAULT_ODOMETER = 500;
+
+        function isHttpUrl(value) {
+            return /^https?:\/\//i.test(String(value || '').trim());
+        }
+
+        function getPublicPhotoUrls(photosList) {
+            return (Array.isArray(photosList) ? photosList : [])
+                .map(item => item?.url)
+                .filter(isHttpUrl);
+        }
+
+        function setPrimaryActionLoading(isLoading) {
+            const button = document.getElementById('primary-action-btn');
+            if (!button) return;
+
+            button.disabled = Boolean(isLoading);
+            if (isLoading) {
+                button.dataset.originalText = button.textContent || 'Submit Service';
+                button.textContent = 'Submitting...';
+            } else if (button.dataset.originalText) {
+                button.textContent = button.dataset.originalText;
+                delete button.dataset.originalText;
+            }
+        }
+
+        function saveLocalPickupFallback(request, errorMessage) {
+            try {
+                const key = 'veera-rentals-pickups';
+                const existing = JSON.parse(localStorage.getItem(key) || '[]');
+                const fallbackEntry = {
+                    ...request,
+                    id: Number(request.id || Date.now()),
+                    source: 'scanner-pickup-local-fallback',
+                    status: request.status || 'pending',
+                    localOnly: true,
+                    localError: errorMessage || 'Supabase insert failed',
+                    savedAt: new Date().toISOString()
+                };
+
+                existing.unshift(fallbackEntry);
+                localStorage.setItem(key, JSON.stringify(existing.slice(0, 100)));
+            } catch (error) {
+                console.warn('Local pickup fallback save failed:', error);
+            }
+        }
         
         // Helper to get Supabase client
         function getSupabaseClient() {
@@ -1255,7 +1300,7 @@
                 budgetWeekly: Number(serviceData.budgetWeekly || 0) || getVehicleWeeklyRate(serviceData.vehicle),
                 location: serviceData.location || null,
                 photoCount: serviceData.photoCount || 0,
-                photoUrls: Array.isArray(serviceData.photos) ? serviceData.photos.map(item => item.url).filter(Boolean) : [],
+                    photoUrls: getPublicPhotoUrls(serviceData.photos),
                 pricingPlan: pickupPricing.plan,
                 rentalType: pickupPricing.rentalType,
                 pricingDuration: pickupPricing.durationDays,
@@ -1591,7 +1636,7 @@
                 mileage: serviceData.mileage || DEFAULT_ODOMETER,
                 location: serviceData.location || null,
                 photoCount: Number(serviceData.photoCount || 0) || 0,
-                photoUrls: Array.isArray(serviceData.photos) ? serviceData.photos.map(item => item.url).filter(Boolean) : [],
+                photoUrls: getPublicPhotoUrls(serviceData.photos),
                 notes: serviceData.notes || '',
                 submittedAt: serviceData.timestamp || new Date().toISOString(),
                 bookingRequestId: Number(bookingRequest?.id || 0) || null
@@ -2174,6 +2219,7 @@
                 return;
             }
             isSubmittingService = true;
+            setPrimaryActionLoading(true);
 
             try {
                 let vehicle, customerName, customerPhone, customerEmail, customerRecord;
@@ -2251,22 +2297,22 @@
                         phone: customerPhone,
                         currentVehicle: getVehicleName(vehicle),
                         lastRequestType: 'pickup',
-                        licensePhotoUrls: uploadedPhotos.map(photo => photo.url).filter(Boolean)
+                        licensePhotoUrls: getPublicPhotoUrls(uploadedPhotos)
                     });
 
                     const pickupRequest = buildScannerPickupRequest(serviceData);
                     const saveResult = await saveBookingRequestToSupabase(pickupRequest);
-                    if (!saveResult?.inserted) {
-                        const reason = saveResult?.error?.message ? `\nReason: ${saveResult.error.message}` : '';
-                        alert(`Could not save pickup booking request. Please check Supabase setup and try again.${reason}`);
-                        return;
-                    }
-
-                    const insertedRequest = saveResult.row || {
+                    let insertedRequest = saveResult?.row || {
                         id: null,
                         pickupDate: pickupRequest.pickupDate,
                         returnDate: pickupRequest.returnDate
                     };
+
+                    if (!saveResult?.inserted) {
+                        const reason = saveResult?.error?.message || 'unknown error';
+                        saveLocalPickupFallback(pickupRequest, reason);
+                        alert(`Supabase booking insert failed (${reason}). Your request was saved locally on this device as a fallback.`);
+                    }
 
                     const pricing = getPickupPricingSnapshot(vehicle);
                     const detailsPayload = buildServiceDetailsPayload(serviceData, pricing, insertedRequest);
@@ -2313,6 +2359,7 @@
                 alert(message);
             } finally {
                 isSubmittingService = false;
+                setPrimaryActionLoading(false);
             }
         });
         
