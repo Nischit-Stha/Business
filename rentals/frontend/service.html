@@ -1802,7 +1802,7 @@
             if (!form) return;
 
             if (serviceType !== 'pickup') {
-                form.requestSubmit();
+                triggerServiceFormSubmit(form);
                 return;
             }
 
@@ -1827,7 +1827,20 @@
                 return;
             }
 
-            form.requestSubmit();
+            triggerServiceFormSubmit(form);
+        }
+
+        function triggerServiceFormSubmit(form) {
+            if (!form) return;
+
+            if (typeof form.requestSubmit === 'function') {
+                form.requestSubmit();
+                return;
+            }
+
+            // Fallback for browsers that do not support requestSubmit().
+            const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+            form.dispatchEvent(submitEvent);
         }
 
         // Update progress bar
