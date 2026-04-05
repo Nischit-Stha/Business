@@ -648,10 +648,6 @@
             </div>
         </div>
         
-        <div class="info-box" id="info-box">
-            <p id="info-text">Complete the inspection form and upload photos of the vehicle.</p>
-        </div>
-        
         <form id="service-form">
             <!-- For DROP-OFF: Enter Rego First -->
             <div class="form-group" id="rego-lookup-group" style="display: none;">
@@ -843,6 +839,7 @@
     
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="../supabase-config.js"></script>
+    <script src="shared-utils.js"></script>
     <script>
         let serviceType = 'pickup';
         let photos = [];
@@ -861,6 +858,10 @@
         
         // Helper to get Supabase client
         function getSupabaseClient() {
+            if (window.VeeraShared && typeof window.VeeraShared.getSupabaseClient === 'function') {
+                return window.VeeraShared.getSupabaseClient();
+            }
+
             if (typeof window.getVeeraSupabaseClient === 'function') {
                 return window.getVeeraSupabaseClient();
             }
@@ -991,7 +992,7 @@
             if (serviceType === 'pickup') {
                 title.textContent = 'Vehicle Pickup';
                 badge.textContent = 'PICKUP';
-                infoText.textContent = 'Step 1: Choose your vehicle first. Step 2: Enter pickup details.';
+                if (infoText) infoText.textContent = 'Step 1: Choose your vehicle first. Step 2: Enter pickup details.';
                 document.getElementById('upload-label').textContent = 'Driver License Images';
                 document.getElementById('upload-title').textContent = 'Tap to upload license photos';
                 document.getElementById('upload-hint').textContent = 'Front and back of driver license';
@@ -1013,7 +1014,7 @@
             } else if (serviceType === 'dropoff') {
                 title.textContent = 'Vehicle Drop-off';
                 badge.textContent = 'DROP-OFF';
-                infoText.textContent = 'Enter your vehicle registration number to begin drop-off process.';
+                if (infoText) infoText.textContent = 'Enter your vehicle registration number to begin drop-off process.';
                 document.getElementById('upload-label').textContent = 'Vehicle Photos';
                 document.getElementById('upload-title').textContent = 'Tap to take photos';
                 document.getElementById('upload-hint').textContent = 'Front, Back, Interior, Vehicle condition';
@@ -1039,7 +1040,7 @@
             } else if (serviceType === 'swap') {
                 title.textContent = 'Vehicle Swap';
                 badge.textContent = 'SWAP';
-                infoText.textContent = 'Enter current vehicle rego to begin swap process.';
+                if (infoText) infoText.textContent = 'Enter current vehicle rego to begin swap process.';
                 document.getElementById('upload-label').textContent = 'Vehicle Photos';
                 document.getElementById('upload-title').textContent = 'Tap to take photos';
                 document.getElementById('upload-hint').textContent = 'Current condition and key areas';
