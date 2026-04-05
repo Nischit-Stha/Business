@@ -40,22 +40,36 @@ function extractServicePayloadsFromNotes(notes) {
     const payloads = [];
 
     const parseJsonBlock = (jsonText) => {
-        try {
-            const parsed = JSON.parse(jsonText);
-            if (Array.isArray(parsed)) {
-                parsed.forEach(item => {
-                    if (item && typeof item === 'object') {
-                        payloads.push(item);
-                    }
-                });
-                return;
-            }
+        const rawJson = String(jsonText || '').trim();
+        if (!rawJson) return;
 
-            if (parsed && typeof parsed === 'object') {
-                payloads.push(parsed);
+        const tryParse = (candidate) => {
+            try {
+                return JSON.parse(candidate);
+            } catch {
+                return null;
             }
-        } catch {
-            // Ignore malformed JSON payloads in notes.
+        };
+
+        const decodedJson = rawJson
+            .replace(/&quot;/g, '"')
+            .replace(/&#34;/g, '"')
+            .replace(/&amp;/g, '&');
+
+        const parsed = tryParse(rawJson) ?? tryParse(decodedJson);
+        if (!parsed) return;
+
+        if (Array.isArray(parsed)) {
+            parsed.forEach(item => {
+                if (item && typeof item === 'object') {
+                    payloads.push(item);
+                }
+            });
+            return;
+        }
+
+        if (parsed && typeof parsed === 'object') {
+            payloads.push(parsed);
         }
     };
 
@@ -82,11 +96,52 @@ function extractServicePayloadsFromNotes(notes) {
     return payloads;
 }
 
-function extractPhotoUrlsFromNotes(notes) {
-    const payloads = extractServicePayloadsFromNotes(notes);
-    if (!payloads.length) return [];
+function extractPhotoUrlsFromLicenseMeta(notes) {
+    const text = String(notes || '').trim();
+    if (!text) return [];
 
     const urls = new Set();
+    const lines = text.split('\n').map(line => String(line || '').trim()).filter(Boolean);
+
+    lines.forEach(line => {
+        if (!line.includes('LICENSE_PHOTOS::')) return;
+        const jsonText = line.slice(line.indexOf('LICENSE_PHOTOS::') + 'LICENSE_PHOTOS::'.length).trim();
+        try {
+            const parsed = JSON.parse(jsonText);
+            if (Array.isArray(parsed)) {
+                parsed
+                    .map(item => String(item || '').trim())
+                    .filter(isHttpUrl)
+                    .forEach(url => urls.add(url));
+            }
+        } catch {
+            const matches = jsonText.match(/https?:\/\/[^\s"'\],]+/gi) || [];
+            matches.map(item => String(item).trim()).filter(isHttpUrl).forEach(url => urls.add(url));
+        }
+    });
+
+    return Array.from(urls);
+}
+
+function extractLicenseNumberFromBookingNotes(notes) {
+    const text = String(notes || '').trim();
+    if (!text) return '';
+
+    const lines = text.split('\n').map(line => String(line || '').trim()).filter(Boolean);
+    for (let i = lines.length - 1; i >= 0; i -= 1) {
+        const line = lines[i];
+        if (line.includes('LICENSE_NUMBER::')) {
+            return String(line.slice(line.indexOf('LICENSE_NUMBER::') + 'LICENSE_NUMBER::'.length) || '').trim();
+        }
+    }
+
+    const fallbackMatch = text.match(/license\s*no\s*:\s*(.+)/i);
+    return fallbackMatch ? String(fallbackMatch[1] || '').trim() : '';
+}
+
+function extractPhotoUrlsFromNotes(notes) {
+    const payloads = extractServicePayloadsFromNotes(notes);
+    const urls = new Set(extractPhotoUrlsFromLicenseMeta(notes));
     const addUrls = (maybeUrls) => {
         if (!Array.isArray(maybeUrls)) return;
         maybeUrls
@@ -173,16 +228,16 @@ function extractLatestServiceEventByType(notes, type) {
 
 function extractLatestLicenseNumberFromNotes(notes) {
     const payloads = extractServicePayloadsFromNotes(notes);
-    if (!payloads.length) return '';
-
-    for (let i = payloads.length - 1; i >= 0; i -= 1) {
-        const licenseNumber = String(payloads[i]?.licenseNumber || '').trim();
-        if (licenseNumber) {
-            return licenseNumber;
+    if (payloads.length) {
+        for (let i = payloads.length - 1; i >= 0; i -= 1) {
+            const licenseNumber = String(payloads[i]?.licenseNumber || '').trim();
+            if (licenseNumber) {
+                return licenseNumber;
+            }
         }
     }
 
-    return '';
+    return extractLicenseNumberFromBookingNotes(notes);
 }
 
 function extractLicenseNumberFromCustomerNotes(notes) {

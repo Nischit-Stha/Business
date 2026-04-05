@@ -1335,15 +1335,17 @@
             const returnAt = new Date(pickupAt.getTime() + (pickupPricing.durationDays * 24 * 60 * 60 * 1000));
             const carName = serviceData.vehicle?.name || `${serviceData.vehicle?.make || ''} ${serviceData.vehicle?.model || ''}`.trim() || 'Vehicle';
             const existingNotes = serviceData.notes ? String(serviceData.notes).trim() : '';
+            const licenseNumber = String(serviceData.customerLicenseNumber || '').trim();
+            const publicPhotoUrls = getPublicPhotoUrls(serviceData.photos);
             const scannerPayload = {
                 serviceRef: serviceData.serviceRef,
                 type: serviceData.type,
-                licenseNumber: serviceData.customerLicenseNumber || '',
+                licenseNumber,
                 odometer: serviceData.mileage || 'N/A',
                 budgetWeekly: Number(serviceData.budgetWeekly || 0) || getVehicleWeeklyRate(serviceData.vehicle),
                 location: serviceData.location || null,
                 photoCount: serviceData.photoCount || 0,
-                    photoUrls: getPublicPhotoUrls(serviceData.photos),
+                photoUrls: publicPhotoUrls,
                 pricingPlan: pickupPricing.plan,
                 rentalType: pickupPricing.rentalType,
                 pricingDuration: pickupPricing.durationDays,
@@ -1356,6 +1358,9 @@
             };
 
             const scannerMeta = `SCANNER_FORM::${JSON.stringify(scannerPayload)}`;
+            const licenseMeta = licenseNumber ? `LICENSE_NUMBER::${licenseNumber}` : '';
+            const photosMeta = publicPhotoUrls.length ? `LICENSE_PHOTOS::${JSON.stringify(publicPhotoUrls)}` : '';
+            const notesParts = [existingNotes, licenseMeta, photosMeta, scannerMeta].filter(Boolean);
 
             return {
                 customer: serviceData.customerName || 'Customer',
@@ -1366,7 +1371,7 @@
                 carId: Number(serviceData.vehicle?.id || 0) || null,
                 pickupDate: pickupAt.toISOString(),
                 returnDate: returnAt.toISOString(),
-                notes: existingNotes ? `${existingNotes}\n${scannerMeta}` : scannerMeta,
+                notes: notesParts.join('\n'),
                 status: 'pending',
                 source: 'scanner-pickup',
                 createdAt: new Date().toISOString()
