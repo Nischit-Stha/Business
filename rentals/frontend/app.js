@@ -212,6 +212,20 @@ function addOfferMessage(offer, sender, text, type = 'message') {
     });
 }
 
+function getEffectiveOfferRate(offer) {
+    const counter = Number(offer?.counterRate || 0);
+    if (Number.isFinite(counter) && counter > 0) {
+        return counter;
+    }
+
+    const offered = Number(offer?.offeredRate || 0);
+    if (Number.isFinite(offered) && offered > 0) {
+        return offered;
+    }
+
+    return Number(offer?.listedRate || 0) || 0;
+}
+
 function normalizeRentalDates(rentalList = []) {
     return rentalList.map(r => ({
         ...r,
@@ -362,6 +376,9 @@ function mapSupabaseBookingRequestToLocal(request) {
 }
 
 function mapSupabaseOfferToLocal(offer) {
+    const offeredRate = Number(offer.offered_rate || 0);
+    const counterRate = Number(offer.counter_rate || 0) || null;
+
     return {
         id: Number(offer.id),
         customerId: Number(offer.customer_id || 0) || null,
@@ -372,11 +389,11 @@ function mapSupabaseOfferToLocal(offer) {
         carName: offer.car_name || `Vehicle #${Number(offer.vehicle_id || 0) || ''}`.trim(),
         carModel: offer.car_model || '',
         listedRate: Number(offer.listed_rate || 0),
-        offeredRate: Number(offer.offered_rate || 0),
+        offeredRate: offeredRate > 0 ? offeredRate : (counterRate || 0),
         note: offer.note || '',
         status: offer.status || 'pending',
         ownerResponse: offer.owner_response || '',
-        counterRate: Number(offer.counter_rate || 0) || null,
+        counterRate,
         createdAt: offer.created_at || new Date().toISOString(),
         updatedAt: offer.updated_at || null,
         negotiationMessages: []
@@ -2514,7 +2531,7 @@ function renderBargainOffers() {
     list.innerHTML = offers.map(offer => {
         const status = hasMeaningfulValue(offer.status) ? String(offer.status).toLowerCase() : 'pending';
         const listedRate = Number(offer.listedRate || 0);
-        const offeredRate = Number(offer.offeredRate || 0);
+        const offeredRate = getEffectiveOfferRate(offer);
         const statusClass = status === 'accepted' ? 'status-available' : status === 'rejected' ? 'status-rented' : 'status-maintenance';
         const createdDate = new Date(offer.createdAt || Date.now());
         const lastMessage = Array.isArray(offer.negotiationMessages) && offer.negotiationMessages.length
@@ -2561,7 +2578,7 @@ function applyOfferDecision(offerId, decision, options = {}) {
 
     if (decision === 'accept') {
         offer.status = 'accepted';
-        offer.ownerResponse = `Accepted at $${Number(offer.offeredRate || 0).toFixed(2)}/day`;
+        offer.ownerResponse = `Accepted at $${getEffectiveOfferRate(offer).toFixed(2)}/day`;
         addOfferMessage(offer, 'owner', note || offer.ownerResponse, 'decision');
     } else if (decision === 'reject') {
         offer.status = 'rejected';
@@ -2574,6 +2591,7 @@ function applyOfferDecision(offerId, decision, options = {}) {
         }
         offer.status = 'countered';
         offer.counterRate = Number(counterRate);
+        offer.offeredRate = Number(counterRate);
         offer.ownerResponse = `Countered at $${Number(counterRate).toFixed(2)}/day`;
         addOfferMessage(offer, 'owner', note || offer.ownerResponse, 'counter');
     } else {
@@ -2605,10 +2623,11 @@ function openOfferNegotiation(offerId) {
     if (!meta || !chat) return;
 
     const status = String(offer.status || 'pending').toLowerCase();
+    const currentRate = getEffectiveOfferRate(offer);
     meta.innerHTML = `
         <div style="background:#f8fbff; border:1px solid #dbe7f8; border-radius:10px; padding:0.8rem;">
             <h3 style="margin:0 0 0.3rem 0; color:#0f172a;">${offer.customerName || offer.customerEmail || 'Customer'} • ${offer.carName || 'Vehicle'}</h3>
-            <p style="margin:0; color:#475569; font-size:0.88rem;">Listed $${Number(offer.listedRate || 0).toFixed(2)} /day • Offered $${Number(offer.offeredRate || 0).toFixed(2)} /day • Status: ${status}</p>
+            <p style="margin:0; color:#475569; font-size:0.88rem;">Listed $${Number(offer.listedRate || 0).toFixed(2)} /day • Current $${currentRate.toFixed(2)} /day • Status: ${status}</p>
         </div>
     `;
 
@@ -2691,7 +2710,7 @@ function counterPriceOffer(offerId) {
         return;
     }
 
-    const defaultCounter = Number(offer.listedRate || offer.offeredRate || 0).toFixed(2);
+    const defaultCounter = getEffectiveOfferRate(offer).toFixed(2);
     const counterInput = window.prompt('Enter counter offer per day:', defaultCounter);
     if (counterInput === null) {
         return;
