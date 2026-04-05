@@ -1877,28 +1877,37 @@
         }
 
         function handlePrimaryAction() {
+            console.log('handlePrimaryAction called. serviceType:', serviceType, 'pickupFlowStep:', pickupFlowStep);
             const form = document.getElementById('service-form');
-            if (!form) return;
+            if (!form) {
+                console.error('Form element not found!');
+                return;
+            }
 
             if (serviceType !== 'pickup') {
+                console.log('Not pickup flow, triggering submit');
                 triggerServiceFormSubmit(form);
                 return;
             }
 
             if (pickupFlowStep === 1) {
+                console.log('Step 1: checking if details complete');
                 if (!isPickupDetailsComplete()) {
                     updateFormProgress();
                     alert('Step 1 is blocked. Please complete customer name, contact number, and driver license photos.');
+                    console.log('Step 1 incomplete, blocking advance');
                     return;
                 }
 
                 pickupFlowStep = 2;
+                console.log('Moving to step 2');
                 updatePickupStepVisibility();
                 updateFormProgress();
                 return;
             }
 
             if (pickupFlowStep === 2) {
+                console.log('Step 2: moving to step 3');
                 pickupFlowStep = 3;
                 updatePickupStepVisibility();
                 updatePickupPricingPreview();
@@ -1906,20 +1915,34 @@
                 return;
             }
 
+            console.log('Step 3: triggering submit');
             triggerServiceFormSubmit(form);
         }
 
         function triggerServiceFormSubmit(form) {
-            if (!form) return;
+            if (!form) {
+                console.error('Form is null in triggerServiceFormSubmit');
+                return;
+            }
+
+            console.log('triggerServiceFormSubmit: attempting to submit form');
 
             if (typeof form.requestSubmit === 'function') {
-                form.requestSubmit();
+                console.log('Using form.requestSubmit()');
+                try {
+                    form.requestSubmit();
+                    console.log('form.requestSubmit() called successfully');
+                } catch (err) {
+                    console.error('form.requestSubmit() threw error:', err);
+                }
                 return;
             }
 
             // Fallback for browsers that do not support requestSubmit().
+            console.log('requestSubmit not available, dispatching submit event');
             const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
             form.dispatchEvent(submitEvent);
+            console.log('submit event dispatched');
         }
 
         // Update progress bar
@@ -2248,12 +2271,15 @@
         // Handle form submission
         document.getElementById('service-form').addEventListener('submit', async function(e) {
             e.preventDefault();
+            console.log('Form submit event fired!');
 
             if (isSubmittingService) {
+                console.log('Already submitting, ignoring duplicate submit');
                 return;
             }
             isSubmittingService = true;
             setPrimaryActionLoading(true);
+            console.log('Starting form submission...');
 
             try {
                 let vehicle, customerName, customerPhone, customerEmail, customerRecord;
