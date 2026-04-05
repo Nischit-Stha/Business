@@ -311,11 +311,6 @@
                 </div>
 
                 <div class="detail-section">
-                    <h2>Uploaded Photos</h2>
-                    <div class="photo-list" id="photo-list"></div>
-                </div>
-
-                <div class="detail-section">
                     <h2>Notes</h2>
                     <div class="breakdown" id="notes" style="background:#f8fafc; border-color:#e2e8f0; color:#334155;"></div>
                 </div>
@@ -358,16 +353,7 @@
             document.getElementById('pricing-breakdown').textContent = details.pricingBreakdown || 'No breakdown available.';
             document.getElementById('notes').textContent = details.notes || 'No additional notes.';
 
-            const photoList = document.getElementById('photo-list');
-            const photos = Array.isArray(details.photoUrls) ? details.photoUrls : [];
-            if (!photos.length) {
-                photoList.innerHTML = '<div style="color:#64748b;">No photos uploaded.</div>';
-            } else {
-                photoList.innerHTML = photos.map((photoUrl, index) => {
-                    const safeUrl = String(photoUrl);
-                    return `<a href="${safeUrl}" target="_blank" rel="noreferrer">Photo ${index + 1}: ${safeUrl}</a>`;
-                }).join('');
-            }
+            // Photos are admin-only (not shown to customer)
         }
 
         (function init() {
