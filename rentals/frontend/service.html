@@ -2262,6 +2262,8 @@
                     if (pickupFlowStep < 3) {
                         alert('Please click Next to complete Step 2 before submitting.');
                         updateFormProgress();
+                        isSubmittingService = false;
+                        setPrimaryActionLoading(false);
                         return;
                     }
 
@@ -2271,15 +2273,21 @@
 
                     if (!vehicleData) {
                         alert('Please select a vehicle');
+                        isSubmittingService = false;
+                        setPrimaryActionLoading(false);
                         return;
                     }
                     if (photos.length === 0) {
                         alert('Please upload driver license photo(s) for pickup');
+                        isSubmittingService = false;
+                        setPrimaryActionLoading(false);
                         return;
                     }
                     vehicle = parseVehiclePayload(vehicleData);
                     if (!vehicle) {
                         alert('Selected vehicle data could not be read. Please re-select the vehicle and try again.');
+                        isSubmittingService = false;
+                        setPrimaryActionLoading(false);
                         return;
                     }
                     customerName = document.getElementById('customer-name').value;
@@ -2294,6 +2302,8 @@
                     // Drop-off or swap
                     if (!currentRental) {
                         alert('Please lookup vehicle registration first');
+                        isSubmittingService = false;
+                        setPrimaryActionLoading(false);
                         return;
                     }
                     vehicle = currentRental.vehicle;
