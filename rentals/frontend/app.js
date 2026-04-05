@@ -2398,6 +2398,7 @@ function showRequestCustomerProfile(requestId) {
 
     const createdAt = new Date(request.createdAt || Date.now());
     const visibleNotes = getVisibleNotesFromBookingNotes(request.notes);
+    const requestLocation = extractLocationFromBookingNotes(request.notes);
     const conflictInfo = (() => {
         const requestCarId = Number(request.carId || 0);
         const pickupDate = new Date(request.pickupDate);
@@ -2445,6 +2446,7 @@ function showRequestCustomerProfile(requestId) {
                 <p style="margin:0.35rem 0 0; color:#374151;">🚗 ${request.car || 'Vehicle'}</p>
                 <p style="margin:0.2rem 0 0; color:#374151;">Pickup: ${new Date(request.pickupDate).toLocaleString()}</p>
                 <p style="margin:0.2rem 0 0; color:#374151;">Return: ${new Date(request.returnDate).toLocaleString()}</p>
+                <p style="margin:0.2rem 0 0; color:#374151;">Location: ${requestLocation}</p>
             </div>
         </div>
         ${conflictInfo.count > 0 ? `<div style="background:#fff7ed; border:1px solid #fdba74; color:#9a3412; border-radius:10px; padding:0.85rem; font-weight:600;">⚠ Booking conflict detected with ${conflictInfo.count} other booking${conflictInfo.count === 1 ? '' : 's'}${conflictInfo.names.length ? `: ${conflictInfo.names.join(', ')}` : ''}</div>` : ''}
@@ -2465,6 +2467,7 @@ function showRentalCustomerProfile(rentalId) {
     if (!content) return;
 
     const bookingDate = getBookingReferenceDate(rental);
+    const rentalLocation = extractLocationFromBookingNotes(rental.notes);
     content.innerHTML = `
         <div style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:10px; padding:0.9rem 1rem;">
             <h3 style="margin:0 0 0.35rem 0; color:#111827;">${rental.customer || 'Customer'}</h3>
@@ -2481,6 +2484,7 @@ function showRentalCustomerProfile(rentalId) {
                 <p style="margin:0.35rem 0 0; color:#374151;">🚗 ${rental.car || 'Vehicle'}</p>
                 <p style="margin:0.2rem 0 0; color:#374151;">Pickup: ${new Date(rental.pickupDate).toLocaleString()}</p>
                 <p style="margin:0.2rem 0 0; color:#374151;">Return: ${new Date(rental.returnDate).toLocaleString()}</p>
+                <p style="margin:0.2rem 0 0; color:#374151;">Location: ${rentalLocation}</p>
             </div>
         </div>
         ${getVisibleNotesFromBookingNotes(rental.notes) ? `<div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; padding:0.85rem;"><strong>Notes:</strong> ${getVisibleNotesFromBookingNotes(rental.notes)}</div>` : ''}

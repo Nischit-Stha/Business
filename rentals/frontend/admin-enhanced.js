@@ -156,6 +156,13 @@ function extractPhotoUrlsFromNotes(notes) {
 }
 
 function renderLocationFromNotes(notes) {
+    const locationMeta = extractLatestLocationFromNotes(notes);
+    if (!locationMeta) return '';
+
+    return `<p><strong>Location:</strong> ${escapeHtml(locationMeta.text)} <a href="${escapeHtml(locationMeta.mapsUrl)}" target="_blank" rel="noopener noreferrer">Open Map</a></p>`;
+}
+
+function extractLatestLocationFromNotes(notes) {
     const payloads = extractServicePayloadsFromNotes(notes);
     if (!payloads.length) return '';
 
@@ -163,18 +170,21 @@ function renderLocationFromNotes(notes) {
         .reverse()
         .find(payload => payload && payload.location && payload.location.lat && payload.location.lng);
 
-    if (!latestWithLocation) return '';
+    if (!latestWithLocation) return null;
 
     const lat = Number(latestWithLocation.location.lat);
     const lng = Number(latestWithLocation.location.lng);
 
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return '';
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
 
     const latText = lat.toFixed(6);
     const lngText = lng.toFixed(6);
     const mapsUrl = `https://maps.google.com/?q=${encodeURIComponent(`${latText},${lngText}`)}`;
 
-    return `<p><strong>Location:</strong> ${latText}, ${lngText} <a href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener noreferrer">Open Map</a></p>`;
+    return {
+        text: `${latText}, ${lngText}`,
+        mapsUrl
+    };
 }
 
 function renderPhotoGallery(photoUrls, label = 'Photos') {
@@ -386,6 +396,7 @@ async function fetchCustomers() {
             const latestBookingPayloads = latestBooking ? extractServicePayloadsFromNotes(latestBooking.notes) : [];
             const latestServiceEvent = latestBookingPayloads.length ? latestBookingPayloads[latestBookingPayloads.length - 1] : null;
             const latestLicenseNumber = latestBooking ? extractLatestLicenseNumberFromNotes(latestBooking.notes) : '';
+            const latestLocation = latestBooking ? extractLatestLocationFromNotes(latestBooking.notes) : null;
 
             const bookingVehicles = [...new Set(linkedBookings.map(booking => sanitizeText(booking.car || booking.car_name, 'Vehicle')).filter(Boolean))];
             const totalSpent = linkedInvoices.reduce((sum, invoice) => sum + Number(invoice.total_amount || invoice.totalAmount || 0), 0);
@@ -409,6 +420,7 @@ async function fetchCustomers() {
                 lastRequestType: customer.last_request_type || latestServiceEvent?.type || latestBooking?.source || null,
                 licenseNumber: latestLicenseNumber || extractLicenseNumberFromCustomerNotes(customer.notes),
                 licensePhotoUrls: Array.isArray(customer.license_photo_urls) ? customer.license_photo_urls : licensePhotoUrls,
+                lastKnownLocation: latestLocation,
                 lastBookingAt: customer.last_booking_at || lastBookingDate?.toISOString() || null
             };
         });
@@ -614,6 +626,7 @@ async function renderCustomers() {
                         <p><strong>License Number:</strong> ${sanitizeText(customer.licenseNumber, 'N/A')}</p>
                         <p><strong>Current Vehicle:</strong> ${sanitizeText(customer.currentVehicle)}</p>
                         <p><strong>Request Type:</strong> ${sanitizeText(customer.lastRequestType)}</p>
+                        <p><strong>Last Known Location:</strong> ${customer.lastKnownLocation?.text ? `${sanitizeText(customer.lastKnownLocation.text)} <a href="${escapeHtml(customer.lastKnownLocation.mapsUrl)}" target="_blank" rel="noopener noreferrer">Open Map</a>` : 'Not captured'}</p>
                         <p><strong>Last Booking:</strong> ${customer.lastBookingAt ? new Date(customer.lastBookingAt).toLocaleString() : 'N/A'}</p>
                         <p><strong>Vehicles Used:</strong> ${customer.vehicles && customer.vehicles.length ? customer.vehicles.join(', ') : 'None yet'}</p>
                         <p><strong>Total Spent:</strong> ${toCurrency(customer.totalSpent || 0)}</p>
