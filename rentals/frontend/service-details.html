@@ -302,7 +302,6 @@
                         <div class="detail-row"><span>Plan</span><span id="pricing-plan"></span></div>
                         <div class="detail-row"><span>Duration</span><span id="pricing-duration"></span></div>
                         <div class="detail-row"><span>Mileage</span><span id="mileage"></span></div>
-                        <div class="detail-row"><span>Location</span><span id="location"></span></div>
                     </div>
                 </div>
 
@@ -356,7 +355,6 @@
             document.getElementById('pricing-plan').textContent = details.pricingPlan === 'weekly' ? 'Weekly' : 'Daily';
             document.getElementById('pricing-duration').textContent = `${details.pricingDuration || 0} ${details.pricingLabel || 'week(s)'}`;
             document.getElementById('mileage').textContent = details.mileage || 'N/A';
-            document.getElementById('location').textContent = details.location || 'N/A';
             document.getElementById('pricing-breakdown').textContent = details.pricingBreakdown || 'No breakdown available.';
             document.getElementById('notes').textContent = details.notes || 'No additional notes.';
 
