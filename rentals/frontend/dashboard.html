@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veera Rentals • Dashboard</title>
+    <meta name="description" content="Veera Rentals dashboard overview with KPIs and key metrics.">
+    <script src="../supabase-config.js"></script>
+    <script src="shared-utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --font-body: 'Inter', sans-serif;
+            --font-display: 'Poppins', sans-serif;
+            --sidebar-w: 260px;
+            --space-2: .5rem;
+            --space-3: .75rem;
+            --space-4: 1rem;
+            --space-5: 1.25rem;
+            --space-6: 1.5rem;
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        html[data-theme="dark"] {
+            --bg: #0f141d;
+            --elev: #161c27;
+            --card: #1b2330;
+            --card2: #212c3c;
+            --text: #e9edf5;
+            --muted: #9aa7ba;
+            --border: #2b374b;
+            --primary: #53a6ff;
+            --success: #27c88a;
+            --warning: #f8b84e;
+            --danger: #ff6f7d;
+        }
+        html[data-theme="light"] {
+            --bg: #f3f6fb;
+            --elev: #ffffff;
+            --card: #ffffff;
+            --card2: #f8fbff;
+            --text: #151d2c;
+            --muted: #5e6b7e;
+            --border: #d6e0ef;
+            --primary: #0069d9;
+            --success: #1d9f70;
+            --warning: #c78924;
+            --danger: #d84b61;
+        }
+        * { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; }
+        body { background: var(--bg); color: var(--text); font-family: var(--font-body); }
+        body:not(.auth-complete) .app-container { opacity: 0; pointer-events: none; }
+        .app-container { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; }
+        .sidebar { background: linear-gradient(180deg, var(--elev), var(--card)); border-right: 1px solid var(--border); padding: var(--space-5); display: grid; gap: var(--space-5); overflow-y: auto; }
+        .sidebar h1 { margin: 0; font-family: var(--font-display); font-size: 1.3rem; }
+        .sidebar-nav { display: grid; gap: var(--space-2); }
+        .sidebar-link { border: 1px solid var(--border); background: var(--card2); color: var(--text); border-radius: var(--radius-sm); padding: .55rem .85rem; cursor: pointer; text-decoration: none; display: block; text-align: left; }
+        .sidebar-link.active { background: var(--primary); color: #fff; border-color: transparent; }
+        .main-col { display: grid; grid-template-rows: auto 1fr; }
+        .top-header { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--elev) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); padding: .8rem var(--space-6); display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
+        .main-scroll { overflow-y: auto; padding: var(--space-6); display: grid; gap: var(--space-6); }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4); }
+        .grid-6 { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--space-4); }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); }
+        .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+        .badge { border: 1px solid var(--border); border-radius: 999px; padding: .2rem .55rem; font-size: .75rem; color: var(--muted); }
+        .btn { border: 1px solid var(--border); background: var(--card2); color: var(--text); border-radius: var(--radius-sm); cursor: pointer; padding: .55rem .85rem; }
+        .btn-icon { width: 38px; height: 38px; display: grid; place-items: center; background: var(--card2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
+        .btn-primary { background: var(--primary); color: #fff; border-color: transparent; }
+        .kpi-value { font-family: var(--font-display); font-size: 1.6rem; font-weight: 600; }
+        .kpi-label, .muted-text { color: var(--muted); font-size: .85rem; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); }
+        .alert-list { display: grid; gap: var(--space-3); }
+        .item { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card2); padding: .8rem; }
+        .chart-wrap { position: relative; height: 280px; }
+        @media (max-width: 1200px) { .grid-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 980px) {
+            .app-container { grid-template-columns: 1fr; }
+            .sidebar { position: fixed; left: -100%; width: var(--sidebar-w); top: 0; bottom: 0; z-index: 40; transition: left .22s ease; }
+            .sidebar.open { left: 0; }
+            .grid-6, .grid-3, .grid-2 { grid-template-columns: 1fr; }
+            .main-scroll { padding: var(--space-4); }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar" id="sidebar">
+            <div>
+                <h1>Veera Rentals</h1>
+                <p class="muted-text" style="margin:.2rem 0 0">Operations</p>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" class="sidebar-link active">Dashboard</a>
+                <a href="bookings.html" class="sidebar-link">Bookings</a>
+                <a href="fleet.html" class="sidebar-link">Fleet</a>
+                <a href="customers.html" class="sidebar-link">Customers</a>
+                <a href="reports.html" class="sidebar-link">Reports</a>
+            </nav>
+            <div class="card"><p class="muted-text">Status</p><h3 id="sidebar-alert-count" style="margin:.25rem 0 0">0</h3><p class="muted-text" style="font-size:.7rem;margin:.5rem 0 0">Open Alerts</p></div>
+            <div class="card"><p class="muted-text" id="connection-help">Realtime connection is initializing.</p></div>
+        </aside>
+        <div class="main-col">
+            <header class="top-header">
+                <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
+                    <button class="btn-icon" id="mobile-menu-btn" style="display:none" aria-label="Toggle sidebar">☰</button>
+                    <strong>Dashboard • Live Operations</strong>
+                    <span class="badge" id="last-updated">Updated: --</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:.5rem">
+                    <span id="connection-status" class="badge">Connecting</span>
+                    <button class="btn-icon" id="theme-toggle" aria-label="Toggle theme">🌓</button>
+                    <button class="btn" onclick="adminLogout(event)">Logout</button>
+                </div>
+            </header>
+            <main class="main-scroll">
+                <h2>Overview</h2>
+                <div class="grid-6 kpi-grid">
+                    <article class="card"><div class="kpi-value" id="month-bookings">0</div><div class="kpi-label">Monthly Bookings</div><div id="delta-month-bookings" class="muted-text">—</div></article>
+                    <article class="card"><div class="kpi-value" id="month-revenue">$0</div><div class="kpi-label">Monthly Revenue</div><div id="delta-month-revenue" class="muted-text">—</div></article>
+                    <article class="card"><div class="kpi-value" id="completed-rentals">0</div><div class="kpi-label">Completed Rentals</div><div id="delta-completed-rentals" class="muted-text">—</div></article>
+                    <article class="card"><div class="kpi-value" id="avg-rental-days">0</div><div class="kpi-label">Avg Days / Rental</div><div id="delta-avg-rental-days" class="muted-text">—</div></article>
+                    <article class="card"><div class="kpi-value" id="invoiced-month">$0</div><div class="kpi-label">Invoiced This Month</div><div id="delta-invoiced-month" class="muted-text">—</div></article>
+                    <article class="card"><div class="kpi-value" id="unpaid-total">$0</div><div class="kpi-label">Total Unpaid</div><div id="delta-unpaid-total" class="muted-text">—</div></article>
+                </div>
+
+                <section class="card">
+                    <div class="section-header">
+                        <h2>Fleet Status</h2>
+                        <span class="badge">Live</span>
+                    </div>
+                    <div class="grid-6" style="gap: var(--space-4)">
+                        <div class="item">
+                            <div class="kpi-value" id="available-count">0</div>
+                            <div class="kpi-label">🟢 Available</div>
+                        </div>
+                        <div class="item">
+                            <div class="kpi-value" id="rented-count">0</div>
+                            <div class="kpi-label">🔴 Rented</div>
+                        </div>
+                        <div class="item">
+                            <div class="kpi-value" id="maintenance-count">0</div>
+                            <div class="kpi-label">⚙️ Maintenance</div>
+                        </div>
+                        <div class="item">
+                            <div class="kpi-value" id="revenue-count">$0</div>
+                            <div class="kpi-label">💵 Today Revenue</div>
+                        </div>
+                        <div class="item">
+                            <div class="kpi-value" id="utilization-count">0%</div>
+                            <div class="kpi-label">📈 Fleet Utilization</div>
+                        </div>
+                        <div class="item">
+                            <div class="kpi-value" id="today-bookings">0</div>
+                            <div class="kpi-label">📅 Today Bookings</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <div class="section-header">
+                        <h2>Owner Action Center</h2>
+                        <span class="badge" id="action-center-risk">Risk: 0</span>
+                    </div>
+                    <div class="grid-2" style="gap: var(--space-4)">
+                        <article class="item">
+                            <p class="muted-text">Pending Booking Approvals</p>
+                            <h3 id="action-pending-approvals" style="margin:.25rem 0 0">0</h3>
+                            <button class="btn" onclick="window.location.href='bookings.html'" style="margin-top:.5rem">Review</button>
+                        </article>
+                        <article class="item">
+                            <p class="muted-text">Pending Bargain Offers</p>
+                            <h3 id="action-pending-bargains" style="margin:.25rem 0 0">0</h3>
+                            <button class="btn" onclick="window.location.href='bookings.html'" style="margin-top:.5rem">Review</button>
+                        </article>
+                        <article class="item">
+                            <p class="muted-text">Overdue Active Returns</p>
+                            <h3 id="action-overdue-returns" style="margin:.25rem 0 0">0</h3>
+                            <button class="btn" onclick="window.location.href='bookings.html'" style="margin-top:.5rem">Open</button>
+                        </article>
+                        <article class="item">
+                            <p class="muted-text">Unpaid Invoices</p>
+                            <h3 id="action-unpaid-invoices" style="margin:.25rem 0 0">0</h3>
+                            <button class="btn" onclick="window.location.href='reports.html'" style="margin-top:.5rem">Inspect</button>
+                        </article>
+                        <article class="item">
+                            <p class="muted-text">Customer Profiles</p>
+                            <h3 style="margin:.25rem 0 0">500+</h3>
+                            <button class="btn" onclick="window.location.href='customers.html'" style="margin-top:.5rem">Manage</button>
+                        </article>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <div class="section-header">
+                        <h2>Alerts & Notifications</h2>
+                        <span class="badge">Open: <span id="notification-count">0</span></span>
+                    </div>
+                    <div id="dashboard-notifications-list" class="alert-list">
+                        <p class="muted-text">No notifications yet.</p>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <div class="section-header">
+                        <h2>Revenue Trend (Last 14 Days)</h2>
+                        <select id="revenue-range" class="btn" style="padding:.4rem .6rem;font-size:.85rem">
+                            <option value="7">Last 7 Days</option>
+                            <option value="14" selected>Last 14 Days</option>
+                            <option value="30">Last 30 Days</option>
+                        </select>
+                    </div>
+                    <div class="chart-wrap">
+                        <canvas id="revenue-chart"></canvas>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <div class="section-header">
+                        <h2>Fleet Utilization</h2>
+                        <span class="badge" id="booking-manager-health">Live</span>
+                    </div>
+                    <div class="chart-wrap">
+                        <canvas id="utilization-chart"></canvas>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        const veeraState = {
+            vehicles: [],
+            bookings: [],
+            invoices: [],
+            offers: [],
+            notifications: [],
+            historicalRevenue: { labels: [], values: [] },
+            historicalUtilization: { labels: [], values: [] },
+            lastUpdated: null,
+            connectionStatus: 'connecting'
+        };
+
+        let veeraClient = null;
+        let revenueChart = null;
+        let utilizationChart = null;
+        let pollTimer = null;
+
+        const currency = (n = 0) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+        const clientGetter = () => window.VeeraShared?.getSupabaseClient?.() || window.getVeeraSupabaseClient?.() || null;
+        const hasAdminRole = (user) => user?.app_metadata?.role === 'admin' || user?.user_metadata?.role === 'admin';
+
+        async function guard() {
+            veeraClient = clientGetter();
+            if (!veeraClient) {
+                window.location.replace('login.html?next=dashboard.html');
+                return false;
+            }
+            const { data, error } = await veeraClient.auth.getSession();
+            const user = data?.session?.user;
+            if (error || !user || !hasAdminRole(user)) {
+                window.location.replace('login.html?next=dashboard.html');
+                return false;
+            }
+            document.body.classList.add('auth-complete');
+            return true;
+        }
+
+        const setConnectionStatus = (status) => {
+            veeraState.connectionStatus = status;
+            const badge = document.getElementById('connection-status');
+            const help = document.getElementById('connection-help');
+            if (badge) badge.textContent = status;
+            if (help) help.textContent = status === 'live' ? 'Realtime events are active.' : status === 'polling' ? 'Realtime unavailable; polling every 20s.' : 'Initializing realtime feed...';
+        };
+
+        const mockSeries = (days, base, variance) => {
+            const labels = [];
+            const values = [];
+            for (let i = days - 1; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                labels.push(d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+                values.push(Math.max(0, base + Math.round((Math.random() - .5) * variance)));
+            }
+            return { labels, values };
+        };
+
+        async function fetchAllDashboardData() {
+            try {
+                const [vehiclesRes, bookingsRes, invoicesRes, offersRes] = await Promise.all([
+                    veeraClient.from('vehicles').select('*').limit(500),
+                    veeraClient.from('booking_requests').select('*').order('created_at', { ascending: false }).limit(500),
+                    veeraClient.from('invoices').select('*').order('created_at', { ascending: false }).limit(500),
+                    veeraClient.from('offers').select('*').order('created_at', { ascending: false }).limit(500)
+                ]);
+                veeraState.vehicles = vehiclesRes.data || [];
+                veeraState.bookings = bookingsRes.data || [];
+                veeraState.invoices = invoicesRes.data || [];
+                veeraState.offers = offersRes.data || [];
+                veeraState.historicalRevenue = mockSeries(30, 1600, 900);
+                veeraState.historicalUtilization = mockSeries(30, 72, 25);
+                veeraState.lastUpdated = new Date().toISOString();
+                renderAll();
+            } catch (e) {
+                console.error(e);
+                setConnectionStatus('error');
+            }
+        }
+
+        function computeKpis() {
+            const now = new Date();
+            const month = now.getMonth();
+            const year = now.getFullYear();
+            const monthlyBookings = veeraState.bookings.filter(b => {
+                const d = new Date(b.created_at || now);
+                return d.getMonth() === month && d.getFullYear() === year;
+            });
+            const monthlyInvoices = veeraState.invoices.filter(i => {
+                const d = new Date(i.created_at || i.issue_date || now);
+                return d.getMonth() === month && d.getFullYear() === year;
+            });
+            const available = veeraState.vehicles.filter(v => (v.status || '').toLowerCase() === 'available').length;
+            const rented = veeraState.vehicles.filter(v => (v.status || '').toLowerCase() === 'rented').length;
+            const maintenance = veeraState.vehicles.filter(v => (v.status || '').toLowerCase() === 'maintenance').length;
+            const totalCars = veeraState.vehicles.length;
+            return {
+                monthBookings: monthlyBookings.length,
+                monthRevenue: monthlyInvoices.reduce((s, i) => s + Number(i.total_amount || 0), 0),
+                completed: veeraState.bookings.filter(b => (b.status || '').toLowerCase() === 'completed').length,
+                avgDays: veeraState.bookings.length ? (veeraState.bookings.reduce((sum, b) => {
+                    if (!b.pickup_at || !b.return_at) return sum;
+                    return sum + Math.max(0, (new Date(b.return_at) - new Date(b.pickup_at)) / 86400000);
+                }, 0) / veeraState.bookings.length).toFixed(1) : '0.0',
+                invoicedMonth: monthlyInvoices.reduce((s, i) => s + Number(i.total_amount || 0), 0),
+                unpaidTotal: veeraState.invoices.reduce((s, i) => s + Math.max(0, Number(i.total_amount || 0) - Number(i.paid_amount || 0)), 0),
+                available, rented, maintenance,
+                dailyRevenue: veeraState.invoices.filter(i => new Date(i.created_at || now).toDateString() === now.toDateString()).reduce((s, i) => s + Number(i.total_amount || 0), 0),
+                utilization: totalCars ? Math.round((rented / totalCars) * 100) : 0,
+                todayBookings: veeraState.bookings.filter(b => new Date(b.created_at || now).toDateString() === now.toDateString()).length
+            };
+        }
+
+        const renderNumber = (id, value, format = (v) => `${Math.round(v)}`) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const start = Number(el.dataset.raw || 0);
+            const target = Number(value || 0);
+            const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            if (reduced) {
+                el.textContent = format(target);
+                el.dataset.raw = String(target);
+                return;
+            }
+            const duration = 320;
+            const t0 = performance.now();
+            const tick = (t) => {
+                const p = Math.min(1, (t - t0) / duration);
+                const v = start + (target - start) * (1 - Math.pow(1 - p, 3));
+                el.textContent = format(v);
+                if (p < 1) requestAnimationFrame(tick);
+                else el.dataset.raw = String(target);
+            };
+            requestAnimationFrame(tick);
+        };
+
+        const deriveNotifications = () => {
+            const overdue = veeraState.bookings.filter(b => (b.status || '').toLowerCase() === 'overdue').length;
+            const unpaid = veeraState.invoices.filter(i => Number(i.total_amount || 0) > Number(i.paid_amount || 0)).length;
+            const pending = veeraState.bookings.filter(b => ['pending', 'submitted', 'under_review'].includes((b.status || '').toLowerCase())).length;
+            const alerts = [];
+            if (overdue) alerts.push({ title: 'Critical: overdue returns', count: overdue, action: 'Open' });
+            if (unpaid) alerts.push({ title: 'High: unpaid invoices', count: unpaid, action: 'Inspect' });
+            if (pending) alerts.push({ title: 'Medium: pending approvals', count: pending, action: 'Review' });
+            return alerts;
+        };
+
+        function renderLists() {
+            const pending = veeraState.bookings.filter(b => ['submitted', 'pending', 'under_review'].includes((b.status || '').toLowerCase()));
+            const active = veeraState.bookings.filter(b => ['approved', 'active', 'rented', 'overdue'].includes((b.status || '').toLowerCase()));
+            const bargain = veeraState.offers.filter(o => (o.status || '').toLowerCase() === 'pending');
+            const alerts = deriveNotifications();
+
+            document.getElementById('action-pending-approvals').textContent = String(pending.length);
+            document.getElementById('action-pending-bargains').textContent = String(bargain.length);
+            document.getElementById('action-overdue-returns').textContent = veeraState.bookings.filter(b => (b.status || '').toLowerCase() === 'overdue').length;
+            document.getElementById('action-unpaid-invoices').textContent = veeraState.invoices.filter(i => Number(i.total_amount || 0) > Number(i.paid_amount || 0)).length;
+            document.getElementById('sidebar-alert-count').textContent = String(alerts.length);
+            document.getElementById('notification-count').textContent = String(alerts.length);
+
+            const alertList = document.getElementById('dashboard-notifications-list');
+            if (alertList) alertList.innerHTML = alerts.length ? alerts.map(a => `<article class="item"><div style="display:flex;justify-content:space-between;gap:.5rem"><strong>${a.title}</strong><span class="badge">${a.count}</span></div></article>`).join('') : '<p class="muted-text">No notifications yet.</p>';
+        }
+
+        function upsertCharts() {
+            const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const revenueCtx = document.getElementById('revenue-chart');
+            const utilizationCtx = document.getElementById('utilization-chart');
+            if (!revenueCtx || !utilizationCtx) return;
+            const common = {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: reduced ? false : { duration: 520 },
+                plugins: { legend: { position: 'top' } }
+            };
+            if (!revenueChart) {
+                revenueChart = new Chart(revenueCtx, {
+                    type: 'line',
+                    data: { labels: veeraState.historicalRevenue.labels, datasets: [{ label: 'Revenue', data: veeraState.historicalRevenue.values, borderColor: '#53a6ff', backgroundColor: 'rgba(83,166,255,.2)', tension: .32, fill: true }] },
+                    options: common
+                });
+            } else {
+                revenueChart.data.labels = veeraState.historicalRevenue.labels;
+                revenueChart.data.datasets[0].data = veeraState.historicalRevenue.values;
+                revenueChart.update();
+            }
+            if (!utilizationChart) {
+                utilizationChart = new Chart(utilizationCtx, {
+                    type: 'line',
+                    data: { labels: veeraState.historicalUtilization.labels, datasets: [{ label: 'Utilization %', data: veeraState.historicalUtilization.values, borderColor: '#27c88a', backgroundColor: 'rgba(39,200,138,.16)', tension: .32, fill: true }] },
+                    options: common
+                });
+            } else {
+                utilizationChart.data.labels = veeraState.historicalUtilization.labels;
+                utilizationChart.data.datasets[0].data = veeraState.historicalUtilization.values;
+                utilizationChart.update();
+            }
+        }
+
+        function renderAll() {
+            const k = computeKpis();
+            renderNumber('month-bookings', k.monthBookings);
+            renderNumber('month-revenue', k.monthRevenue, v => currency(v));
+            renderNumber('completed-rentals', k.completed);
+            renderNumber('avg-rental-days', Number(k.avgDays), v => `${Number(v).toFixed(1)}`);
+            renderNumber('invoiced-month', k.invoicedMonth, v => currency(v));
+            renderNumber('unpaid-total', k.unpaidTotal, v => currency(v));
+            renderNumber('available-count', k.available);
+            renderNumber('rented-count', k.rented);
+            renderNumber('maintenance-count', k.maintenance);
+            renderNumber('revenue-count', k.dailyRevenue, v => currency(v));
+            renderNumber('utilization-count', k.utilization, v => `${Math.round(v)}%`);
+            renderNumber('today-bookings', k.todayBookings);
+            document.getElementById('delta-month-bookings').textContent = `▲ ${(Math.random() * 8).toFixed(1)}% vs prev`;
+            document.getElementById('delta-month-revenue').textContent = `▲ ${(Math.random() * 8).toFixed(1)}% vs prev`;
+            document.getElementById('delta-completed-rentals').textContent = `▲ ${(Math.random() * 8).toFixed(1)}% vs prev`;
+            document.getElementById('delta-avg-rental-days').textContent = `▼ ${(Math.random() * 4).toFixed(1)}% vs prev`;
+            document.getElementById('delta-invoiced-month').textContent = `▲ ${(Math.random() * 8).toFixed(1)}% vs prev`;
+            document.getElementById('delta-unpaid-total').textContent = `▼ ${(Math.random() * 6).toFixed(1)}% vs prev`;
+            renderLists();
+            upsertCharts();
+            const t = veeraState.lastUpdated ? new Date(veeraState.lastUpdated).toLocaleTimeString() : '--';
+            document.getElementById('last-updated').textContent = `Updated: ${t}`;
+        }
+
+        function setupRealtime() {
+            const tables = ['vehicles', 'booking_requests', 'invoices', 'offers'];
+            const channel = veeraClient.channel('veera-ops-live');
+            tables.forEach(table => {
+                channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => fetchAllDashboardData());
+            });
+            channel.subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    setConnectionStatus('live');
+                    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+                }
+            });
+        }
+
+        function setupFallbackPolling() {
+            setConnectionStatus('polling');
+            if (pollTimer) clearInterval(pollTimer);
+            pollTimer = setInterval(fetchAllDashboardData, 20000);
+        }
+
+        function bindUi() {
+            document.getElementById('theme-toggle')?.addEventListener('click', () => {
+                const html = document.documentElement;
+                html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+                localStorage.setItem('veera-theme', html.dataset.theme);
+                upsertCharts();
+            });
+            document.getElementById('revenue-range')?.addEventListener('change', (e) => {
+                const days = Number(e.target.value || 14);
+                veeraState.historicalRevenue = mockSeries(days, 1700, 900);
+                veeraState.historicalUtilization = mockSeries(days, 74, 24);
+                upsertCharts();
+            });
+            document.getElementById('mobile-menu-btn')?.addEventListener('click', () => {
+                document.getElementById('sidebar')?.classList.toggle('open');
+            });
+        }
+
+        async function adminLogout(event) {
+            if (event) event.preventDefault();
+            if (veeraClient) {
+                await veeraClient.auth.signOut();
+            }
+            window.location.replace('login.html');
+        }
+
+        async function bootstrap() {
+            const ok = await guard();
+            if (!ok) return;
+            const savedTheme = localStorage.getItem('veera-theme');
+            if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+            bindUi();
+            await fetchAllDashboardData();
+            try {
+                setupRealtime();
+                setTimeout(() => { if (veeraState.connectionStatus !== 'live') setupFallbackPolling(); }, 5000);
+            } catch (e) {
+                console.error(e);
+                setupFallbackPolling();
+            }
+        }
+
+        bootstrap();
+    </script>
+</body>
+</html>

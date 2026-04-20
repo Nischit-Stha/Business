@@ -63,6 +63,7 @@
         .muted-text { color: var(--muted); font-size: .85rem; }
         .section-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); }
         .filters, .control-bar { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+        .pagination { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); margin-top: var(--space-4); flex-wrap: wrap; }
         input, select { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card); color: var(--text); padding: .55rem .65rem; font: inherit; }
         .fleet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--space-4); margin-top: var(--space-4); }
         .fleet-item { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card2); padding: var(--space-4); }
@@ -100,6 +101,7 @@
                 <a href="dashboard.html" class="sidebar-link">Dashboard</a>
                 <a href="bookings.html" class="sidebar-link">Bookings</a>
                 <a href="fleet.html" class="sidebar-link active">Fleet</a>
+                <a href="customers.html" class="sidebar-link">Customers</a>
                 <a href="reports.html" class="sidebar-link">Reports</a>
             </nav>
         </aside>
@@ -125,9 +127,11 @@
                         <input type="text" id="fleet-search" placeholder="Search by name, make, model, plate..." style="flex:1">
                         <select id="fleet-sort">
                             <option value="name-asc">Sort: Name (A-Z)</option>
+                            <option value="name-desc">Sort: Name (Z-A)</option>
                             <option value="rate-high">Sort: Rate High → Low</option>
                             <option value="rate-low">Sort: Rate Low → High</option>
                             <option value="status">Sort: Status</option>
+                            <option value="recent">Sort: Recently Added</option>
                         </select>
                     </div>
                     <div class="filters" style="margin-top:var(--space-3);margin-bottom:var(--space-4)">
@@ -138,6 +142,13 @@
                     </div>
                     <div class="fleet-grid" id="fleet-grid">
                         <p class="muted-text">No vehicles found</p>
+                    </div>
+                    <div class="pagination">
+                        <span class="muted-text" id="fleet-pagination-info">Showing 0-0 of 0</span>
+                        <div style="display:flex;gap:.5rem;align-items:center">
+                            <button class="btn" id="fleet-prev">Previous</button>
+                            <button class="btn" id="fleet-next">Next</button>
+                        </div>
                     </div>
                 </section>
             </main>
@@ -202,9 +213,35 @@
         </div>
     </div>
 
+    <div class="modal" id="car-details-modal">
+        <div class="modal-content" style="width:min(680px, 96vw)">
+            <div class="modal-header">
+                <h2 id="vehicle-detail-title">Vehicle Details</h2>
+                <button class="close-btn" onclick="closeModal('car-details-modal')">&times;</button>
+            </div>
+            <div class="form-grid">
+                <div><label>Status</label><div id="vehicle-detail-status" class="muted-text">—</div></div>
+                <div><label>License Plate</label><div id="vehicle-detail-plate" class="muted-text">—</div></div>
+                <div><label>Daily Rate</label><div id="vehicle-detail-rate-day" class="muted-text">—</div></div>
+                <div><label>Weekly Rate</label><div id="vehicle-detail-rate-week" class="muted-text">—</div></div>
+                <div><label>Location</label><div id="vehicle-detail-location" class="muted-text">—</div></div>
+                <div><label>Model</label><div id="vehicle-detail-model" class="muted-text">—</div></div>
+                <div><label>Color</label><div id="vehicle-detail-color" class="muted-text">—</div></div>
+                <div><label>VIN</label><div id="vehicle-detail-vin" class="muted-text">—</div></div>
+            </div>
+        </div>
+    </div>
+
     <script>
         let veeraClient = null;
-        const veeraState = { vehicles: [] };
+        const veeraState = {
+            vehicles: [],
+            search: '',
+            sort: 'name-asc',
+            filter: 'all',
+            page: 1,
+            pageSize: 24
+        };
 
         const clientGetter = () => window.VeeraShared?.getSupabaseClient?.() || window.getVeeraSupabaseClient?.() || null;
         const hasAdminRole = (user) => user?.app_metadata?.role === 'admin' || user?.user_metadata?.role === 'admin';
@@ -244,18 +281,97 @@
             }
         }
 
+        function escapeHtml(value) {
+            const text = String(value ?? '');
+            return text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+        }
+
+        function toNumber(...values) {
+            for (const value of values) {
+                const numeric = Number(value);
+                if (Number.isFinite(numeric)) return numeric;
+            }
+            return 0;
+        }
+
+        function normalizeStatus(status) {
+            const value = String(status || 'available').toLowerCase();
+            if (value.includes('maint')) return 'maintenance';
+            if (value.includes('rent')) return 'rented';
+            return 'available';
+        }
+
+        function vehicleName(vehicle) {
+            const name = vehicle?.name || `${vehicle?.make || ''} ${vehicle?.model || ''}`.trim();
+            return name || 'Vehicle';
+        }
+
+        function getVisibleVehicles() {
+            const query = veeraState.search.trim().toLowerCase();
+            let rows = [...veeraState.vehicles];
+
+            if (veeraState.filter !== 'all') {
+                rows = rows.filter(vehicle => normalizeStatus(vehicle?.status) === veeraState.filter);
+            }
+
+            if (query) {
+                rows = rows.filter(vehicle => {
+                    const text = `${vehicleName(vehicle)} ${vehicle?.make || ''} ${vehicle?.model || ''} ${vehicle?.plate || ''} ${vehicle?.location || ''}`.toLowerCase();
+                    return text.includes(query);
+                });
+            }
+
+            rows.sort((left, right) => {
+                if (veeraState.sort === 'name-desc') return vehicleName(right).localeCompare(vehicleName(left));
+                if (veeraState.sort === 'rate-high') return toNumber(right?.rate_day) - toNumber(left?.rate_day);
+                if (veeraState.sort === 'rate-low') return toNumber(left?.rate_day) - toNumber(right?.rate_day);
+                if (veeraState.sort === 'status') return normalizeStatus(left?.status).localeCompare(normalizeStatus(right?.status));
+                if (veeraState.sort === 'recent') return new Date(right?.created_at || 0) - new Date(left?.created_at || 0);
+                return vehicleName(left).localeCompare(vehicleName(right));
+            });
+
+            return rows;
+        }
+
+        function renderVehicleDetails(vehicle) {
+            if (!vehicle) return;
+            document.getElementById('vehicle-detail-title').textContent = vehicleName(vehicle);
+            document.getElementById('vehicle-detail-status').textContent = normalizeStatus(vehicle?.status);
+            document.getElementById('vehicle-detail-plate').textContent = vehicle?.plate || 'N/A';
+            document.getElementById('vehicle-detail-rate-day').textContent = `$${toNumber(vehicle?.rate_day).toLocaleString()}/day`;
+            document.getElementById('vehicle-detail-rate-week').textContent = `$${toNumber(vehicle?.rate_week).toLocaleString()}/week`;
+            document.getElementById('vehicle-detail-location').textContent = vehicle?.location || 'N/A';
+            document.getElementById('vehicle-detail-model').textContent = vehicle?.model || 'N/A';
+            document.getElementById('vehicle-detail-color').textContent = vehicle?.color || 'N/A';
+            document.getElementById('vehicle-detail-vin').textContent = vehicle?.vin || 'N/A';
+            showModal('car-details-modal');
+        }
+
         function render() {
+            const visibleVehicles = getVisibleVehicles();
+            const total = visibleVehicles.length;
+            const pages = Math.max(1, Math.ceil(total / veeraState.pageSize));
+            if (veeraState.page > pages) veeraState.page = pages;
+            const startIndex = (veeraState.page - 1) * veeraState.pageSize;
+            const pageVehicles = visibleVehicles.slice(startIndex, startIndex + veeraState.pageSize);
+
             document.getElementById('fleet-count').textContent = `${veeraState.vehicles.length} Vehicles`;
             const grid = document.getElementById('fleet-grid');
-            grid.innerHTML = veeraState.vehicles.length ? veeraState.vehicles.map(v => `
+            grid.innerHTML = pageVehicles.length ? pageVehicles.map(v => `
                 <article class="fleet-item">
-                    <strong>${v.name || `${v.make || ''} ${v.model || ''}`.trim() || 'Vehicle'}</strong>
-                    <div class="muted-text" style="font-size:.8rem">${v.plate || 'No plate'}</div>
-                    <div class="muted-text" style="font-size:.8rem">$${v.rate_day || 0}/day</div>
-                    <span class="fleet-item-status ${v.status}">${v.status || 'available'}</span>
-                    <button class="btn" onclick="showModal('edit-car-modal')" style="margin-top:var(--space-3);width:100%">View Details</button>
+                    <strong>${escapeHtml(vehicleName(v))}</strong>
+                    <div class="muted-text" style="font-size:.8rem">${escapeHtml(v.plate || 'No plate')}</div>
+                    <div class="muted-text" style="font-size:.8rem">$${toNumber(v.rate_day).toLocaleString()}/day</div>
+                    <span class="fleet-item-status ${normalizeStatus(v.status)}">${normalizeStatus(v.status)}</span>
+                    <button class="btn" data-vehicle-id="${escapeHtml(String(v.id || `${v.plate || ''}-${v.created_at || ''}`))}" style="margin-top:var(--space-3);width:100%">View Details</button>
                 </article>
             `).join('') : '<p class="muted-text">No vehicles found</p>';
+
+            const displayStart = total === 0 ? 0 : startIndex + 1;
+            const displayEnd = Math.min(startIndex + veeraState.pageSize, total);
+            document.getElementById('fleet-pagination-info').textContent = `Showing ${displayStart}-${displayEnd} of ${total}`;
+            document.getElementById('fleet-prev').disabled = veeraState.page <= 1;
+            document.getElementById('fleet-next').disabled = veeraState.page >= pages;
         }
 
         function bindUi() {
@@ -266,6 +382,46 @@
             });
             document.getElementById('mobile-menu-btn')?.addEventListener('click', () => {
                 document.getElementById('sidebar')?.classList.toggle('open');
+            });
+            document.getElementById('fleet-search')?.addEventListener('input', (event) => {
+                veeraState.search = event.target.value || '';
+                veeraState.page = 1;
+                render();
+            });
+            document.getElementById('fleet-sort')?.addEventListener('change', (event) => {
+                veeraState.sort = event.target.value;
+                veeraState.page = 1;
+                render();
+            });
+            document.querySelectorAll('[data-filter]').forEach(button => {
+                button.addEventListener('click', () => {
+                    veeraState.filter = button.dataset.filter;
+                    veeraState.page = 1;
+                    document.querySelectorAll('[data-filter]').forEach(item => item.classList.remove('active'));
+                    button.classList.add('active');
+                    render();
+                });
+            });
+            document.getElementById('fleet-prev')?.addEventListener('click', () => {
+                if (veeraState.page > 1) {
+                    veeraState.page -= 1;
+                    render();
+                }
+            });
+            document.getElementById('fleet-next')?.addEventListener('click', () => {
+                const total = getVisibleVehicles().length;
+                const pages = Math.max(1, Math.ceil(total / veeraState.pageSize));
+                if (veeraState.page < pages) {
+                    veeraState.page += 1;
+                    render();
+                }
+            });
+            document.getElementById('fleet-grid')?.addEventListener('click', (event) => {
+                const trigger = event.target.closest('[data-vehicle-id]');
+                if (!trigger) return;
+                const targetId = trigger.getAttribute('data-vehicle-id');
+                const vehicle = veeraState.vehicles.find(item => String(item.id || `${item.plate || ''}-${item.created_at || ''}`) === targetId);
+                renderVehicleDetails(vehicle);
             });
             document.getElementById('car-form')?.addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -289,7 +445,6 @@
                         const { error } = await veeraClient.from('vehicles').insert(payload);
                         if (error) throw error;
                     }
-                    window.VeeraShared?.appendStoreItem?.('veera-vehicle-drafts', payload, 100);
                     veeraState.vehicles.unshift(payload);
                     render();
                     window.VeeraShared?.showNotice?.('Vehicle saved successfully.', 'success');
