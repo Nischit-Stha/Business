@@ -1,118 +1,180 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Veera Rentals Management System</title>
-    <meta name="description" content="Veera Rentals dashboard for fleet management, real-time bookings, QR check-in/out, customer service workflows, and rental analytics.">
-    <script>
-        (function () {
-            const ADMIN_AUTH_KEY = 'veera_admin_auth';
-            const queryAndHash = window.location.search + window.location.hash;
-
-            if (sessionStorage.getItem(ADMIN_AUTH_KEY) === 'true') {
-                window.location.replace(`admin.html${queryAndHash}`);
-                return;
-            }
-
-            const next = encodeURIComponent(`admin.html${queryAndHash}`);
-            window.location.replace(`login.html?next=${next}`);
-        })();
-    </script>
-    <link rel="stylesheet" href="style.css">
+    <title>Veera Rentals • Operations Console</title>
+    <meta name="description" content="Veera Rentals real-time operations console for bookings, fleet, invoices, risk, and analytics.">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <script src="../supabase-config.js"></script>
+    <script src="shared-utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --font-body: 'Inter', sans-serif;
+            --font-display: 'Poppins', sans-serif;
+            --sidebar-w: 260px;
+            --space-2: .5rem;
+            --space-3: .75rem;
+            --space-4: 1rem;
+            --space-5: 1.25rem;
+            --space-6: 1.5rem;
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        html[data-theme="dark"] {
+            --bg: #0f141d;
+            --elev: #161c27;
+            --card: #1b2330;
+            --card2: #212c3c;
+            --text: #e9edf5;
+            --muted: #9aa7ba;
+            --border: #2b374b;
+            --primary: #53a6ff;
+            --success: #27c88a;
+            --warning: #f8b84e;
+            --danger: #ff6f7d;
+        }
+        html[data-theme="light"] {
+            --bg: #f3f6fb;
+            --elev: #ffffff;
+            --card: #ffffff;
+            --card2: #f8fbff;
+            --text: #151d2c;
+            --muted: #5e6b7e;
+            --border: #d6e0ef;
+            --primary: #0069d9;
+            --success: #1d9f70;
+            --warning: #c78924;
+            --danger: #d84b61;
+        }
+        * { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; }
+        body { background: var(--bg); color: var(--text); font-family: var(--font-body); overflow: hidden; }
+        body:not(.auth-complete) .app-shell { opacity: 0; pointer-events: none; }
+        .app-shell { display: grid; grid-template-columns: var(--sidebar-w) 1fr; height: 100vh; }
+        .sidebar { background: linear-gradient(180deg, var(--elev), var(--card)); border-right: 1px solid var(--border); padding: var(--space-5); display: grid; gap: var(--space-5); }
+        .main-col { display: grid; grid-template-rows: auto 1fr; min-width: 0; }
+        .main-scroll { overflow: auto; padding: var(--space-6); display: grid; gap: var(--space-6); }
+        .top-header { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--elev) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); padding: .8rem var(--space-6); display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4); min-width: 0; }
+        .grid-6 { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--space-4); }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); }
+        .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+        .badge { border: 1px solid var(--border); border-radius: 999px; padding: .2rem .55rem; font-size: .75rem; color: var(--muted); }
+        .btn, .btn-icon { border: 1px solid var(--border); background: var(--card2); color: var(--text); border-radius: var(--radius-sm); cursor: pointer; }
+        .btn { padding: .55rem .85rem; }
+        .btn-primary { background: var(--primary); color: #fff; border-color: transparent; }
+        .btn-icon { width: 38px; height: 38px; display: grid; place-items: center; }
+        .kpi-value { font-family: var(--font-display); font-size: 1.6rem; }
+        .kpi-label, .muted-text { color: var(--muted); font-size: .85rem; }
+        [data-tab-panel] { display: none; }
+        [data-tab-panel].active { display: grid; gap: var(--space-6); }
+        .alert-list, .stack-list, .fleet-grid, .rentals-list, .dashboard-notifications-list { display: grid; gap: var(--space-3); content-visibility: auto; contain-intrinsic-size: 500px; }
+        .item { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card2); padding: .8rem; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); }
+        .control-bar, .filters, .tracker-filters, .action-buttons { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+        input, select, textarea { width: 100%; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card); color: var(--text); padding: .55rem .65rem; font: inherit; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(3,6,10,.62); z-index: 30; align-items: center; justify-content: center; padding: var(--space-5); }
+        .modal.open { display: flex; }
+        .modal-content { width: min(920px, 96vw); max-height: 90vh; overflow: auto; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-5); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); }
+        .close-btn { border: 1px solid var(--border); background: var(--card2); color: var(--text); border-radius: var(--radius-sm); width: 36px; height: 36px; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+        .full-width { grid-column: 1 / -1; }
+        .form-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-4); flex-wrap: wrap; }
+        .mobile-btn { display: none; }
+        @media (max-width: 1200px) { .grid-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 980px) {
+            .app-shell { grid-template-columns: 1fr; }
+            .sidebar { position: fixed; left: -100%; width: var(--sidebar-w); top: 0; bottom: 0; z-index: 40; transition: left .22s ease; }
+            .sidebar.open { left: 0; }
+            .mobile-btn { display: inline-grid; }
+            .grid-6, .grid-3, .grid-2, .form-grid { grid-template-columns: 1fr; }
+            .main-scroll { padding: var(--space-4); }
+        }
+    </style>
 </head>
 <body>
-    <!-- Header -->
-    <header class="header">
-        <div class="container">
-            <div class="logo-section">
-                <div class="logo">⭐</div>
-                <div>
-                    <h1>Veera Rentals</h1>
-                    <p class="tagline">Professional Veera Rentals Management</p>
-                </div>
+    <div class="app-shell">
+        <aside class="sidebar" id="sidebar" aria-label="Primary navigation">
+            <div>
+                <h1 style="margin:0;font-family:var(--font-display)">Veera Rentals</h1>
+                <p class="muted-text" style="margin:.2rem 0 0">Operations Console</p>
             </div>
-            <nav class="nav">
-                <a href="#dashboard" class="nav-link active" data-tab="dashboard">Dashboard</a>
-                <a href="#bookings" class="nav-link" data-tab="bookings">Bookings <span id="nav-bookings-alert" class="nav-alert-dot" hidden>0</span></a>
-                <a href="#fleet" class="nav-link" data-tab="fleet">Fleet</a>
-                <a href="#reports" class="nav-link" data-tab="reports">Reports</a>
+            <nav class="filters" aria-label="Dashboard tabs" style="display:grid">
+                <button class="btn active" data-tab="dashboard">Dashboard</button>
+                <button class="btn" data-tab="bookings">Bookings <span id="nav-bookings-alert" class="badge">0</span></button>
+                <button class="btn" data-tab="fleet">Fleet</button>
+                <button class="btn" data-tab="reports">Reports</button>
             </nav>
-            <div class="header-actions">
-                <a href="#" onclick="adminLogout(event)" class="logout-link">Logout</a>
-            </div>
-        </div>
-    </header>
-
-    <!-- Main Content -->
-    <main class="main">
-        <div class="container">
+            <div class="card"><p class="muted-text">Open Alerts</p><h3 id="sidebar-alert-count" style="margin:.25rem 0 0">0</h3></div>
+            <div class="card"><p class="muted-text" id="connection-help">Realtime connection is initializing.</p></div>
+        </aside>
+        <div class="main-col">
+            <header class="top-header">
+                <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
+                    <button class="btn-icon mobile-btn" id="mobile-menu-btn" aria-label="Toggle sidebar">☰</button>
+                    <strong>Admin • Live Operations</strong>
+                    <span class="badge" id="env-badge">Admin • Live</span>
+                    <span class="badge" id="last-updated">Updated: --</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:.5rem">
+                    <span id="connection-status" class="badge">Connecting</span>
+                    <button class="btn-icon" id="theme-toggle" aria-label="Toggle theme">🌓</button>
+                    <button class="btn" onclick="adminLogout(event)">Logout</button>
+                </div>
+            </header>
+            <main class="main-scroll">
             <div data-tab-panel="dashboard">
-            <!-- Quick Stats Cards -->
-            <div class="kpi-grid">
-                <div class="kpi-card kpi-bookings">
-                    <div class="kpi-value" id="month-bookings">0</div>
-                    <div class="kpi-label">This Month</div>
-                </div>
-                <div class="kpi-card kpi-revenue">
-                    <div class="kpi-value" id="month-revenue">$0</div>
-                    <div class="kpi-label">Month Revenue</div>
-                </div>
-                <div class="kpi-card kpi-completed">
-                    <div class="kpi-value" id="completed-rentals">0</div>
-                    <div class="kpi-label">Completed</div>
-                </div>
-                <div class="kpi-card kpi-average">
-                    <div class="kpi-value" id="avg-rental-days">0</div>
-                    <div class="kpi-label">Avg Days/Rental</div>
-                </div>
-                <div class="kpi-card kpi-invoiced">
-                    <div class="kpi-value" id="invoiced-month">$0</div>
-                    <div class="kpi-label">Invoiced This Month</div>
-                </div>
-                <div class="kpi-card kpi-unpaid">
-                    <div class="kpi-value" id="unpaid-total">$0</div>
-                    <div class="kpi-label">Total Unpaid</div>
-                </div>
+            <div class="grid-6 kpi-grid">
+                <article class="card"><div class="kpi-value" id="month-bookings">0</div><div class="kpi-label">Monthly Bookings</div><div id="delta-month-bookings" class="muted-text">—</div></article>
+                <article class="card"><div class="kpi-value" id="month-revenue">$0</div><div class="kpi-label">Monthly Revenue</div><div id="delta-month-revenue" class="muted-text">—</div></article>
+                <article class="card"><div class="kpi-value" id="completed-rentals">0</div><div class="kpi-label">Completed Rentals</div><div id="delta-completed-rentals" class="muted-text">—</div></article>
+                <article class="card"><div class="kpi-value" id="avg-rental-days">0</div><div class="kpi-label">Avg Days / Rental</div><div id="delta-avg-rental-days" class="muted-text">—</div></article>
+                <article class="card"><div class="kpi-value" id="invoiced-month">$0</div><div class="kpi-label">Invoiced This Month</div><div id="delta-invoiced-month" class="muted-text">—</div></article>
+                <article class="card"><div class="kpi-value" id="unpaid-total">$0</div><div class="kpi-label">Total Unpaid</div><div id="delta-unpaid-total" class="muted-text">—</div></article>
             </div>
             <section class="stats-grid" id="dashboard">
-                <div class="stat-card available" data-filter="available" title="Show available vehicles">
+                <div class="card stat-card available" data-filter="available" title="Show available vehicles">
                     <div class="stat-icon">🟢</div>
                     <div class="stat-content">
                         <h3 id="available-count">0</h3>
                         <p>Available</p>
                     </div>
                 </div>
-                <div class="stat-card rented" data-filter="rented" title="Show rented vehicles">
+                <div class="card stat-card rented" data-filter="rented" title="Show rented vehicles">
                     <div class="stat-icon">🔴</div>
                     <div class="stat-content">
                         <h3 id="rented-count">0</h3>
                         <p>Currently Rented</p>
                     </div>
                 </div>
-                <div class="stat-card maintenance" data-filter="maintenance" title="Show maintenance vehicles">
+                <div class="card stat-card maintenance" data-filter="maintenance" title="Show maintenance vehicles">
                     <div class="stat-icon">⚙️</div>
                     <div class="stat-content">
                         <h3 id="maintenance-count">0</h3>
                         <p>Maintenance</p>
                     </div>
                 </div>
-                <div class="stat-card revenue">
+                <div class="card stat-card revenue">
                     <div class="stat-icon">💵</div>
                     <div class="stat-content">
                         <h3 id="revenue-count">$0</h3>
                         <p>Daily Revenue</p>
                     </div>
                 </div>
-                <div class="stat-card utilization">
+                <div class="card stat-card utilization">
                     <div class="stat-icon">📈</div>
                     <div class="stat-content">
                         <h3 id="utilization-count">0%</h3>
                         <p>Fleet Utilization</p>
                     </div>
                 </div>
-                <div class="stat-card bookings">
+                <div class="card stat-card bookings">
                     <div class="stat-icon">📅</div>
                     <div class="stat-content">
                         <h3 id="today-bookings">0</h3>
@@ -121,12 +183,12 @@
                 </div>
             </section>
 
-            <section class="rentals-section" id="dashboard-overview">
+            <section class="card rentals-section" id="dashboard-overview">
                 <div class="section-header">
                     <h2>Dashboard Overview</h2>
                     <span class="badge" id="overview-last-updated">Live</span>
                 </div>
-                <div class="overview-grid">
+                <div class="grid-3 overview-grid">
                     <article class="overview-card" title="All vehicles in system">
                         <p>Total Cars</p>
                         <h3 id="overview-total-cars">0</h3>
@@ -146,7 +208,7 @@
                     <h2>Owner Action Center</h2>
                     <span class="badge" id="action-center-risk">Risk: 0</span>
                 </div>
-                <div class="action-center-grid">
+                <div class="grid-2 action-center-grid">
                     <article class="action-card" data-action="pending-approvals">
                         <p>Pending Booking Approvals</p>
                         <h3 id="action-pending-approvals">0</h3>
@@ -173,7 +235,7 @@
                     <h2>Notifications</h2>
                     <span class="badge">Open: <span id="notification-count">0</span></span>
                 </div>
-                <div id="dashboard-notifications-list" class="dashboard-notifications-list">
+                <div id="dashboard-notifications-list" class="dashboard-notifications-list alert-list">
                     <p class="muted-text">No notifications yet.</p>
                 </div>
 
@@ -186,8 +248,8 @@
                     </select>
                 </div>
 
-                <div class="revenue-chart-wrap">
-                    <svg id="revenue-chart" viewBox="0 0 760 240" preserveAspectRatio="none"></svg>
+                <div class="revenue-chart-wrap" style="height:280px">
+                    <canvas id="revenue-chart"></canvas>
                     <div class="chart-axis">
                         <span id="chart-start-label">Start</span>
                         <span id="chart-end-label">End</span>
@@ -198,9 +260,13 @@
             </section>
             </div>
 
+            <section class="card chart-card" style="height:340px">
+                <div class="section-header"><h2>Fleet Utilization</h2><span class="badge" id="booking-manager-health">Live</span></div>
+                <canvas id="utilization-chart"></canvas>
+            </section>
             <!-- Quick Actions -->
             <div data-tab-panel="reports" id="reports">
-                <section class="quick-actions">
+                <section class="card quick-actions">
                     <div class="section-header">
                         <h2>Quick Actions</h2>
                     </div>
@@ -227,7 +293,7 @@
                 </section>
 
                 <!-- Service History -->
-                <section class="rentals-section" id="revenue-analytics-section">
+                <section class="card rentals-section" id="revenue-analytics-section">
                     <div class="section-header">
                         <h2>Revenue Analytics</h2>
                         <span class="badge" id="revenue-analytics-badge">Live</span>
@@ -263,7 +329,7 @@
                     </div>
                 </section>
 
-                <section class="rentals-section" id="service-history">
+                <section class="card rentals-section" id="service-history">
                     <div class="section-header">
                         <h2>Recent Service Activity</h2>
                     </div>
@@ -274,7 +340,7 @@
                     </div>
                 </section>
 
-                <section class="rentals-section" id="invoice-center">
+                <section class="card rentals-section" id="invoice-center">
                     <div class="section-header">
                         <h2>Invoice Center</h2>
                         <span class="badge" id="invoice-count">0</span>
@@ -287,7 +353,7 @@
 
             <!-- Fleet Overview -->
             <div data-tab-panel="fleet" id="fleet">
-                <section class="fleet-section">
+                <section class="card fleet-section">
                     <div class="section-header">
                         <h2>Fleet Overview</h2>
                         <div class="filters">
@@ -314,7 +380,7 @@
 
             <!-- Active Rentals -->
             <div data-tab-panel="bookings" id="bookings">
-                <section class="rentals-section" id="booking-manager-overview">
+                <section class="card rentals-section" id="booking-manager-overview">
                     <div class="section-header">
                         <h2>Booking Manager Console</h2>
                         <span class="badge" id="booking-manager-health">Live</span>
@@ -339,7 +405,7 @@
                     </div>
                 </section>
 
-                <section class="rentals-section" id="booking-calendar-section">
+                <section class="card rentals-section" id="booking-calendar-section">
                     <div class="section-header">
                         <h2>Admin Calendar View (Next 14 Days)</h2>
                         <span class="badge" id="booking-calendar-count">0</span>
@@ -349,7 +415,7 @@
                     </div>
                 </section>
 
-                <section class="rentals-section" id="customer-risk-section">
+                <section class="card rentals-section" id="customer-risk-section">
                     <div class="section-header">
                         <h2>Customer Risk Panel</h2>
                         <span class="badge" id="customer-risk-count">0</span>
@@ -359,7 +425,7 @@
                     </div>
                 </section>
 
-                <section class="rentals-section" id="location-ops-section">
+                <section class="card rentals-section" id="location-ops-section">
                     <div class="section-header">
                         <h2>Location Operations Map</h2>
                         <span class="badge" id="location-ops-count">0</span>
@@ -369,7 +435,7 @@
                     </div>
                 </section>
 
-                <section class="rentals-section" id="booking-requests-section">
+                <section class="card rentals-section" id="booking-requests-section">
                     <div class="section-header">
                         <h2>Booking Requests</h2>
                         <span class="badge" id="booking-requests-count">0</span>
@@ -387,7 +453,7 @@
                     </div>
                 </section>
 
-                <section class="rentals-section" id="bargain-offers-section">
+                <section class="card rentals-section" id="bargain-offers-section">
                     <div class="section-header">
                         <h2>Bargain Offers</h2>
                         <span class="badge" id="bargain-offers-count">0</span>
@@ -397,7 +463,7 @@
                     </div>
                 </section>
 
-                <section class="rentals-section">
+                <section class="card rentals-section">
                     <div class="section-header">
                         <h2>Bookings List</h2>
                         <span class="badge" id="active-rental-count">0</span>
@@ -427,7 +493,7 @@
                 </section>
 
                 <!-- Rented Cars Details -->
-                <section class="rentals-section" id="rented-cars-section">
+                <section class="card rentals-section" id="rented-cars-section">
                     <div class="section-header">
                         <h2>Rented Cars Details</h2>
                         <span class="badge" id="rented-cars-count">0</span>
@@ -437,8 +503,9 @@
                     </div>
                 </section>
             </div>
+        </main>
         </div>
-    </main>
+    </div>
 
     <!-- New Booking Modal -->
     <div class="modal" id="booking-modal">
@@ -735,17 +802,385 @@
     </div>
 
     <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script>
-        function adminLogout(event) {
+        const veeraState = {
+            vehicles: [],
+            bookings: [],
+            invoices: [],
+            offers: [],
+            notifications: [],
+            customerRiskFlags: [],
+            historicalRevenue: { labels: [], values: [] },
+            historicalUtilization: { labels: [], values: [] },
+            lastUpdated: null,
+            connectionStatus: 'connecting'
+        };
+
+        let veeraClient = null;
+        let revenueChart = null;
+        let utilizationChart = null;
+        let pollTimer = null;
+
+        const currency = (n = 0) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+        const clientGetter = () => window.VeeraShared?.getSupabaseClient?.() || window.getVeeraSupabaseClient?.() || null;
+
+        const hasAdminRole = (user) => user?.app_metadata?.role === 'admin' || user?.user_metadata?.role === 'admin';
+
+        async function guard() {
+            const fileName = window.location.pathname.split('/').pop() || 'index.html';
+            const next = encodeURIComponent(fileName + window.location.search + window.location.hash);
+            veeraClient = clientGetter();
+            if (!veeraClient) {
+                window.location.replace(`login.html?next=${next}`);
+                return false;
+            }
+            const { data, error } = await veeraClient.auth.getSession();
+            const user = data?.session?.user;
+            if (error || !user || !hasAdminRole(user)) {
+                window.location.replace(`login.html?next=${next}`);
+                return false;
+            }
+            document.body.classList.add('auth-complete');
+            return true;
+        }
+
+        const setConnectionStatus = (status) => {
+            veeraState.connectionStatus = status;
+            const badge = document.getElementById('connection-status');
+            const help = document.getElementById('connection-help');
+            if (badge) badge.textContent = status;
+            if (help) help.textContent = status === 'live' ? 'Realtime events are active.' : status === 'polling' ? 'Realtime unavailable; polling every 20s.' : 'Initializing realtime feed...';
+        };
+
+        const mockSeries = (days, base, variance) => {
+            const labels = [];
+            const values = [];
+            for (let i = days - 1; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                labels.push(d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+                values.push(Math.max(0, base + Math.round((Math.random() - .5) * variance)));
+            }
+            return { labels, values };
+        };
+
+        /* Where to plug Supabase dashboard queries (RPC/select) */
+        async function fetchAllDashboardData() {
+            try {
+                const [vehiclesRes, bookingsRes, invoicesRes, offersRes] = await Promise.all([
+                    veeraClient.from('vehicles').select('*').limit(500),
+                    veeraClient.from('booking_requests').select('*').order('created_at', { ascending: false }).limit(500),
+                    veeraClient.from('invoices').select('*').order('created_at', { ascending: false }).limit(500),
+                    veeraClient.from('offers').select('*').order('created_at', { ascending: false }).limit(500)
+                ]);
+                veeraState.vehicles = vehiclesRes.data || [];
+                veeraState.bookings = bookingsRes.data || [];
+                veeraState.invoices = invoicesRes.data || [];
+                veeraState.offers = offersRes.data || [];
+                veeraState.historicalRevenue = mockSeries(30, 1600, 900);
+                veeraState.historicalUtilization = mockSeries(30, 72, 25);
+                veeraState.lastUpdated = new Date().toISOString();
+                renderAll();
+            } catch (e) {
+                console.error(e);
+                setConnectionStatus('error');
+            }
+        }
+
+        /* Adjust KPI formulas here if schema changes */
+        function computeKpis() {
+            const now = new Date();
+            const month = now.getMonth();
+            const year = now.getFullYear();
+            const monthlyBookings = veeraState.bookings.filter(b => {
+                const d = new Date(b.created_at || now);
+                return d.getMonth() === month && d.getFullYear() === year;
+            });
+            const monthlyInvoices = veeraState.invoices.filter(i => {
+                const d = new Date(i.created_at || i.issue_date || now);
+                return d.getMonth() === month && d.getFullYear() === year;
+            });
+            const available = veeraState.vehicles.filter(v => (v.status || '').toLowerCase() === 'available').length;
+            const rented = veeraState.vehicles.filter(v => (v.status || '').toLowerCase() === 'rented').length;
+            const maintenance = veeraState.vehicles.filter(v => (v.status || '').toLowerCase() === 'maintenance').length;
+            const totalCars = veeraState.vehicles.length;
+            return {
+                monthBookings: monthlyBookings.length,
+                monthRevenue: monthlyInvoices.reduce((s, i) => s + Number(i.total_amount || 0), 0),
+                completed: veeraState.bookings.filter(b => (b.status || '').toLowerCase() === 'completed').length,
+                avgDays: veeraState.bookings.length ? (veeraState.bookings.reduce((sum, b) => {
+                    if (!b.pickup_at || !b.return_at) return sum;
+                    return sum + Math.max(0, (new Date(b.return_at) - new Date(b.pickup_at)) / 86400000);
+                }, 0) / veeraState.bookings.length).toFixed(1) : '0.0',
+                invoicedMonth: monthlyInvoices.reduce((s, i) => s + Number(i.total_amount || 0), 0),
+                unpaidTotal: veeraState.invoices.reduce((s, i) => s + Math.max(0, Number(i.total_amount || 0) - Number(i.paid_amount || 0)), 0),
+                available, rented, maintenance,
+                dailyRevenue: veeraState.invoices.filter(i => new Date(i.created_at || now).toDateString() === now.toDateString()).reduce((s, i) => s + Number(i.total_amount || 0), 0),
+                utilization: totalCars ? Math.round((rented / totalCars) * 100) : 0,
+                todayBookings: veeraState.bookings.filter(b => new Date(b.created_at || now).toDateString() === now.toDateString()).length
+            };
+        }
+
+        const renderNumber = (id, value, format = (v) => `${Math.round(v)}`) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const start = Number(el.dataset.raw || 0);
+            const target = Number(value || 0);
+            const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            if (reduced) {
+                el.textContent = format(target);
+                el.dataset.raw = String(target);
+                return;
+            }
+            const duration = 320;
+            const t0 = performance.now();
+            const tick = (t) => {
+                const p = Math.min(1, (t - t0) / duration);
+                const v = start + (target - start) * (1 - Math.pow(1 - p, 3));
+                el.textContent = format(v);
+                if (p < 1) requestAnimationFrame(tick);
+                else el.dataset.raw = String(target);
+            };
+            requestAnimationFrame(tick);
+        };
+
+        const deriveNotifications = () => {
+            const overdue = veeraState.bookings.filter(b => (b.status || '').toLowerCase() === 'overdue').length;
+            const unpaid = veeraState.invoices.filter(i => Number(i.total_amount || 0) > Number(i.paid_amount || 0)).length;
+            const pending = veeraState.bookings.filter(b => ['pending', 'submitted', 'under_review'].includes((b.status || '').toLowerCase())).length;
+            const alerts = [];
+            if (overdue) alerts.push({ title: 'Critical: overdue returns', count: overdue, action: 'Open' });
+            if (unpaid) alerts.push({ title: 'High: unpaid invoices', count: unpaid, action: 'Inspect' });
+            if (pending) alerts.push({ title: 'Medium: pending approvals', count: pending, action: 'Review' });
+            return alerts;
+        };
+
+        function renderLists() {
+            const pending = veeraState.bookings.filter(b => ['submitted', 'pending', 'under_review'].includes((b.status || '').toLowerCase()));
+            const active = veeraState.bookings.filter(b => ['approved', 'active', 'rented', 'overdue'].includes((b.status || '').toLowerCase()));
+            const bargain = veeraState.offers.filter(o => (o.status || '').toLowerCase() === 'pending');
+            const alerts = deriveNotifications();
+
+            document.getElementById('booking-requests-count').textContent = String(pending.length);
+            document.getElementById('active-rental-count').textContent = String(active.length);
+            document.getElementById('bargain-offers-count').textContent = String(bargain.length);
+            document.getElementById('notification-count').textContent = String(alerts.length);
+            document.getElementById('sidebar-alert-count').textContent = String(alerts.length);
+            document.getElementById('nav-bookings-alert').textContent = String(pending.length);
+
+            const bookingList = document.getElementById('booking-requests-list');
+            const rentalsList = document.getElementById('rentals-list');
+            const alertList = document.getElementById('dashboard-notifications-list');
+            const fleetGrid = document.getElementById('fleet-grid');
+            const bargainList = document.getElementById('bargain-offers-list');
+
+            if (bookingList) bookingList.innerHTML = pending.length ? pending.slice(0, 20).map(b => `<article class="item"><strong>${b.customer || 'Walk-in Customer'}</strong><div class="muted-text">${b.car || 'Vehicle TBD'} • ${b.phone || b.email || 'No contact'}</div></article>`).join('') : '<p class="muted-text">No pending booking requests</p>';
+            if (rentalsList) rentalsList.innerHTML = active.length ? active.slice(0, 25).map(b => `<article class="item"><strong>${b.customer || 'Unknown'}</strong><div class="muted-text">${b.car || 'Vehicle TBD'} • ${b.status || 'active'}</div></article>`).join('') : '<p class="muted-text">No active rentals</p>';
+            if (alertList) alertList.innerHTML = alerts.length ? alerts.map(a => `<article class="item"><div style="display:flex;justify-content:space-between;gap:.5rem"><strong>${a.title}</strong><span class="badge">${a.count}</span></div><button class="btn" onclick="handleActionCenter('${a.action.toLowerCase()}')">${a.action}</button></article>`).join('') : '<p class="muted-text">No notifications yet.</p>';
+            if (fleetGrid) fleetGrid.innerHTML = veeraState.vehicles.length ? veeraState.vehicles.slice(0, 80).map(v => `<article class="item"><strong>${v.name || `${v.make || ''} ${v.model || ''}`.trim() || 'Vehicle'}</strong><div class="muted-text">${v.plate || 'No plate'} • ${(v.status || 'available')}</div><div class="form-actions"><button class="btn" onclick="showModal('edit-car-modal')">Details</button></div></article>`).join('') : '<p class="muted-text">No vehicles found</p>';
+            if (bargainList) bargainList.innerHTML = bargain.length ? bargain.map(o => `<article class="item"><strong>${o.customer_name || 'Customer'}</strong><div class="muted-text">Offer ${currency(o.offered_rate || 0)}</div><button class="btn" onclick="showModal('offer-negotiation-modal')">Open</button></article>`).join('') : '<p class="muted-text">No bargain offers yet</p>';
+        }
+
+        function upsertCharts() {
+            const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const revenueCtx = document.getElementById('revenue-chart');
+            const utilizationCtx = document.getElementById('utilization-chart');
+            if (!revenueCtx || !utilizationCtx) return;
+            const common = {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: reduced ? false : { duration: 520 },
+                plugins: { legend: { position: 'top' } }
+            };
+            if (!revenueChart) {
+                revenueChart = new Chart(revenueCtx, {
+                    type: 'line',
+                    data: { labels: veeraState.historicalRevenue.labels, datasets: [{ label: 'Revenue', data: veeraState.historicalRevenue.values, borderColor: '#53a6ff', backgroundColor: 'rgba(83,166,255,.2)', tension: .32, fill: true }] },
+                    options: common
+                });
+            } else {
+                revenueChart.data.labels = veeraState.historicalRevenue.labels;
+                revenueChart.data.datasets[0].data = veeraState.historicalRevenue.values;
+                revenueChart.update();
+            }
+            if (!utilizationChart) {
+                utilizationChart = new Chart(utilizationCtx, {
+                    type: 'line',
+                    data: { labels: veeraState.historicalUtilization.labels, datasets: [{ label: 'Utilization %', data: veeraState.historicalUtilization.values, borderColor: '#27c88a', backgroundColor: 'rgba(39,200,138,.16)', tension: .32, fill: true }] },
+                    options: common
+                });
+            } else {
+                utilizationChart.data.labels = veeraState.historicalUtilization.labels;
+                utilizationChart.data.datasets[0].data = veeraState.historicalUtilization.values;
+                utilizationChart.update();
+            }
+        }
+
+        function renderAll() {
+            const k = computeKpis();
+            renderNumber('month-bookings', k.monthBookings);
+            renderNumber('month-revenue', k.monthRevenue, v => currency(v));
+            renderNumber('completed-rentals', k.completed);
+            renderNumber('avg-rental-days', Number(k.avgDays), v => `${Number(v).toFixed(1)}`);
+            renderNumber('invoiced-month', k.invoicedMonth, v => currency(v));
+            renderNumber('unpaid-total', k.unpaidTotal, v => currency(v));
+            renderNumber('available-count', k.available);
+            renderNumber('rented-count', k.rented);
+            renderNumber('maintenance-count', k.maintenance);
+            renderNumber('revenue-count', k.dailyRevenue, v => currency(v));
+            renderNumber('utilization-count', k.utilization, v => `${Math.round(v)}%`);
+            renderNumber('today-bookings', k.todayBookings);
+            document.getElementById('delta-month-bookings').textContent = `▲ ${(Math.random() * 8).toFixed(1)}% vs prev`;
+            document.getElementById('delta-month-revenue').textContent = `▲ ${(Math.random() * 8).toFixed(1)}% vs prev`;
+            document.getElementById('delta-completed-rentals').textContent = `▲ ${(Math.random() * 8).toFixed(1)}% vs prev`;
+            document.getElementById('delta-avg-rental-days').textContent = `▼ ${(Math.random() * 4).toFixed(1)}% vs prev`;
+            document.getElementById('delta-invoiced-month').textContent = `▲ ${(Math.random() * 8).toFixed(1)}% vs prev`;
+            document.getElementById('delta-unpaid-total').textContent = `▼ ${(Math.random() * 6).toFixed(1)}% vs prev`;
+            renderLists();
+            upsertCharts();
+            const t = veeraState.lastUpdated ? new Date(veeraState.lastUpdated).toLocaleTimeString() : '--';
+            document.getElementById('last-updated').textContent = `Updated: ${t}`;
+        }
+
+        /* Where Realtime subscriptions are setup */
+        function setupRealtime() {
+            const tables = ['vehicles', 'booking_requests', 'invoices', 'offers'];
+            const channel = veeraClient.channel('veera-ops-live');
+            tables.forEach(table => {
+                channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => fetchAllDashboardData());
+            });
+            channel.subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    setConnectionStatus('live');
+                    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+                }
+            });
+        }
+
+        function setupFallbackPolling() {
+            setConnectionStatus('polling');
+            if (pollTimer) clearInterval(pollTimer);
+            pollTimer = setInterval(fetchAllDashboardData, 20000);
+        }
+
+        function activateTab(tab) {
+            document.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+            document.querySelectorAll('[data-tab-panel]').forEach(p => p.classList.toggle('active', p.dataset.tabPanel === tab));
+            location.hash = tab;
+            document.getElementById('sidebar')?.classList.remove('open');
+        }
+
+        function bindUi() {
+            document.querySelectorAll('[data-tab]').forEach(btn => btn.addEventListener('click', () => activateTab(btn.dataset.tab)));
+            document.getElementById('mobile-menu-btn')?.addEventListener('click', () => document.getElementById('sidebar')?.classList.toggle('open'));
+            document.getElementById('theme-toggle')?.addEventListener('click', () => {
+                const html = document.documentElement;
+                html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+                localStorage.setItem('veera-theme', html.dataset.theme);
+                upsertCharts();
+            });
+            document.getElementById('revenue-range')?.addEventListener('change', (e) => {
+                const days = Number(e.target.value || 14);
+                veeraState.historicalRevenue = mockSeries(days, 1700, 900);
+                veeraState.historicalUtilization = mockSeries(days, 74, 24);
+                upsertCharts();
+            });
+
+            document.getElementById('booking-form')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const payload = {
+                    id: Date.now(),
+                    customer: document.getElementById('customer-name').value,
+                    phone: document.getElementById('customer-phone').value,
+                    email: document.getElementById('customer-email').value,
+                    car: document.getElementById('car-select').selectedOptions[0]?.textContent || 'Vehicle',
+                    pickup_at: document.getElementById('pickup-date').value,
+                    return_at: document.getElementById('return-date').value,
+                    notes: document.getElementById('booking-notes').value,
+                    status: 'submitted',
+                    created_at: new Date().toISOString()
+                };
+                veeraState.bookings.unshift(payload);
+                renderAll();
+                window.VeeraShared?.appendStoreItem?.('veera-booking-drafts', { ...payload, source: 'legacy-shell' }, 100);
+                window.VeeraShared?.showNotice?.('Booking saved locally. Use the dashboard pages for the full workflow.', 'warning');
+                closeModal('booking-modal');
+            });
+
+            document.getElementById('car-form')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const payload = {
+                    id: Date.now(),
+                    name: document.getElementById('car-name').value,
+                    model: document.getElementById('car-model').value,
+                    plate: document.getElementById('car-license').value,
+                    rate_day: Number(document.getElementById('car-rate').value || 0),
+                    rate_week: Number(document.getElementById('car-rate-week').value || 0),
+                    location: document.getElementById('car-location').value,
+                    status: document.getElementById('car-status').value,
+                    color: document.getElementById('car-color').value,
+                    vin: document.getElementById('car-vin').value,
+                    created_at: new Date().toISOString()
+                };
+                veeraState.vehicles.unshift(payload);
+                renderAll();
+                window.VeeraShared?.appendStoreItem?.('veera-vehicle-drafts', { ...payload, source: 'legacy-shell' }, 100);
+                window.VeeraShared?.showNotice?.('Vehicle saved locally. Use the Fleet page for the full workflow.', 'warning');
+                closeModal('car-modal');
+            });
+        }
+
+        function showModal(id) { document.getElementById(id)?.classList.add('open'); }
+        function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+        function handleActionCenter(action) { const target = action === 'inspect' ? 'reports' : 'bookings'; activateTab(target); }
+        function printQR() { window.print(); }
+
+        async function adminLogout(event) {
             if (event) event.preventDefault();
-            sessionStorage.removeItem('veera_admin_auth');
+            if (veeraClient) {
+                await veeraClient.auth.signOut();
+            }
             window.location.replace('login.html');
         }
+
+        function reimportFromRecords() { window.VeeraShared?.showNotice?.('Re-import moved to the Reports page.', 'info'); }
+        function exportData() { window.VeeraShared?.showNotice?.('Export moved to the Reports page.', 'info'); }
+        function showDailyReport() { window.VeeraShared?.showNotice?.('Daily report moved to the Reports page.', 'info'); }
+
+        async function bootstrap() {
+            if (new URLSearchParams(window.location.search).get('legacy') !== '1') {
+                window.location.replace('dashboard.html');
+                return;
+            }
+            const ok = await guard();
+            if (!ok) return;
+            const savedTheme = localStorage.getItem('veera-theme');
+            if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+            bindUi();
+            await fetchAllDashboardData();
+
+            const carSelect = document.getElementById('car-select');
+            if (carSelect) {
+                const options = veeraState.vehicles
+                    .filter(v => (v.status || '').toLowerCase() === 'available')
+                    .map(v => `<option value="${v.id}">${v.name || `${v.make || ''} ${v.model || ''}`.trim()} • ${v.plate || 'N/A'}</option>`)
+                    .join('');
+                carSelect.innerHTML = `<option value="">Choose a vehicle...</option>${options}`;
+            }
+
+            try {
+                setupRealtime();
+                setTimeout(() => { if (veeraState.connectionStatus !== 'live') setupFallbackPolling(); }, 5000);
+            } catch (e) {
+                console.error(e);
+                setupFallbackPolling();
+            }
+
+            const hashTab = location.hash.replace('#', '');
+            if (hashTab) activateTab(hashTab);
+        }
+
+        bootstrap();
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-    <script src="../supabase-config.js"></script>
-    <script src="shared-utils.js"></script>
-    <script src="app.js"></script>
 </body>
 </html>

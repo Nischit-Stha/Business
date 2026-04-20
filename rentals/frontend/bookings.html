@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veera Rentals • Bookings</title>
+    <meta name="description" content="Veera Rentals booking management, active rentals, and customer requests.">
+    <script src="../supabase-config.js"></script>
+    <script src="shared-utils.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --font-body: 'Inter', sans-serif;
+            --font-display: 'Poppins', sans-serif;
+            --sidebar-w: 260px;
+            --space-2: .5rem;
+            --space-3: .75rem;
+            --space-4: 1rem;
+            --space-5: 1.25rem;
+            --space-6: 1.5rem;
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        html[data-theme="dark"] {
+            --bg: #0f141d;
+            --elev: #161c27;
+            --card: #1b2330;
+            --card2: #212c3c;
+            --text: #e9edf5;
+            --muted: #9aa7ba;
+            --border: #2b374b;
+            --primary: #53a6ff;
+            --success: #27c88a;
+            --warning: #f8b84e;
+            --danger: #ff6f7d;
+        }
+        html[data-theme="light"] {
+            --bg: #f3f6fb;
+            --elev: #ffffff;
+            --card: #ffffff;
+            --card2: #f8fbff;
+            --text: #151d2c;
+            --muted: #5e6b7e;
+            --border: #d6e0ef;
+            --primary: #0069d9;
+            --success: #1d9f70;
+            --warning: #c78924;
+            --danger: #d84b61;
+        }
+        * { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; }
+        body { background: var(--bg); color: var(--text); font-family: var(--font-body); }
+        body:not(.auth-complete) .app-container { opacity: 0; pointer-events: none; }
+        .app-container { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; }
+        .sidebar { background: linear-gradient(180deg, var(--elev), var(--card)); border-right: 1px solid var(--border); padding: var(--space-5); display: grid; gap: var(--space-5); overflow-y: auto; }
+        .sidebar h1 { margin: 0; font-family: var(--font-display); font-size: 1.3rem; }
+        .sidebar-nav { display: grid; gap: var(--space-2); }
+        .sidebar-link { border: 1px solid var(--border); background: var(--card2); color: var(--text); border-radius: var(--radius-sm); padding: .55rem .85rem; cursor: pointer; text-decoration: none; display: block; text-align: left; }
+        .sidebar-link.active { background: var(--primary); color: #fff; border-color: transparent; }
+        .main-col { display: grid; grid-template-rows: auto 1fr; }
+        .top-header { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--elev) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); padding: .8rem var(--space-6); display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
+        .main-scroll { overflow-y: auto; padding: var(--space-6); display: grid; gap: var(--space-6); }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4); }
+        .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+        .badge { border: 1px solid var(--border); border-radius: 999px; padding: .2rem .55rem; font-size: .75rem; color: var(--muted); }
+        .btn { border: 1px solid var(--border); background: var(--card2); color: var(--text); border-radius: var(--radius-sm); cursor: pointer; padding: .55rem .85rem; }
+        .btn-icon { width: 38px; height: 38px; display: grid; place-items: center; background: var(--card2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
+        .btn-primary { background: var(--primary); color: #fff; border-color: transparent; }
+        .muted-text { color: var(--muted); font-size: .85rem; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); }
+        .filters, .control-bar { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+        input, select { width: 100%; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card); color: var(--text); padding: .55rem .65rem; font: inherit; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(3,6,10,.62); z-index: 30; align-items: center; justify-content: center; padding: var(--space-5); }
+        .modal.open { display: flex; }
+        .modal-content { width: min(920px, 96vw); max-height: 90vh; overflow: auto; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-5); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); }
+        .close-btn { border: 1px solid var(--border); background: var(--card2); color: var(--text); border-radius: var(--radius-sm); width: 36px; height: 36px; cursor: pointer; }
+        .stack-list { display: grid; gap: var(--space-3); }
+        .item { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card2); padding: .8rem; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+        .full-width { grid-column: 1 / -1; }
+        .form-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-4); flex-wrap: wrap; }
+        @media (max-width: 980px) {
+            .app-container { grid-template-columns: 1fr; }
+            .sidebar { position: fixed; left: -100%; width: var(--sidebar-w); top: 0; bottom: 0; z-index: 40; transition: left .22s ease; }
+            .sidebar.open { left: 0; }
+            .grid-2 { grid-template-columns: 1fr; }
+            .main-scroll { padding: var(--space-4); }
+            .form-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar" id="sidebar">
+            <div>
+                <h1>Veera Rentals</h1>
+                <p class="muted-text" style="margin:.2rem 0 0">Operations</p>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" class="sidebar-link">Dashboard</a>
+                <a href="bookings.html" class="sidebar-link active">Bookings</a>
+                <a href="fleet.html" class="sidebar-link">Fleet</a>
+                <a href="reports.html" class="sidebar-link">Reports</a>
+            </nav>
+        </aside>
+        <div class="main-col">
+            <header class="top-header">
+                <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
+                    <button class="btn-icon" id="mobile-menu-btn" style="display:none" aria-label="Toggle sidebar">☰</button>
+                    <strong>Bookings • Rental Management</strong>
+                </div>
+                <div style="display:flex;align-items:center;gap:.5rem">
+                    <button class="btn-icon" id="theme-toggle" aria-label="Toggle theme">🌓</button>
+                    <button class="btn" onclick="adminLogout(event)">Logout</button>
+                </div>
+            </header>
+            <main class="main-scroll">
+                <section class="card">
+                    <div class="section-header">
+                        <h2>Booking Manager Overview</h2>
+                        <span class="badge" id="booking-manager-health">Live</span>
+                    </div>
+                    <div class="grid-2">
+                        <article class="item"><p class="muted-text">Pending Requests</p><h3 id="bm-pending" style="margin:.25rem 0 0">0</h3></article>
+                        <article class="item"><p class="muted-text">Active Rentals</p><h3 id="bm-active" style="margin:.25rem 0 0">0</h3></article>
+                        <article class="item"><p class="muted-text" style="color:var(--danger)">Overdue Returns</p><h3 id="bm-overdue" style="margin:.25rem 0 0">0</h3></article>
+                        <article class="item"><p class="muted-text">Due Next 24h</p><h3 id="bm-due-soon" style="margin:.25rem 0 0">0</h3></article>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <div class="section-header">
+                        <h2>Booking Requests</h2>
+                        <span class="badge" id="booking-requests-count">0</span>
+                    </div>
+                    <div class="control-bar">
+                        <input type="text" id="request-search" placeholder="Search by customer, phone, email..." style="flex:1">
+                        <select id="request-sort">
+                            <option value="newest">Sort: Newest</option>
+                            <option value="pickup-soon">Sort: Pickup Soonest</option>
+                            <option value="customer">Sort: Customer (A-Z)</option>
+                        </select>
+                    </div>
+                    <div id="booking-requests-list" class="stack-list" style="margin-top:var(--space-4)">
+                        <p class="muted-text">No pending booking requests</p>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <div class="section-header">
+                        <h2>Active Rentals</h2>
+                        <span class="badge" id="active-rental-count">0</span>
+                    </div>
+                    <div class="filters" style="margin-bottom:var(--space-4)">
+                        <button class="btn active" data-track="all">All Active</button>
+                        <button class="btn" data-track="overdue">Overdue</button>
+                        <button class="btn" data-track="due-soon">Due 24h</button>
+                        <button class="btn" data-track="return-today">Return Today</button>
+                    </div>
+                    <div class="control-bar">
+                        <input type="text" id="booking-search" placeholder="Search by customer, phone, car, plate..." style="flex:1">
+                        <select id="booking-sort">
+                            <option value="recent">Sort: Newest First</option>
+                            <option value="return-soon">Sort: Return Soonest</option>
+                            <option value="customer-asc">Sort: Customer (A-Z)</option>
+                        </select>
+                    </div>
+                    <div class="rentals-list" id="rentals-list" style="margin-top:var(--space-4)">
+                        <p class="muted-text">No active rentals</p>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <div class="section-header">
+                        <h2>Bargain Offers</h2>
+                        <span class="badge" id="bargain-offers-count">0</span>
+                    </div>
+                    <div id="bargain-offers-list" class="stack-list">
+                        <p class="muted-text">No bargain offers yet</p>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <div class="section-header">
+                        <h2>Customer Risk Panel</h2>
+                        <span class="badge" id="customer-risk-count">0</span>
+                    </div>
+                    <div id="customer-risk-list" class="stack-list">
+                        <p class="muted-text">No customer risk flags right now.</p>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <div class="section-header">
+                        <h2>Quick Actions</h2>
+                    </div>
+                    <div class="filters">
+                        <button class="btn btn-primary" onclick="showModal('booking-modal')">New Booking</button>
+                        <a class="btn btn-primary" href="scanner.html" style="text-decoration:none">Customer Service Portal</a>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- New Booking Modal -->
+    <div class="modal" id="booking-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create New Booking</h2>
+                <button class="close-btn" onclick="closeModal('booking-modal')">&times;</button>
+            </div>
+            <form id="booking-form" class="form">
+                <div class="form-grid">
+                    <div>
+                        <label>Customer Name *</label>
+                        <input type="text" id="customer-name" required>
+                    </div>
+                    <div>
+                        <label>Phone Number *</label>
+                        <input type="tel" id="customer-phone" required>
+                    </div>
+                    <div class="full-width">
+                        <label>Email Address *</label>
+                        <input type="email" id="customer-email" required>
+                    </div>
+                    <div class="full-width">
+                        <label>Select Vehicle *</label>
+                        <select id="car-select" required>
+                            <option value="">Choose a vehicle...</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Pickup Date & Time *</label>
+                        <input type="datetime-local" id="pickup-date" required>
+                    </div>
+                    <div>
+                        <label>Return Date & Time *</label>
+                        <input type="datetime-local" id="return-date" required>
+                    </div>
+                    <div class="full-width">
+                        <label>Additional Notes</label>
+                        <textarea id="booking-notes" rows="3" placeholder="Any special requirements..." style="width:100%;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--card);color:var(--text);padding:.55rem .65rem;font-family:inherit"></textarea>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn" onclick="closeModal('booking-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Booking</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let veeraClient = null;
+        const veeraState = { vehicles: [], bookings: [], invoices: [], offers: [] };
+
+        const clientGetter = () => window.VeeraShared?.getSupabaseClient?.() || window.getVeeraSupabaseClient?.() || null;
+        const hasAdminRole = (user) => user?.app_metadata?.role === 'admin' || user?.user_metadata?.role === 'admin';
+
+        async function guard() {
+            veeraClient = clientGetter();
+            if (!veeraClient) {
+                window.location.replace('login.html?next=bookings.html');
+                return false;
+            }
+            const { data, error } = await veeraClient.auth.getSession();
+            const user = data?.session?.user;
+            if (error || !user || !hasAdminRole(user)) {
+                window.location.replace('login.html?next=bookings.html');
+                return false;
+            }
+            document.body.classList.add('auth-complete');
+            return true;
+        }
+
+        async function fetchData() {
+            try {
+                const [v, b, i, o] = await Promise.all([
+                    veeraClient.from('vehicles').select('*').limit(500),
+                    veeraClient.from('booking_requests').select('*').order('created_at', { ascending: false }).limit(500),
+                    veeraClient.from('invoices').select('*').limit(500),
+                    veeraClient.from('offers').select('*').limit(500)
+                ]);
+                const localBookings = window.VeeraShared?.readStore?.('veera-booking-drafts', []) || [];
+                const mergeUnique = (items) => {
+                    const map = new Map();
+                    items.forEach(item => {
+                        const key = item?.id ?? `${item?.customer || ''}-${item?.created_at || ''}-${item?.car || ''}`;
+                        if (!map.has(key)) map.set(key, item);
+                    });
+                    return Array.from(map.values());
+                };
+                veeraState.vehicles = v.data || [];
+                veeraState.bookings = mergeUnique([...(b.data || []), ...localBookings]);
+                veeraState.invoices = i.data || [];
+                veeraState.offers = o.data || [];
+                render();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function render() {
+            const pending = veeraState.bookings.filter(b => ['submitted', 'pending', 'under_review'].includes((b.status || '').toLowerCase()));
+            const active = veeraState.bookings.filter(b => ['approved', 'active', 'rented', 'overdue'].includes((b.status || '').toLowerCase()));
+            const overdue = veeraState.bookings.filter(b => (b.status || '').toLowerCase() === 'overdue');
+            const bargain = veeraState.offers.filter(o => (o.status || '').toLowerCase() === 'pending');
+
+            document.getElementById('booking-requests-count').textContent = String(pending.length);
+            document.getElementById('active-rental-count').textContent = String(active.length);
+            document.getElementById('bm-pending').textContent = String(pending.length);
+            document.getElementById('bm-active').textContent = String(active.length);
+            document.getElementById('bm-overdue').textContent = String(overdue.length);
+            document.getElementById('bm-due-soon').textContent = '0';
+            document.getElementById('bargain-offers-count').textContent = String(bargain.length);
+
+            const requestList = document.getElementById('booking-requests-list');
+            requestList.innerHTML = pending.length ? pending.slice(0, 20).map(b => `<article class="item"><strong>${b.customer || 'Walk-in'}</strong><div class="muted-text">${b.car || 'TBD'} • ${b.phone || b.email || 'No contact'}</div></article>`).join('') : '<p class="muted-text">No pending booking requests</p>';
+
+            const rentalList = document.getElementById('rentals-list');
+            rentalList.innerHTML = active.length ? active.slice(0, 25).map(b => `<article class="item"><strong>${b.customer || 'Unknown'}</strong><div class="muted-text">${b.car || 'TBD'} • ${b.status || 'active'}</div></article>`).join('') : '<p class="muted-text">No active rentals</p>';
+
+            const bargainList = document.getElementById('bargain-offers-list');
+            bargainList.innerHTML = bargain.length ? bargain.map(o => `<article class="item"><strong>${o.customer_name || 'Customer'}</strong><div class="muted-text">Offer ${o.offered_rate || '0'}</div></article>`).join('') : '<p class="muted-text">No bargain offers yet</p>';
+
+            const carSelect = document.getElementById('car-select');
+            if (carSelect) {
+                const available = veeraState.vehicles.filter(v => (v.status || '').toLowerCase() === 'available');
+                carSelect.innerHTML = `<option value="">Choose a vehicle...</option>${available.map(v => `<option value="${v.id}">${v.name || v.model} • ${v.plate}</option>`).join('')}`;
+            }
+        }
+
+        function bindUi() {
+            document.getElementById('theme-toggle')?.addEventListener('click', () => {
+                const html = document.documentElement;
+                html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+                localStorage.setItem('veera-theme', html.dataset.theme);
+            });
+            document.getElementById('mobile-menu-btn')?.addEventListener('click', () => {
+                document.getElementById('sidebar')?.classList.toggle('open');
+            });
+            document.getElementById('booking-form')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const payload = {
+                    id: Date.now(),
+                    customer: document.getElementById('customer-name').value.trim(),
+                    phone: document.getElementById('customer-phone').value.trim(),
+                    email: document.getElementById('customer-email').value.trim(),
+                    car: document.getElementById('car-select').selectedOptions[0]?.textContent || 'Vehicle',
+                    pickup_at: document.getElementById('pickup-date').value,
+                    return_at: document.getElementById('return-date').value,
+                    notes: document.getElementById('booking-notes').value.trim(),
+                    status: 'submitted',
+                    created_at: new Date().toISOString(),
+                    source: 'local-fallback'
+                };
+
+                try {
+                    if (veeraClient) {
+                        const { error } = await veeraClient.from('booking_requests').insert(payload);
+                        if (error) throw error;
+                    }
+                    window.VeeraShared?.appendStoreItem?.('veera-booking-drafts', payload, 100);
+                    veeraState.bookings.unshift(payload);
+                    render();
+                    window.VeeraShared?.showNotice?.('Booking saved successfully.', 'success');
+                } catch (error) {
+                    window.VeeraShared?.appendStoreItem?.('veera-booking-drafts', payload, 100);
+                    veeraState.bookings.unshift(payload);
+                    render();
+                    window.VeeraShared?.showNotice?.('Saved locally. Backend sync can be connected later.', 'warning');
+                    console.error('Booking save failed:', error);
+                }
+                closeModal('booking-modal');
+            });
+        }
+
+        function showModal(id) { document.getElementById(id)?.classList.add('open'); }
+        function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+
+        async function adminLogout(event) {
+            if (event) event.preventDefault();
+            if (veeraClient) await veeraClient.auth.signOut();
+            window.location.replace('login.html');
+        }
+
+        async function bootstrap() {
+            const ok = await guard();
+            if (!ok) return;
+            const savedTheme = localStorage.getItem('veera-theme');
+            if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+            bindUi();
+            await fetchData();
+        }
+
+        bootstrap();
+    </script>
+</body>
+</html>
