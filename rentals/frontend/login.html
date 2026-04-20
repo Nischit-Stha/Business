@@ -97,7 +97,7 @@
         const ADMIN_PASSWORD = 'Veera@2026';
 
         const params = new URLSearchParams(window.location.search);
-        const nextPath = params.get('next') || 'index.html';
+        const nextPath = params.get('next') || 'admin.html';
 
         if (sessionStorage.getItem(ADMIN_AUTH_KEY) === 'true') {
             window.location.replace(nextPath);

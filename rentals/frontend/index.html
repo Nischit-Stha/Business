@@ -8,9 +8,14 @@
     <script>
         (function () {
             const ADMIN_AUTH_KEY = 'veera_admin_auth';
-            if (sessionStorage.getItem(ADMIN_AUTH_KEY) === 'true') return;
-            const fileName = window.location.pathname.split('/').pop() || 'index.html';
-            const next = encodeURIComponent(fileName + window.location.search + window.location.hash);
+            const queryAndHash = window.location.search + window.location.hash;
+
+            if (sessionStorage.getItem(ADMIN_AUTH_KEY) === 'true') {
+                window.location.replace(`admin.html${queryAndHash}`);
+                return;
+            }
+
+            const next = encodeURIComponent(`admin.html${queryAndHash}`);
             window.location.replace(`login.html?next=${next}`);
         })();
     </script>

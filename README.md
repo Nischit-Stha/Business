@@ -63,8 +63,8 @@ python -m http.server 8080
 
 Open:
 - Landing: `http://localhost:8080/index.html`
-- Rentals: `http://localhost:8080/rentals/frontend/index.html`
 - Admin: `http://localhost:8080/rentals/frontend/admin.html`
+- Rentals legacy entry (redirects): `http://localhost:8080/rentals/frontend/index.html`
 - Service form: `http://localhost:8080/rentals/frontend/service.html`
 
 ## Developer Notes

@@ -4,8 +4,8 @@ Frontend for the Veera Rentals request workflow. The current model is request-dr
 
 ## Main Screens
 
-- [frontend/index.html](frontend/index.html): admin dashboard entry
-- [frontend/admin.html](frontend/admin.html): admin shell and navigation
+- [frontend/admin.html](frontend/admin.html): canonical admin dashboard shell and navigation
+- [frontend/index.html](frontend/index.html): legacy entry that redirects to admin login/dashboard
 - [frontend/admin-enhanced.js](frontend/admin-enhanced.js): request, customer, fleet, and report rendering
 - [frontend/service.html](frontend/service.html): pickup, drop-off, and swap request form
 - [frontend/service-details.html](frontend/service-details.html): confirmation page after submit
