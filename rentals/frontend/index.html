@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Veera Rentals • Operations Console</title>
     <meta name="description" content="Veera Rentals real-time operations console for bookings, fleet, invoices, risk, and analytics.">
+    <script>
+        (function redirectLegacyEntryEarly() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('legacy') === '1') return;
+            window.location.replace('dashboard.html');
+        })();
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="../supabase-config.js"></script>
     <script src="shared-utils.js"></script>
@@ -1148,10 +1155,6 @@
         function showDailyReport() { window.VeeraShared?.showNotice?.('Daily report moved to the Reports page.', 'info'); }
 
         async function bootstrap() {
-            if (new URLSearchParams(window.location.search).get('legacy') !== '1') {
-                window.location.replace('dashboard.html');
-                return;
-            }
             const ok = await guard();
             if (!ok) return;
             const savedTheme = localStorage.getItem('veera-theme');
