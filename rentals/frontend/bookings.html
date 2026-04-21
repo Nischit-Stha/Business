@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veera Rentals • Bookings</title>
+    <meta name="description" content="Veera Rentals booking management, active rentals, and customer requests.">
+        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <script src="../supabase-config.js"></script>
+    <script src="shared-utils.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --font-body: 'Inter', sans-serif;
+            --font-display: 'Poppins', sans-serif;
+            --sidebar-w: 260px;
+            --space-2: .5rem;
+            --space-3: .75rem;
+            --space-4: 1rem;
+            --space-5: 1.25rem;
+            --space-6: 1.5rem;
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        html[data-theme="dark"] {
+            --bg: #0f141d;
+            --elev: #161c27;
+            --card: #1b2330;
+            --card2: #212c3c;
+            --text: #e9edf5;
+            --muted: #9aa7ba;
+            --border: #2b374b;
+            --primary: #53a6ff;
+            --success: #27c88a;
+            --warning: #f8b84e;
+            --danger: #ff6f7d;
+        }
+        html[data-theme="light"] {
+            --bg: #f3f6fb;
+            --elev: #ffffff;
+            --card: #ffffff;
+            --card2: #f8fbff;
+            --text: #151d2c;
+            --muted: #5e6b7e;
+            --border: #d6e0ef;
+            --primary: #0069d9;
+            --success: #1d9f70;
+            --warning: #c78924;
+            --danger: #d84b61;
+        }
+        * { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; }
+        body { background: var(--bg); color: var(--text); font-family: var(--font-body); }
+        body:not(.auth-complete) .app-container { opacity: 0; pointer-events: none; }
+        .app-container { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; }
+        .sidebar { background: linear-gradient(180deg, var(--elev), var(--card)); border-right: 1px solid var(--border); padding: var(--space-5); display: grid; gap: var(--space-5); align-content: start; overflow-y: auto; }
+        .sidebar h1 { margin: 0; font-family: var(--font-display); font-size: 1.3rem; }
+        .sidebar-nav { display: grid; gap: var(--space-2); }
+        .sidebar-link { border: 1px solid var(--border); background: var(--card2); color: var(--text); border-radius: var(--radius-sm); padding: .55rem .85rem; cursor: pointer; text-decoration: none; display: block; text-align: left; }
+        .sidebar-link.active { background: var(--primary); color: #fff; border-color: transparent; }
+        .main-col { display: grid; grid-template-rows: auto 1fr; }
+        .top-header { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--elev) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); padding: .8rem var(--space-6); display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
+        .main-scroll { overflow-y: auto; padding: var(--space-6); display: grid; gap: var(--space-6); }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4); }
+        .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+        .badge { border: 1px solid var(--border); border-radius: 999px; padding: .2rem .55rem; font-size: .75rem; color: var(--muted); }
+        .btn { border: 1px solid var(--border); background: var(--card2); color: var(--text); border-radius: var(--radius-sm); cursor: pointer; padding: .55rem .85rem; }
+        .btn-icon { width: 38px; height: 38px; display: grid; place-items: center; background: var(--card2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
+        .btn-primary { background: var(--primary); color: #fff; border-color: transparent; }
+        .muted-text { color: var(--muted); font-size: .85rem; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); }
+        .filters, .control-bar { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+        input, select { width: 100%; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card); color: var(--text); padding: .55rem .65rem; font: inherit; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(3,6,10,.62); z-index: 30; align-items: center; justify-content: center; padding: var(--space-5); }
+        .modal.open { display: flex; }
+        .modal-content { width: min(920px, 96vw); max-height: 90vh; overflow: auto; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-5); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); }
+        .close-btn { border: 1px solid var(--border); background: var(--card2); color: var(--text); border-radius: var(--radius-sm); width: 36px; height: 36px; cursor: pointer; }
+        .stack-list { display: grid; gap: var(--space-3); }
+        .item { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card2); padding: .8rem; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+        .full-width { grid-column: 1 / -1; }
+        .form-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-4); flex-wrap: wrap; }
+        @media (max-width: 980px) {
+            .app-container { grid-template-columns: 1fr; }
+            .sidebar { position: fixed; left: -100%; width: var(--sidebar-w); top: 0; bottom: 0; z-index: 40; transition: left .22s ease; }
+            .sidebar.open { left: 0; }
+            .grid-2 { grid-template-columns: 1fr; }
+            .main-scroll { padding: var(--space-4); }
+            .form-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar" id="sidebar">
+            <div>
+                <h1>Veera Rentals</h1>
+                <p class="muted-text" style="margin:.2rem 0 0">Operations</p>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" class="sidebar-link">Dashboard</a>
+                <a href="bookings.html" class="sidebar-link active">Bookings</a>
+                <a href="fleet.html" class="sidebar-link">Fleet</a>
+                <a href="customers.html" class="sidebar-link">Customers</a>
+                <a href="reports.html" class="sidebar-link">Reports</a>
+            </nav>
+        </aside>
+        <div class="main-col">
+            <header class="top-header">
+                <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
+                    <button class="btn-icon" id="mobile-menu-btn" style="display:none" aria-label="Toggle sidebar">☰</button>
+                    <strong>Bookings • Rental Management</strong>
+                </div>
+                <div style="display:flex;align-items:center;gap:.5rem">
+                    <button class="btn-icon" id="theme-toggle" aria-label="Toggle theme">🌓</button>
+                    <button class="btn" onclick="adminLogout(event)">Logout</button>
+                </div>
+            </header>
+            <main class="main-scroll">
+                <section class="card">
+                    <div class="section-header">
+                        <h2>Booking Manager Overview</h2>
+                        <span class="badge" id="booking-manager-health">Live</span>
+                    </div>
+                    <div class="grid-2">
+                        <article class="item"><p class="muted-text">Pending Requests</p><h3 id="bm-pending" style="margin:.25rem 0 0">0</h3></article>
+                        <article class="item"><p class="muted-text">Active Rentals</p><h3 id="bm-active" style="margin:.25rem 0 0">0</h3></article>
+                        <article class="item"><p class="muted-text" style="color:var(--danger)">Overdue Returns</p><h3 id="bm-overdue" style="margin:.25rem 0 0">0</h3></article>
+                        <article class="item"><p class="muted-text">Due Next 24h</p><h3 id="bm-due-soon" style="margin:.25rem 0 0">0</h3></article>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <div class="section-header">
+                        <h2>Booking Requests</h2>
+                        <span class="badge" id="booking-requests-count">0</span>
+                    </div>
+                    <div class="control-bar">
+                        <input type="text" id="request-search" placeholder="Search by customer, phone, email..." style="flex:1">
+                        <select id="request-sort">
+                            <option value="newest">Sort: Newest</option>
+                            <option value="pickup-soon">Sort: Pickup Soonest</option>
+                            <option value="customer">Sort: Customer (A-Z)</option>
+                        </select>
+                    </div>
+                    <div id="booking-requests-list" class="stack-list" style="margin-top:var(--space-4)">
+                        <p class="muted-text">No pending booking requests</p>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <div class="section-header">
+                        <h2>Active Rentals</h2>
+                        <span class="badge" id="active-rental-count">0</span>
+                    </div>
+                    <div class="filters" style="margin-bottom:var(--space-4)">
+                        <button class="btn active" data-track="all">All Active</button>
+                        <button class="btn" data-track="overdue">Overdue</button>
+                        <button class="btn" data-track="due-soon">Due 24h</button>
+                        <button class="btn" data-track="return-today">Return Today</button>
+                    </div>
+                    <div class="control-bar">
+                        <input type="text" id="booking-search" placeholder="Search by customer, phone, car, plate..." style="flex:1">
+                        <select id="booking-sort">
+                            <option value="recent">Sort: Newest First</option>
+                            <option value="return-soon">Sort: Return Soonest</option>
+                            <option value="customer-asc">Sort: Customer (A-Z)</option>
+                        </select>
+                    </div>
+                    <div class="rentals-list" id="rentals-list" style="margin-top:var(--space-4)">
+                        <p class="muted-text">No active rentals</p>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <div class="section-header">
+                        <h2>Bargain Offers</h2>
+                        <span class="badge" id="bargain-offers-count">0</span>
+                    </div>
+                    <div id="bargain-offers-list" class="stack-list">
+                        <p class="muted-text">No bargain offers yet</p>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <div class="section-header">
+                        <h2>Customer Risk Panel</h2>
+                        <span class="badge" id="customer-risk-count">0</span>
+                    </div>
+                    <div id="customer-risk-list" class="stack-list">
+                        <p class="muted-text">No customer risk flags right now.</p>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <div class="section-header">
+                        <h2>Quick Actions</h2>
+                    </div>
+                    <div class="filters">
+                        <button class="btn btn-primary" onclick="showModal('booking-modal')">New Booking</button>
+                        <a class="btn btn-primary" href="scanner.html" style="text-decoration:none">Customer Service Portal</a>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- New Booking Modal -->
+    <div class="modal" id="booking-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create New Booking</h2>
+                <button class="close-btn" onclick="closeModal('booking-modal')">&times;</button>
+            </div>
+            <form id="booking-form" class="form">
+                <div class="form-grid">
+                    <div>
+                        <label>First Name *</label>
+                        <input type="text" id="customer-first-name" required>
+                    </div>
+                    <div>
+                        <label>Last Name *</label>
+                        <input type="text" id="customer-last-name" required>
+                    </div>
+                    <div>
+                        <label>Phone Number *</label>
+                        <input type="tel" id="customer-phone" required>
+                    </div>
+                    <div class="full-width">
+                        <label>Email Address *</label>
+                        <input type="email" id="customer-email" required>
+                    </div>
+                    <div class="full-width">
+                        <label>Select Vehicle *</label>
+                        <select id="car-select" required>
+                            <option value="">Choose a vehicle...</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>License Number *</label>
+                        <input type="text" id="customer-license" placeholder="e.g. BA12-2025-00981" required>
+                    </div>
+                    <div>
+                        <label>License Photo (Front) *</label>
+                        <input type="file" id="license-photo-front" accept="image/*" required>
+                    </div>
+                    <div>
+                        <label>License Photo (Back) *</label>
+                        <input type="file" id="license-photo-back" accept="image/*" required>
+                    </div>
+                    <div>
+                        <label>Detected Location</label>
+                        <input type="text" id="customer-location-display" placeholder="Waiting for location permission..." readonly>
+                        <input type="hidden" id="customer-location" value="">
+                        <p class="muted-text" id="location-status" style="margin:.35rem 0 0">Location not captured yet.</p>
+                    </div>
+                    <div>
+                        <label>Rent Type *</label>
+                        <select id="rent-type" required>
+                            <option value="weekly">Weekly</option>
+                            <option value="daily">Daily</option>
+                            <option value="rto">RTO</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Pickup Date & Time *</label>
+                        <input type="datetime-local" id="pickup-date" required>
+                    <div>
+                        <label>Quick Time Option</label>
+                        <select id="booking-time-option">
+                            <option value="">Custom (manual return)</option>
+                            <option value="6h">Next 6 hours</option>
+                            <option value="12h">Next 12 hours</option>
+                            <option value="1d">1 day</option>
+                            <option value="2d">2 days</option>
+                            <option value="7d">7 days</option>
+                            <option value="14d">14 days</option>
+                        </select>
+                    </div>
+                    </div>
+                    <div>
+                        <label>Return Date & Time *</label>
+                        <input type="datetime-local" id="return-date" required>
+                    </div>
+                    <div class="full-width">
+                        <label>Additional Notes</label>
+                        <textarea id="booking-notes" rows="3" placeholder="Any special requirements..." style="width:100%;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--card);color:var(--text);padding:.55rem .65rem;font-family:inherit"></textarea>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn" onclick="closeModal('booking-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Booking</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="booking-profile-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="booking-profile-title">Booking Request Profile</h2>
+                <button class="close-btn" onclick="closeModal('booking-profile-modal')">&times;</button>
+            </div>
+            <div class="grid-2" style="gap:var(--space-4)">
+                <article class="item">
+                    <p class="muted-text">First Name</p>
+                    <strong id="profile-customer-first-name">—</strong>
+                </article>
+                <article class="item">
+                    <p class="muted-text">Last Name</p>
+                    <strong id="profile-customer-last-name">—</strong>
+                </article>
+                <article class="item">
+                    <p class="muted-text">Phone</p>
+                    <strong id="profile-customer-phone">—</strong>
+                </article>
+                <article class="item">
+                    <p class="muted-text">Email</p>
+                    <strong id="profile-customer-email">—</strong>
+                </article>
+                <article class="item">
+                    <p class="muted-text">License Number</p>
+                    <strong id="profile-license-number">—</strong>
+                </article>
+                <article class="item">
+                    <p class="muted-text">Location</p>
+                    <strong id="profile-location">—</strong>
+                </article>
+                <article class="item">
+                    <p class="muted-text">Budget</p>
+                    <strong id="profile-budget">—</strong>
+                </article>
+                <article class="item">
+                    <p class="muted-text">Rent Type</p>
+                    <strong id="profile-car-type">—</strong>
+                </article>
+                <article class="item">
+                    <p class="muted-text">Requested Vehicle</p>
+                    <strong id="profile-car">—</strong>
+                </article>
+                <article class="item">
+                    <p class="muted-text">Pickup Date/Time</p>
+                    <strong id="profile-pickup">—</strong>
+                </article>
+                <article class="item">
+                    <p class="muted-text">Return Date/Time</p>
+                    <strong id="profile-return">—</strong>
+                </article>
+                <article class="item">
+                    <p class="muted-text">Status</p>
+                    <strong id="profile-status">—</strong>
+                </article>
+                <article class="item">
+                    <p class="muted-text">Request Created</p>
+                    <strong id="profile-created">—</strong>
+                </article>
+                <article class="item">
+                    <p class="muted-text">Car Make</p>
+                    <strong id="profile-car-make">—</strong>
+                </article>
+                <article class="item">
+                    <p class="muted-text">Car Model</p>
+                    <strong id="profile-car-model">—</strong>
+                </article>
+                <article class="item">
+                    <p class="muted-text">Model Year</p>
+                    <strong id="profile-car-year">—</strong>
+                </article>
+                <article class="item">
+                    <p class="muted-text">Car Color</p>
+                    <strong id="profile-car-color">—</strong>
+                </article>
+                <article class="item">
+                    <p class="muted-text">Mileage</p>
+                    <strong id="profile-car-mileage">—</strong>
+                </article>
+                <article class="item">
+                    <p class="muted-text">Price / Day</p>
+                    <strong id="profile-car-rate-day">—</strong>
+                </article>
+                <article class="item">
+                    <p class="muted-text">Price / Week</p>
+                    <strong id="profile-car-rate-week">—</strong>
+                </article>
+                <article class="item">
+                    <p class="muted-text">RTO</p>
+                    <strong id="profile-car-rto">—</strong>
+                </article>
+                <article class="item">
+                    <p class="muted-text">License Photo (Front)</p>
+                    <img id="profile-license-front" alt="License front" style="max-width:100%;max-height:180px;border:1px solid var(--border);border-radius:8px;display:none" />
+                    <strong id="profile-license-front-empty">N/A</strong>
+                </article>
+                <article class="item">
+                    <p class="muted-text">License Photo (Back)</p>
+                    <img id="profile-license-back" alt="License back" style="max-width:100%;max-height:180px;border:1px solid var(--border);border-radius:8px;display:none" />
+                    <strong id="profile-license-back-empty">N/A</strong>
+                </article>
+            </div>
+            <section class="card" style="margin-top:var(--space-4)">
+                <p class="muted-text" style="margin:0 0 .4rem">Notes</p>
+                <p id="profile-notes" style="margin:0">—</p>
+            </section>
+            <div class="form-actions" style="margin-top:var(--space-4)">
+                <button type="button" class="btn btn-primary" id="profile-approve-btn">Approve</button>
+                <button type="button" class="btn" id="profile-deny-btn">Deny</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let veeraClient = null;
+        const veeraState = { vehicles: [], bookings: [], invoices: [], offers: [], selectedBooking: null };
+
+        const clientGetter = () => window.VeeraShared?.getSupabaseClient?.() || window.getVeeraSupabaseClient?.() || null;
+        const hasAdminRole = (user) => user?.app_metadata?.role === 'admin' || user?.user_metadata?.role === 'admin';
+
+        function bookingKey(booking) {
+            return String(booking?.id ?? `${booking?.customer || ''}-${booking?.created_at || ''}-${booking?.car || ''}`);
+        }
+
+        function escapeHtml(value) {
+            const text = String(value ?? '');
+            return text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+        }
+
+        function isPersistedId(booking) {
+            const id = booking?.id;
+            return id !== undefined && id !== null && !(booking?.source === 'local-fallback');
+        }
+
+        function firstValue(record, keys, fallback = 'N/A') {
+            for (const key of keys) {
+                const value = record?.[key];
+                if (value !== undefined && value !== null && String(value).trim() !== '') return value;
+            }
+            return fallback;
+        }
+
+        function parseNotesDetails(notes) {
+            const text = String(notes || '');
+            const details = {};
+            text.split('\n').forEach((line) => {
+                const [rawKey, ...rawRest] = line.split(':');
+                if (!rawKey || !rawRest.length) return;
+                const key = rawKey.trim().toLowerCase();
+                const value = rawRest.join(':').trim();
+                if (!value) return;
+                if (key === 'license') details.license = value;
+                if (key === 'location') details.location = value;
+                if (key === 'budget') details.budget = value;
+                if (key === 'car type') details.carType = value;
+                if (key === 'car make') details.carMake = value;
+                if (key === 'car model') details.carModel = value;
+                if (key === 'car year') details.carYear = value;
+                if (key === 'car color') details.carColor = value;
+                if (key === 'mileage') details.carMileage = value;
+                if (key === 'price/day') details.priceDay = value;
+                if (key === 'price/week') details.priceWeek = value;
+                if (key === 'rto') details.rto = value;
+            });
+            return details;
+        }
+
+        function parseTaggedMetadata(notes) {
+            const text = String(notes || '');
+            const metadata = {};
+            const regex = /([A-Z_]+)::([^\n]+)/g;
+            let match;
+            while ((match = regex.exec(text)) !== null) {
+                const key = String(match[1] || '').trim();
+                const rawValue = String(match[2] || '').trim();
+                metadata[key] = rawValue;
+            }
+
+            if (metadata.LICENSE_PHOTOS) {
+                try {
+                    const parsed = JSON.parse(metadata.LICENSE_PHOTOS);
+                    metadata.licensePhotos = Array.isArray(parsed) ? parsed : [];
+                } catch {
+                    metadata.licensePhotos = [];
+                }
+            }
+
+            if (metadata.SCANNER_FORM) {
+                try {
+                    metadata.scannerForm = JSON.parse(metadata.SCANNER_FORM);
+                } catch {
+                    metadata.scannerForm = null;
+                }
+            }
+
+            return metadata;
+        }
+
+        function setProfileImage(imageId, emptyId, value) {
+            const img = document.getElementById(imageId);
+            const empty = document.getElementById(emptyId);
+            const isValid = typeof value === 'string' && (value.startsWith('data:image') || value.startsWith('http://') || value.startsWith('https://'));
+            if (isValid) {
+                img.src = value;
+                img.style.display = 'block';
+                empty.style.display = 'none';
+            } else {
+                img.removeAttribute('src');
+                img.style.display = 'none';
+                empty.style.display = 'inline';
+            }
+        }
+
+        function toCurrencyText(value) {
+            const number = Number(value);
+            if (!Number.isFinite(number)) return String(value || 'N/A');
+            return `$${number.toLocaleString()}`;
+        }
+
+        function findVehicleById(id) {
+            if (id === undefined || id === null || id === '') return null;
+            return veeraState.vehicles.find(vehicle => String(vehicle?.id) === String(id)) || null;
+        }
+
+        function requestCurrentLocation() {
+            const locationInput = document.getElementById('customer-location');
+            const locationDisplay = document.getElementById('customer-location-display');
+            const locationStatus = document.getElementById('location-status');
+            if (!locationInput || !navigator.geolocation) {
+                if (locationStatus) locationStatus.textContent = 'Geolocation is not supported in this browser.';
+                return;
+            }
+
+            if (locationStatus) locationStatus.textContent = 'Requesting location permission...';
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords?.latitude;
+                    const lng = position.coords?.longitude;
+                    if (lat !== undefined && lng !== undefined) {
+                        const value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                        locationInput.value = value;
+                        if (locationDisplay) locationDisplay.value = value;
+                        if (locationStatus) locationStatus.textContent = 'Current location captured successfully.';
+                    }
+                },
+                () => {
+                    if (locationDisplay) locationDisplay.value = '';
+                    if (locationStatus) locationStatus.textContent = 'Location permission denied or unavailable. Enter manually.';
+                },
+                { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+            );
+        }
+
+        async function fileToDataUrl(file) {
+            if (!file) return '';
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(String(reader.result || ''));
+                reader.onerror = () => reject(reader.error || new Error('Failed to read file.'));
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function formatDateTime(value) {
+            if (!value || value === 'N/A') return 'N/A';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return String(value);
+            return date.toLocaleString();
+        }
+
+        function openBookingProfile(booking) {
+            if (!booking) return;
+            const notesDetails = parseNotesDetails(booking?.notes);
+            const tagged = parseTaggedMetadata(booking?.notes);
+            const scannerForm = tagged.scannerForm || {};
+            const inventoryVehicle = findVehicleById(booking?.vehicle_id);
+            const scannerLocation = scannerForm?.location && typeof scannerForm.location === 'object'
+                ? `${scannerForm.location.lat ?? 'N/A'}, ${scannerForm.location.lng ?? 'N/A'}`
+                : 'N/A';
+            const firstName = firstValue(booking, ['first_name', 'customer_first_name', 'name'], firstValue(booking, ['customer', 'customer_name'], 'Walk-in'));
+            const lastName = firstValue(booking, ['last_name', 'customer_last_name'], 'N/A');
+            const phone = firstValue(booking, ['phone', 'customer_phone', 'mobile'], 'N/A');
+            const email = firstValue(booking, ['email', 'customer_email'], 'N/A');
+            const licenseNumber = firstValue(
+                booking,
+                ['license_number', 'license_no', 'driver_license', 'license'],
+                tagged.LICENSE_NUMBER || scannerForm.licenseNumber || notesDetails.license || 'N/A'
+            );
+            const licensePhotos = Array.isArray(tagged.licensePhotos) ? tagged.licensePhotos : [];
+            const scannerPhotos = Array.isArray(scannerForm.photoUrls) ? scannerForm.photoUrls : [];
+            const mergedPhotos = [...licensePhotos, ...scannerPhotos].filter(Boolean);
+            const licensePhotoFront = firstValue(booking, ['license_photo_front', 'license_front_photo', 'license_front_image'], mergedPhotos[0] || '');
+            const licensePhotoBack = firstValue(booking, ['license_photo_back', 'license_back_photo', 'license_back_image'], mergedPhotos[1] || '');
+            const location = firstValue(booking, ['location', 'pickup_location', 'customer_location'], scannerLocation !== 'N/A' ? scannerLocation : (notesDetails.location || 'N/A'));
+            const budget = firstValue(booking, ['budget', 'budget_amount', 'offered_rate', 'target_budget'], scannerForm.budgetWeekly || notesDetails.budget || 'N/A');
+            const carType = firstValue(booking, ['rent_type', 'car_type', 'vehicle_type', 'requested_car_type'], scannerForm.rentalType || notesDetails.carType || 'N/A');
+            const requestedCar = firstValue(booking, ['car', 'car_name', 'vehicle_name'], inventoryVehicle?.name || inventoryVehicle?.model || 'N/A');
+            const carMake = firstValue(booking, ['car_make', 'vehicle_make'], inventoryVehicle?.make || notesDetails.carMake || 'N/A');
+            const carModel = firstValue(booking, ['car_model', 'vehicle_model'], inventoryVehicle?.model || notesDetails.carModel || 'N/A');
+            const carYear = firstValue(booking, ['car_year', 'model_year'], inventoryVehicle?.year || notesDetails.carYear || 'N/A');
+            const carColor = firstValue(booking, ['car_color', 'vehicle_color', 'color'], inventoryVehicle?.color || notesDetails.carColor || 'N/A');
+            const carMileage = firstValue(booking, ['car_mileage', 'mileage', 'vehicle_mileage'], inventoryVehicle?.mileage || scannerForm.odometer || notesDetails.carMileage || 'N/A');
+            const carRateDay = firstValue(booking, ['car_rate_day', 'price_per_day', 'rate_day'], inventoryVehicle?.rate_day || scannerForm.pricingDailyRate || notesDetails.priceDay || 'N/A');
+            const carRateWeek = firstValue(booking, ['car_rate_week', 'price_per_week', 'rate_week'], inventoryVehicle?.rate_week || scannerForm.pricingWeeklyRate || notesDetails.priceWeek || 'N/A');
+            const carRto = firstValue(booking, ['car_rto', 'rto', 'vehicle_rto'], inventoryVehicle?.rto || notesDetails.rto || 'N/A');
+            const pickupAt = firstValue(booking, ['pickup_at', 'pickup_date', 'start_date'], 'N/A');
+            const returnAt = firstValue(booking, ['return_at', 'return_date', 'end_date'], 'N/A');
+            const status = firstValue(booking, ['status'], 'submitted');
+            const notes = firstValue(booking, ['notes', 'additional_notes', 'message'], 'No notes');
+            const createdAt = firstValue(booking, ['created_at'], 'N/A');
+
+            veeraState.selectedBooking = booking;
+
+            document.getElementById('booking-profile-title').textContent = `Booking Profile • ${firstName} ${lastName !== 'N/A' ? lastName : ''}`.trim();
+            document.getElementById('profile-customer-first-name').textContent = firstName;
+            document.getElementById('profile-customer-last-name').textContent = lastName;
+            document.getElementById('profile-customer-phone').textContent = phone;
+            document.getElementById('profile-customer-email').textContent = email;
+            document.getElementById('profile-license-number').textContent = licenseNumber;
+            document.getElementById('profile-location').textContent = location;
+            document.getElementById('profile-budget').textContent = String(budget);
+            document.getElementById('profile-car-type').textContent = carType;
+            document.getElementById('profile-car').textContent = requestedCar;
+            document.getElementById('profile-car-make').textContent = carMake;
+            document.getElementById('profile-car-model').textContent = carModel;
+            document.getElementById('profile-car-year').textContent = String(carYear);
+            document.getElementById('profile-car-color').textContent = carColor;
+            document.getElementById('profile-car-mileage').textContent = String(carMileage);
+            document.getElementById('profile-car-rate-day').textContent = toCurrencyText(carRateDay);
+            document.getElementById('profile-car-rate-week').textContent = toCurrencyText(carRateWeek);
+            document.getElementById('profile-car-rto').textContent = carRto;
+            document.getElementById('profile-pickup').textContent = formatDateTime(pickupAt);
+            document.getElementById('profile-return').textContent = formatDateTime(returnAt);
+            document.getElementById('profile-status').textContent = String(status);
+            document.getElementById('profile-created').textContent = formatDateTime(createdAt);
+            document.getElementById('profile-notes').textContent = String(notes);
+            setProfileImage('profile-license-front', 'profile-license-front-empty', licensePhotoFront);
+            setProfileImage('profile-license-back', 'profile-license-back-empty', licensePhotoBack);
+            showModal('booking-profile-modal');
+        }
+
+        async function handleProfileDecision(nextStatus) {
+            const booking = veeraState.selectedBooking;
+            if (!booking) return;
+            await updateBookingStatus(booking, nextStatus);
+            const bookingId = bookingKey(booking);
+            veeraState.selectedBooking = veeraState.bookings.find(item => bookingKey(item) === bookingId) || null;
+            closeModal('booking-profile-modal');
+        }
+
+        async function insertBookingToDbWithCompatibility(payload) {
+            if (!veeraClient) return null;
+
+            const fullPayload = {
+                customer: payload.customer,
+                first_name: payload.first_name,
+                last_name: payload.last_name,
+                phone: payload.phone,
+                email: payload.email,
+                car: payload.car,
+                vehicle_id: payload.vehicle_id,
+                pickup_at: payload.pickup_at,
+                return_at: payload.return_at,
+                notes: payload.notes,
+                status: payload.status,
+                rent_type: payload.rent_type,
+                license_number: payload.license_number,
+                license_photo_front: payload.license_photo_front,
+                license_photo_back: payload.license_photo_back,
+                location: payload.location,
+                car_make: payload.car_make,
+                car_model: payload.car_model,
+                car_year: payload.car_year,
+                car_color: payload.car_color,
+                car_mileage: payload.car_mileage,
+                car_rate_day: payload.car_rate_day,
+                car_rate_week: payload.car_rate_week,
+                car_rto: payload.car_rto,
+                created_at: payload.created_at,
+                updated_at: payload.created_at
+            };
+
+            const fallbackPayload = {
+                customer: payload.customer,
+                phone: payload.phone,
+                email: payload.email,
+                car: payload.car,
+                pickup_at: payload.pickup_at,
+                return_at: payload.return_at,
+                notes: payload.notes,
+                status: payload.status,
+                rent_type: payload.rent_type,
+                created_at: payload.created_at,
+                updated_at: payload.created_at
+            };
+
+            const { data, error } = await veeraClient.from('booking_requests').insert(fullPayload).select('*').limit(1);
+            if (!error) return Array.isArray(data) && data[0] ? data[0] : null;
+
+            const message = String(error?.message || '');
+            const isSchemaMismatch = /column|schema|does not exist|unknown/i.test(message);
+            if (!isSchemaMismatch) throw error;
+
+            const retry = await veeraClient.from('booking_requests').insert(fallbackPayload).select('*').limit(1);
+            if (retry.error) throw retry.error;
+            return Array.isArray(retry.data) && retry.data[0] ? retry.data[0] : null;
+        }
+
+        async function guard() {
+            veeraClient = clientGetter();
+            if (!veeraClient) {
+                window.location.replace('login.html?next=bookings.html');
+                return false;
+            }
+            const { data, error } = await veeraClient.auth.getSession();
+            const user = data?.session?.user;
+            if (error || !user || !hasAdminRole(user)) {
+                window.location.replace('login.html?next=bookings.html');
+                return false;
+            }
+            document.body.classList.add('auth-complete');
+            return true;
+        }
+
+        async function fetchData() {
+            try {
+                const [v, b, i, o] = await Promise.all([
+                    veeraClient.from('vehicles').select('*').limit(500),
+                    veeraClient.from('booking_requests').select('*').order('created_at', { ascending: false }).limit(500),
+                    veeraClient.from('invoices').select('*').limit(500),
+                    veeraClient.from('offers').select('*').limit(500)
+                ]);
+                const localBookings = window.VeeraShared?.readStore?.('veera-booking-drafts', []) || [];
+                const mergeUnique = (items) => {
+                    const map = new Map();
+                    items.forEach(item => {
+                        const key = item?.id ?? `${item?.customer || ''}-${item?.created_at || ''}-${item?.car || ''}`;
+                        if (!map.has(key)) map.set(key, item);
+                    });
+                    return Array.from(map.values());
+                };
+                veeraState.vehicles = v.data || [];
+                veeraState.bookings = mergeUnique([...(b.data || []), ...localBookings]);
+                veeraState.invoices = i.data || [];
+                veeraState.offers = o.data || [];
+                render();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function render() {
+            const pending = veeraState.bookings.filter(b => ['submitted', 'pending', 'under_review'].includes((b.status || '').toLowerCase()));
+            const active = veeraState.bookings.filter(b => ['approved', 'active', 'rented', 'overdue'].includes((b.status || '').toLowerCase()));
+            const overdue = veeraState.bookings.filter(b => (b.status || '').toLowerCase() === 'overdue');
+            const bargain = veeraState.offers.filter(o => (o.status || '').toLowerCase() === 'pending');
+
+            document.getElementById('booking-requests-count').textContent = String(pending.length);
+            document.getElementById('active-rental-count').textContent = String(active.length);
+            document.getElementById('bm-pending').textContent = String(pending.length);
+            document.getElementById('bm-active').textContent = String(active.length);
+            document.getElementById('bm-overdue').textContent = String(overdue.length);
+            document.getElementById('bm-due-soon').textContent = '0';
+            document.getElementById('bargain-offers-count').textContent = String(bargain.length);
+
+            const requestList = document.getElementById('booking-requests-list');
+            requestList.innerHTML = pending.length ? pending.slice(0, 20).map(b => `
+                <article class="item">
+                    <strong>${escapeHtml((b.first_name || b.customer || 'Walk-in'))} ${escapeHtml(b.last_name || '')}</strong>
+                    <div class="muted-text">${escapeHtml(b.car || 'TBD')} • ${escapeHtml(b.phone || b.email || 'No contact')}</div>
+                    <button class="btn btn-primary" data-booking-open="${escapeHtml(bookingKey(b))}" style="margin-top:.6rem">Open Profile</button>
+                </article>
+            `).join('') : '<p class="muted-text">No pending booking requests</p>';
+
+            const rentalList = document.getElementById('rentals-list');
+            rentalList.innerHTML = active.length ? active.slice(0, 25).map(b => `
+                <article class="item">
+                    <strong>${escapeHtml(b.customer || 'Unknown')}</strong>
+                    <div class="muted-text">${escapeHtml(b.car || 'TBD')} • ${escapeHtml(b.status || 'active')}</div>
+                    <div class="control-bar" style="margin-top:.6rem">
+                        <button class="btn" data-booking-action="activate" data-booking-id="${escapeHtml(bookingKey(b))}">Mark Active</button>
+                        <button class="btn" data-booking-action="complete" data-booking-id="${escapeHtml(bookingKey(b))}">Mark Completed</button>
+                    </div>
+                </article>
+            `).join('') : '<p class="muted-text">No active rentals</p>';
+
+            const bargainList = document.getElementById('bargain-offers-list');
+            bargainList.innerHTML = bargain.length ? bargain.map(o => `<article class="item"><strong>${o.customer_name || 'Customer'}</strong><div class="muted-text">Offer ${o.offered_rate || '0'}</div></article>`).join('') : '<p class="muted-text">No bargain offers yet</p>';
+
+            const carSelect = document.getElementById('car-select');
+            if (carSelect) {
+                const available = veeraState.vehicles.filter(v => (v.status || '').toLowerCase() === 'available');
+                carSelect.innerHTML = `<option value="">Choose number plate / rego...</option>${available.map(v => `<option value="${v.id}">${v.plate || v.rego || 'No Plate'}</option>`).join('')}`;
+            }
+        }
+
+        async function updateBookingStatus(booking, nextStatus) {
+            const localIndex = veeraState.bookings.findIndex(item => bookingKey(item) === bookingKey(booking));
+            if (localIndex === -1) return;
+
+            const updated = {
+                ...veeraState.bookings[localIndex],
+                status: nextStatus,
+                updated_at: new Date().toISOString()
+            };
+
+            try {
+                if (veeraClient && isPersistedId(booking)) {
+                    const { error } = await veeraClient
+                        .from('booking_requests')
+                        .update({ status: nextStatus, updated_at: updated.updated_at })
+                        .eq('id', booking.id);
+                    if (error) throw error;
+                }
+                veeraState.bookings.splice(localIndex, 1, updated);
+                render();
+                window.VeeraShared?.showNotice?.(`Booking moved to ${nextStatus}.`, 'success');
+            } catch (error) {
+                console.error('Booking status update failed:', error);
+                window.VeeraShared?.showNotice?.('Could not update booking status in database.', 'error');
+            }
+        }
+
+        async function deleteBooking(booking) {
+            const localIndex = veeraState.bookings.findIndex(item => bookingKey(item) === bookingKey(booking));
+            if (localIndex === -1) return;
+            try {
+                if (veeraClient && isPersistedId(booking)) {
+                    const { error } = await veeraClient.from('booking_requests').delete().eq('id', booking.id);
+                    if (error) throw error;
+                }
+                veeraState.bookings.splice(localIndex, 1);
+                render();
+                window.VeeraShared?.showNotice?.('Booking removed.', 'success');
+            } catch (error) {
+                console.error('Booking delete failed:', error);
+                window.VeeraShared?.showNotice?.('Could not delete booking in database.', 'error');
+            }
+        }
+
+        function bindUi() {
+            document.getElementById('theme-toggle')?.addEventListener('click', () => {
+                const html = document.documentElement;
+                html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+                localStorage.setItem('veera-theme', html.dataset.theme);
+            });
+            document.getElementById('mobile-menu-btn')?.addEventListener('click', () => {
+                document.getElementById('sidebar')?.classList.toggle('open');
+            });
+            const bookingsContainerClick = async (event) => {
+                const trigger = event.target.closest('[data-booking-action]');
+                if (!trigger) return;
+                const bookingId = trigger.getAttribute('data-booking-id');
+                const action = trigger.getAttribute('data-booking-action');
+                const booking = veeraState.bookings.find(item => bookingKey(item) === bookingId);
+                if (!booking) return;
+                if (action === 'approve') await updateBookingStatus(booking, 'approved');
+                else if (action === 'reject') await updateBookingStatus(booking, 'rejected');
+                else if (action === 'activate') await updateBookingStatus(booking, 'active');
+                else if (action === 'complete') await updateBookingStatus(booking, 'completed');
+                else if (action === 'delete') await deleteBooking(booking);
+            };
+            document.getElementById('rentals-list')?.addEventListener('click', bookingsContainerClick);
+            document.getElementById('booking-requests-list')?.addEventListener('click', (event) => {
+                const trigger = event.target.closest('[data-booking-open]');
+                if (!trigger) return;
+                const bookingId = trigger.getAttribute('data-booking-open');
+                const booking = veeraState.bookings.find(item => bookingKey(item) === bookingId);
+                openBookingProfile(booking);
+            });
+            document.getElementById('booking-form')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const firstName = document.getElementById('customer-first-name').value.trim();
+                const lastName = document.getElementById('customer-last-name').value.trim();
+                const manualNotes = document.getElementById('booking-notes').value.trim();
+                const licenseNumber = document.getElementById('customer-license').value.trim();
+                const licensePhotoFront = await fileToDataUrl(document.getElementById('license-photo-front').files?.[0]);
+                const licensePhotoBack = await fileToDataUrl(document.getElementById('license-photo-back').files?.[0]);
+                const customerLocation = document.getElementById('customer-location').value.trim();
+                const rentType = document.getElementById('rent-type').value;
+                const selectedVehicleId = document.getElementById('car-select').value;
+                const selectedVehicle = findVehicleById(selectedVehicleId);
+                const selectedVehicleLabel = selectedVehicle?.plate || selectedVehicle?.rego || 'Vehicle';
+                const pickupValue = document.getElementById('pickup-date').value;
+                const returnValue = document.getElementById('return-date').value;
+                const detailsLines = [
+                    `License: ${licenseNumber || 'N/A'}`,
+                    `Location: ${customerLocation || 'N/A'}`,
+                    `Rent Type: ${rentType || 'N/A'}`,
+                    `Car Make: ${selectedVehicle?.make || 'N/A'}`,
+                    `Car Model: ${selectedVehicle?.model || 'N/A'}`,
+                    `Car Year: ${selectedVehicle?.year || 'N/A'}`,
+                    `Car Color: ${selectedVehicle?.color || 'N/A'}`,
+                    `Mileage: ${selectedVehicle?.mileage || 'N/A'}`,
+                    `Price/Day: ${selectedVehicle?.rate_day || 'N/A'}`,
+                    `Price/Week: ${selectedVehicle?.rate_week || 'N/A'}`,
+                    `RTO: ${selectedVehicle?.rto || 'N/A'}`
+                ];
+                const mergedNotes = [manualNotes, '', ...detailsLines].filter(Boolean).join('\n');
+
+                const payload = {
+                    id: Date.now(),
+                    customer: `${firstName} ${lastName}`.trim(),
+                    first_name: firstName,
+                    last_name: lastName,
+                    phone: document.getElementById('customer-phone').value.trim(),
+                    email: document.getElementById('customer-email').value.trim(),
+                    vehicle_id: selectedVehicleId || null,
+                    car: selectedVehicleLabel,
+                    rent_type: rentType,
+                    license_number: licenseNumber,
+                    license_photo_front: licensePhotoFront,
+                    license_photo_back: licensePhotoBack,
+                    location: customerLocation,
+                    car_make: selectedVehicle?.make || '',
+                    car_model: selectedVehicle?.model || '',
+                    car_year: selectedVehicle?.year || '',
+                    car_color: selectedVehicle?.color || '',
+                    car_mileage: selectedVehicle?.mileage || '',
+                    car_rate_day: selectedVehicle?.rate_day || '',
+                    car_rate_week: selectedVehicle?.rate_week || '',
+                    car_rto: selectedVehicle?.rto || '',
+                    pickup_at: pickupValue,
+                    return_at: returnValue,
+                    notes: mergedNotes,
+                    status: 'submitted',
+                    created_at: new Date().toISOString(),
+                    source: 'local-fallback'
+                };
+
+                try {
+                    if (veeraClient) {
+                        const inserted = await insertBookingToDbWithCompatibility(payload);
+                        const persisted = inserted
+                            ? {
+                                ...inserted,
+                                first_name: payload.first_name,
+                                last_name: payload.last_name,
+                                rent_type: payload.rent_type,
+                                vehicle_id: payload.vehicle_id,
+                                license_number: payload.license_number,
+                                license_photo_front: payload.license_photo_front,
+                                license_photo_back: payload.license_photo_back,
+                                location: payload.location,
+                                car_make: payload.car_make,
+                                car_model: payload.car_model,
+                                car_year: payload.car_year,
+                                car_color: payload.car_color,
+                                car_mileage: payload.car_mileage,
+                                car_rate_day: payload.car_rate_day,
+                                car_rate_week: payload.car_rate_week,
+                                car_rto: payload.car_rto
+                            }
+                            : { ...payload, source: undefined };
+                        veeraState.bookings.unshift(persisted);
+                        render();
+                        window.VeeraShared?.showNotice?.('Booking saved successfully.', 'success');
+                        closeModal('booking-modal');
+                        return;
+                    }
+                    veeraState.bookings.unshift(payload);
+                    render();
+                    window.VeeraShared?.showNotice?.('Booking saved successfully.', 'success');
+                } catch (error) {
+                    window.VeeraShared?.appendStoreItem?.('veera-booking-drafts', payload, 100);
+                    veeraState.bookings.unshift(payload);
+                    render();
+                    window.VeeraShared?.showNotice?.('Saved locally. Backend sync can be connected later.', 'warning');
+                    console.error('Booking save failed:', error);
+                }
+                closeModal('booking-modal');
+            });
+            document.getElementById('profile-approve-btn')?.addEventListener('click', async () => {
+                await handleProfileDecision('approved');
+            });
+            document.getElementById('profile-deny-btn')?.addEventListener('click', async () => {
+                await handleProfileDecision('rejected');
+            });
+
+            const timeOption = document.getElementById('booking-time-option');
+            const pickupInput = document.getElementById('pickup-date');
+            const returnInput = document.getElementById('return-date');
+            const applyQuickTime = () => {
+                const selected = timeOption?.value || '';
+                if (!selected || !pickupInput?.value || !returnInput) return;
+                const pickupDate = new Date(pickupInput.value);
+                if (Number.isNaN(pickupDate.getTime())) return;
+                const nextDate = new Date(pickupDate);
+                if (selected === '6h') nextDate.setHours(nextDate.getHours() + 6);
+                else if (selected === '12h') nextDate.setHours(nextDate.getHours() + 12);
+                else if (selected === '1d') nextDate.setDate(nextDate.getDate() + 1);
+                else if (selected === '2d') nextDate.setDate(nextDate.getDate() + 2);
+                else if (selected === '7d') nextDate.setDate(nextDate.getDate() + 7);
+                else if (selected === '14d') nextDate.setDate(nextDate.getDate() + 14);
+                const localIso = new Date(nextDate.getTime() - (nextDate.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+                returnInput.value = localIso;
+            };
+            timeOption?.addEventListener('change', applyQuickTime);
+            pickupInput?.addEventListener('change', applyQuickTime);
+        }
+
+        function showModal(id) { document.getElementById(id)?.classList.add('open'); }
+        function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+
+        async function adminLogout(event) {
+            if (event) event.preventDefault();
+            if (veeraClient) await veeraClient.auth.signOut();
+            window.location.replace('login.html');
+        }
+
+        async function bootstrap() {
+            const ok = await guard();
+            if (!ok) return;
+            const savedTheme = localStorage.getItem('veera-theme');
+            if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+            bindUi();
+            requestCurrentLocation();
+            await fetchData();
+        }
+
+        bootstrap();
+    </script>
+</body>
+</html>

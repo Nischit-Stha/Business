@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veera Rentals • Fleet</title>
+    <meta name="description" content="Veera Rentals fleet management and vehicle inventory.">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <script src="../supabase-config.js"></script>
+    <script src="shared-utils.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --font-body: 'Inter', sans-serif;
+            --font-display: 'Poppins', sans-serif;
+            --sidebar-w: 260px;
+            --space-2: .5rem;
+            --space-3: .75rem;
+            --space-4: 1rem;
+            --space-5: 1.25rem;
+            --space-6: 1.5rem;
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        html[data-theme="dark"] {
+            --bg: #0f141d;
+            --elev: #161c27;
+            --card: #1b2330;
+            --card2: #212c3c;
+            --text: #e9edf5;
+            --muted: #9aa7ba;
+            --border: #2b374b;
+            --primary: #53a6ff;
+        }
+        html[data-theme="light"] {
+            --bg: #f3f6fb;
+            --elev: #ffffff;
+            --card: #ffffff;
+            --card2: #f8fbff;
+            --text: #151d2c;
+            --muted: #5e6b7e;
+            --border: #d6e0ef;
+            --primary: #0069d9;
+        }
+        * { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; }
+        body { background: var(--bg); color: var(--text); font-family: var(--font-body); }
+        body:not(.auth-complete) .app-container { opacity: 0; pointer-events: none; }
+        .app-container { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; }
+        .sidebar { background: linear-gradient(180deg, var(--elev), var(--card)); border-right: 1px solid var(--border); padding: var(--space-5); display: grid; gap: var(--space-5); align-content: start; overflow-y: auto; }
+        .sidebar h1 { margin: 0; font-family: var(--font-display); font-size: 1.3rem; }
+        .sidebar-nav { display: grid; gap: var(--space-2); }
+        .sidebar-link { border: 1px solid var(--border); background: var(--card2); color: var(--text); border-radius: var(--radius-sm); padding: .55rem .85rem; cursor: pointer; text-decoration: none; display: block; text-align: left; }
+        .sidebar-link.active { background: var(--primary); color: #fff; border-color: transparent; }
+        .main-col { display: grid; grid-template-rows: auto 1fr; }
+        .top-header { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--elev) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); padding: .8rem var(--space-6); display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
+        .main-scroll { overflow-y: auto; padding: var(--space-6); display: grid; gap: var(--space-6); }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4); }
+        .badge { border: 1px solid var(--border); border-radius: 999px; padding: .2rem .55rem; font-size: .75rem; color: var(--muted); }
+        .btn { border: 1px solid var(--border); background: var(--card2); color: var(--text); border-radius: var(--radius-sm); cursor: pointer; padding: .55rem .85rem; }
+        .btn-icon { width: 38px; height: 38px; display: grid; place-items: center; background: var(--card2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
+        .btn-primary { background: var(--primary); color: #fff; border-color: transparent; }
+        .muted-text { color: var(--muted); font-size: .85rem; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); }
+        .filters, .control-bar { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+        .pagination { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); margin-top: var(--space-4); flex-wrap: wrap; }
+        input, select { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card); color: var(--text); padding: .55rem .65rem; font: inherit; }
+        .fleet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--space-4); margin-top: var(--space-4); }
+        .fleet-item { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card2); padding: var(--space-4); }
+        .fleet-item strong { display: block; margin-bottom: var(--space-2); }
+        .fleet-item-status { display: inline-block; padding: .2rem .4rem; border-radius: 4px; font-size: .75rem; margin-top: var(--space-2); }
+        .fleet-item-status.available { background: rgba(39, 200, 138, .2); color: #27c88a; }
+        .fleet-item-status.rented { background: rgba(255, 111, 125, .2); color: #ff6f7d; }
+        .fleet-item-status.maintenance { background: rgba(248, 184, 78, .2); color: #f8b84e; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(3,6,10,.62); z-index: 30; align-items: center; justify-content: center; padding: var(--space-5); }
+        .modal.open { display: flex; }
+        .modal-content { width: min(920px, 96vw); max-height: 90vh; overflow: auto; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-5); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); }
+        .close-btn { border: 1px solid var(--border); background: var(--card2); color: var(--text); border-radius: var(--radius-sm); width: 36px; height: 36px; cursor: pointer; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+        .full-width { grid-column: 1 / -1; }
+        .form-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-4); flex-wrap: wrap; }
+        @media (max-width: 980px) {
+            .app-container { grid-template-columns: 1fr; }
+            .sidebar { position: fixed; left: -100%; width: var(--sidebar-w); top: 0; bottom: 0; z-index: 40; transition: left .22s ease; }
+            .sidebar.open { left: 0; }
+            .fleet-grid { grid-template-columns: 1fr; }
+            .main-scroll { padding: var(--space-4); }
+            .form-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar" id="sidebar">
+            <div>
+                <h1>Veera Rentals</h1>
+                <p class="muted-text" style="margin:.2rem 0 0">Operations</p>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" class="sidebar-link">Dashboard</a>
+                <a href="bookings.html" class="sidebar-link">Bookings</a>
+                <a href="fleet.html" class="sidebar-link active">Fleet</a>
+                <a href="customers.html" class="sidebar-link">Customers</a>
+                <a href="reports.html" class="sidebar-link">Reports</a>
+            </nav>
+        </aside>
+        <div class="main-col">
+            <header class="top-header">
+                <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
+                    <button class="btn-icon" id="mobile-menu-btn" style="display:none" aria-label="Toggle sidebar">☰</button>
+                    <strong>Fleet • Vehicle Inventory</strong>
+                    <span class="badge" id="fleet-count">0 Vehicles</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:.5rem">
+                    <button class="btn-icon" id="theme-toggle" aria-label="Toggle theme">🌓</button>
+                    <button class="btn" onclick="adminLogout(event)">Logout</button>
+                </div>
+            </header>
+            <main class="main-scroll">
+                <section class="card">
+                    <div class="section-header">
+                        <h2>Vehicles</h2>
+                        <button class="btn btn-primary" onclick="showModal('car-modal')">+ Add Vehicle</button>
+                    </div>
+                    <div class="control-bar">
+                        <input type="text" id="fleet-search" placeholder="Search by name, make, model, plate..." style="flex:1">
+                        <select id="fleet-sort">
+                            <option value="name-asc">Sort: Name (A-Z)</option>
+                            <option value="name-desc">Sort: Name (Z-A)</option>
+                            <option value="rate-high">Sort: Rate High → Low</option>
+                            <option value="rate-low">Sort: Rate Low → High</option>
+                            <option value="status">Sort: Status</option>
+                            <option value="recent">Sort: Recently Added</option>
+                        </select>
+                    </div>
+                    <div class="filters" style="margin-top:var(--space-3);margin-bottom:var(--space-4)">
+                        <button class="btn active" data-filter="all">All</button>
+                        <button class="btn" data-filter="available">Available</button>
+                        <button class="btn" data-filter="rented">Rented</button>
+                        <button class="btn" data-filter="maintenance">Maintenance</button>
+                    </div>
+                    <div class="fleet-grid" id="fleet-grid">
+                        <p class="muted-text">No vehicles found</p>
+                    </div>
+                    <div class="pagination">
+                        <span class="muted-text" id="fleet-pagination-info">Showing 0-0 of 0</span>
+                        <div style="display:flex;gap:.5rem;align-items:center">
+                            <button class="btn" id="fleet-prev">Previous</button>
+                            <button class="btn" id="fleet-next">Next</button>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- Add Vehicle Modal -->
+    <div class="modal" id="car-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Vehicle</h2>
+                <button class="close-btn" onclick="closeModal('car-modal')">&times;</button>
+            </div>
+            <form id="car-form" class="form">
+                <div class="form-grid">
+                    <div>
+                        <label>Vehicle Name *</label>
+                        <input type="text" id="car-name" placeholder="e.g., Toyota Camry" required>
+                    </div>
+                    <div>
+                        <label>Car Make *</label>
+                        <input type="text" id="car-make" placeholder="e.g., Toyota" required>
+                    </div>
+                    <div>
+                        <label>Car Model *</label>
+                        <input type="text" id="car-model" placeholder="e.g., Camry" required>
+                    </div>
+                    <div>
+                        <label>Model Year *</label>
+                        <input type="number" id="car-year" min="1990" max="2035" required>
+                    </div>
+                    <div>
+                        <label>License Plate *</label>
+                        <input type="text" id="car-license" placeholder="e.g., ABC123" required>
+                    </div>
+                    <div>
+                        <label>Daily Rate ($) *</label>
+                        <input type="number" id="car-rate" min="0" step="0.01" value="250" required>
+                    </div>
+                    <div>
+                        <label>Weekly Rate ($)</label>
+                        <input type="number" id="car-rate-week" min="0" step="0.01" placeholder="e.g., 1400">
+                    </div>
+                    <div>
+                        <label>Location *</label>
+                        <input type="text" id="car-location" placeholder="e.g., Kathmandu Branch" required>
+                    </div>
+                    <div>
+                        <label>Status *</label>
+                        <select id="car-status" required>
+                            <option value="available" selected>Available</option>
+                            <option value="rented">Rented</option>
+                            <option value="maintenance">Maintenance</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Color</label>
+                        <input type="text" id="car-color" placeholder="e.g., Black">
+                    </div>
+                    <div>
+                        <label>Mileage (km)</label>
+                        <input type="number" id="car-mileage" min="0" step="1" placeholder="e.g., 42000">
+                    </div>
+                    <div>
+                        <label>RTO</label>
+                        <input type="text" id="car-rto" placeholder="e.g., Bagmati Transport Office">
+                    </div>
+                    <div class="full-width">
+                        <label>VIN / Chassis Number</label>
+                        <input type="text" id="car-vin" placeholder="Vehicle Identification Number">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn" onclick="closeModal('car-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Vehicle</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="car-details-modal">
+        <div class="modal-content" style="width:min(680px, 96vw)">
+            <div class="modal-header">
+                <h2 id="vehicle-detail-title">Vehicle Details</h2>
+                <button class="close-btn" onclick="closeModal('car-details-modal')">&times;</button>
+            </div>
+            <div class="form-grid">
+                <div><label>Status</label><div id="vehicle-detail-status" class="muted-text">—</div></div>
+                <div><label>License Plate</label><div id="vehicle-detail-plate" class="muted-text">—</div></div>
+                <div><label>Daily Rate</label><div id="vehicle-detail-rate-day" class="muted-text">—</div></div>
+                <div><label>Weekly Rate</label><div id="vehicle-detail-rate-week" class="muted-text">—</div></div>
+                <div><label>Make</label><div id="vehicle-detail-make" class="muted-text">—</div></div>
+                <div><label>Location</label><div id="vehicle-detail-location" class="muted-text">—</div></div>
+                <div><label>Model</label><div id="vehicle-detail-model" class="muted-text">—</div></div>
+                <div><label>Year</label><div id="vehicle-detail-year" class="muted-text">—</div></div>
+                <div><label>Color</label><div id="vehicle-detail-color" class="muted-text">—</div></div>
+                <div><label>Mileage</label><div id="vehicle-detail-mileage" class="muted-text">—</div></div>
+                <div><label>RTO</label><div id="vehicle-detail-rto" class="muted-text">—</div></div>
+                <div><label>VIN</label><div id="vehicle-detail-vin" class="muted-text">—</div></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let veeraClient = null;
+        const veeraState = {
+            vehicles: [],
+            search: '',
+            sort: 'name-asc',
+            filter: 'all',
+            page: 1,
+            pageSize: 24
+        };
+
+        const clientGetter = () => window.VeeraShared?.getSupabaseClient?.() || window.getVeeraSupabaseClient?.() || null;
+        const hasAdminRole = (user) => user?.app_metadata?.role === 'admin' || user?.user_metadata?.role === 'admin';
+
+        async function guard() {
+            veeraClient = clientGetter();
+            if (!veeraClient) {
+                window.location.replace('login.html?next=fleet.html');
+                return false;
+            }
+            const { data, error } = await veeraClient.auth.getSession();
+            const user = data?.session?.user;
+            if (error || !user || !hasAdminRole(user)) {
+                window.location.replace('login.html?next=fleet.html');
+                return false;
+            }
+            document.body.classList.add('auth-complete');
+            return true;
+        }
+
+        async function fetchData() {
+            try {
+                const { data } = await veeraClient.from('vehicles').select('*').limit(500);
+                const localVehicles = window.VeeraShared?.readStore?.('veera-vehicle-drafts', []) || [];
+                const mergeUnique = (items) => {
+                    const map = new Map();
+                    items.forEach(item => {
+                        const key = item?.id ?? `${item?.plate || ''}-${item?.created_at || ''}`;
+                        if (!map.has(key)) map.set(key, item);
+                    });
+                    return Array.from(map.values());
+                };
+                veeraState.vehicles = mergeUnique([...(data || []), ...localVehicles]);
+                render();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function escapeHtml(value) {
+            const text = String(value ?? '');
+            return text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+        }
+
+        function toNumber(...values) {
+            for (const value of values) {
+                const numeric = Number(value);
+                if (Number.isFinite(numeric)) return numeric;
+            }
+            return 0;
+        }
+
+        function normalizeStatus(status) {
+            const value = String(status || 'available').toLowerCase();
+            if (value.includes('maint')) return 'maintenance';
+            if (value.includes('rent')) return 'rented';
+            return 'available';
+        }
+
+        function vehicleName(vehicle) {
+            const name = vehicle?.name || `${vehicle?.make || ''} ${vehicle?.model || ''}`.trim();
+            return name || 'Vehicle';
+        }
+
+        function vehicleKey(vehicle) {
+            return String(vehicle?.id || `${vehicle?.plate || ''}-${vehicle?.created_at || ''}`);
+        }
+
+        function isPersistedVehicle(vehicle) {
+            return vehicle?.id !== undefined && vehicle?.id !== null && vehicle?.source !== 'local-fallback';
+        }
+
+        function getVisibleVehicles() {
+            const query = veeraState.search.trim().toLowerCase();
+            let rows = [...veeraState.vehicles];
+
+            if (veeraState.filter !== 'all') {
+                rows = rows.filter(vehicle => normalizeStatus(vehicle?.status) === veeraState.filter);
+            }
+
+            if (query) {
+                rows = rows.filter(vehicle => {
+                    const text = `${vehicleName(vehicle)} ${vehicle?.make || ''} ${vehicle?.model || ''} ${vehicle?.plate || ''} ${vehicle?.location || ''}`.toLowerCase();
+                    return text.includes(query);
+                });
+            }
+
+            rows.sort((left, right) => {
+                if (veeraState.sort === 'name-desc') return vehicleName(right).localeCompare(vehicleName(left));
+                if (veeraState.sort === 'rate-high') return toNumber(right?.rate_day) - toNumber(left?.rate_day);
+                if (veeraState.sort === 'rate-low') return toNumber(left?.rate_day) - toNumber(right?.rate_day);
+                if (veeraState.sort === 'status') return normalizeStatus(left?.status).localeCompare(normalizeStatus(right?.status));
+                if (veeraState.sort === 'recent') return new Date(right?.created_at || 0) - new Date(left?.created_at || 0);
+                return vehicleName(left).localeCompare(vehicleName(right));
+            });
+
+            return rows;
+        }
+
+        function renderVehicleDetails(vehicle) {
+            if (!vehicle) return;
+            document.getElementById('vehicle-detail-title').textContent = vehicleName(vehicle);
+            document.getElementById('vehicle-detail-status').textContent = normalizeStatus(vehicle?.status);
+            document.getElementById('vehicle-detail-plate').textContent = vehicle?.plate || 'N/A';
+            document.getElementById('vehicle-detail-rate-day').textContent = `$${toNumber(vehicle?.rate_day).toLocaleString()}/day`;
+            document.getElementById('vehicle-detail-rate-week').textContent = `$${toNumber(vehicle?.rate_week).toLocaleString()}/week`;
+            document.getElementById('vehicle-detail-make').textContent = vehicle?.make || 'N/A';
+            document.getElementById('vehicle-detail-location').textContent = vehicle?.location || 'N/A';
+            document.getElementById('vehicle-detail-model').textContent = vehicle?.model || 'N/A';
+            document.getElementById('vehicle-detail-year').textContent = vehicle?.year || 'N/A';
+            document.getElementById('vehicle-detail-color').textContent = vehicle?.color || 'N/A';
+            document.getElementById('vehicle-detail-mileage').textContent = vehicle?.mileage ? `${vehicle.mileage} km` : 'N/A';
+            document.getElementById('vehicle-detail-rto').textContent = vehicle?.rto || 'N/A';
+            document.getElementById('vehicle-detail-vin').textContent = vehicle?.vin || 'N/A';
+            showModal('car-details-modal');
+        }
+
+        async function setVehicleStatus(vehicle, nextStatus) {
+            const index = veeraState.vehicles.findIndex(item => vehicleKey(item) === vehicleKey(vehicle));
+            if (index < 0) return;
+            const updated = { ...veeraState.vehicles[index], status: nextStatus, updated_at: new Date().toISOString() };
+            try {
+                if (veeraClient && isPersistedVehicle(vehicle)) {
+                    const { error } = await veeraClient
+                        .from('vehicles')
+                        .update({ status: nextStatus, updated_at: updated.updated_at })
+                        .eq('id', vehicle.id);
+                    if (error) throw error;
+                }
+                veeraState.vehicles.splice(index, 1, updated);
+                render();
+                window.VeeraShared?.showNotice?.(`Vehicle marked ${nextStatus}.`, 'success');
+            } catch (error) {
+                console.error('Vehicle status update failed:', error);
+                window.VeeraShared?.showNotice?.('Could not update vehicle in database.', 'error');
+            }
+        }
+
+        async function deleteVehicle(vehicle) {
+            const index = veeraState.vehicles.findIndex(item => vehicleKey(item) === vehicleKey(vehicle));
+            if (index < 0) return;
+            try {
+                if (veeraClient && isPersistedVehicle(vehicle)) {
+                    const { error } = await veeraClient.from('vehicles').delete().eq('id', vehicle.id);
+                    if (error) throw error;
+                }
+                veeraState.vehicles.splice(index, 1);
+                render();
+                window.VeeraShared?.showNotice?.('Vehicle deleted.', 'success');
+            } catch (error) {
+                console.error('Vehicle delete failed:', error);
+                window.VeeraShared?.showNotice?.('Could not delete vehicle in database.', 'error');
+            }
+        }
+
+        function render() {
+            const visibleVehicles = getVisibleVehicles();
+            const total = visibleVehicles.length;
+            const pages = Math.max(1, Math.ceil(total / veeraState.pageSize));
+            if (veeraState.page > pages) veeraState.page = pages;
+            const startIndex = (veeraState.page - 1) * veeraState.pageSize;
+            const pageVehicles = visibleVehicles.slice(startIndex, startIndex + veeraState.pageSize);
+
+            document.getElementById('fleet-count').textContent = `${veeraState.vehicles.length} Vehicles`;
+            const grid = document.getElementById('fleet-grid');
+            grid.innerHTML = pageVehicles.length ? pageVehicles.map(v => `
+                <article class="fleet-item">
+                    <strong>${escapeHtml(vehicleName(v))}</strong>
+                    <div class="muted-text" style="font-size:.8rem">${escapeHtml(v.plate || 'No plate')}</div>
+                    <div class="muted-text" style="font-size:.8rem">$${toNumber(v.rate_day).toLocaleString()}/day</div>
+                    <span class="fleet-item-status ${normalizeStatus(v.status)}">${normalizeStatus(v.status)}</span>
+                    <div class="control-bar" style="margin-top:var(--space-3)">
+                        <button class="btn" data-vehicle-action="available" data-vehicle-id="${escapeHtml(vehicleKey(v))}">Available</button>
+                        <button class="btn" data-vehicle-action="rented" data-vehicle-id="${escapeHtml(vehicleKey(v))}">Rented</button>
+                        <button class="btn" data-vehicle-action="maintenance" data-vehicle-id="${escapeHtml(vehicleKey(v))}">Maintenance</button>
+                    </div>
+                    <div class="control-bar" style="margin-top:var(--space-2)">
+                        <button class="btn" data-vehicle-id="${escapeHtml(vehicleKey(v))}" style="flex:1">View Details</button>
+                        <button class="btn" data-vehicle-action="delete" data-vehicle-id="${escapeHtml(vehicleKey(v))}" style="flex:1">Delete</button>
+                    </div>
+                </article>
+            `).join('') : '<p class="muted-text">No vehicles found</p>';
+
+            const displayStart = total === 0 ? 0 : startIndex + 1;
+            const displayEnd = Math.min(startIndex + veeraState.pageSize, total);
+            document.getElementById('fleet-pagination-info').textContent = `Showing ${displayStart}-${displayEnd} of ${total}`;
+            document.getElementById('fleet-prev').disabled = veeraState.page <= 1;
+            document.getElementById('fleet-next').disabled = veeraState.page >= pages;
+        }
+
+        function bindUi() {
+            document.getElementById('theme-toggle')?.addEventListener('click', () => {
+                const html = document.documentElement;
+                html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+                localStorage.setItem('veera-theme', html.dataset.theme);
+            });
+            document.getElementById('mobile-menu-btn')?.addEventListener('click', () => {
+                document.getElementById('sidebar')?.classList.toggle('open');
+            });
+            document.getElementById('fleet-search')?.addEventListener('input', (event) => {
+                veeraState.search = event.target.value || '';
+                veeraState.page = 1;
+                render();
+            });
+            document.getElementById('fleet-sort')?.addEventListener('change', (event) => {
+                veeraState.sort = event.target.value;
+                veeraState.page = 1;
+                render();
+            });
+            document.querySelectorAll('[data-filter]').forEach(button => {
+                button.addEventListener('click', () => {
+                    veeraState.filter = button.dataset.filter;
+                    veeraState.page = 1;
+                    document.querySelectorAll('[data-filter]').forEach(item => item.classList.remove('active'));
+                    button.classList.add('active');
+                    render();
+                });
+            });
+            document.getElementById('fleet-prev')?.addEventListener('click', () => {
+                if (veeraState.page > 1) {
+                    veeraState.page -= 1;
+                    render();
+                }
+            });
+            document.getElementById('fleet-next')?.addEventListener('click', () => {
+                const total = getVisibleVehicles().length;
+                const pages = Math.max(1, Math.ceil(total / veeraState.pageSize));
+                if (veeraState.page < pages) {
+                    veeraState.page += 1;
+                    render();
+                }
+            });
+            document.getElementById('fleet-grid')?.addEventListener('click', (event) => {
+                const trigger = event.target.closest('[data-vehicle-id]');
+                if (!trigger) return;
+                const targetId = trigger.getAttribute('data-vehicle-id');
+                const vehicle = veeraState.vehicles.find(item => vehicleKey(item) === targetId);
+                if (!vehicle) return;
+                const action = trigger.getAttribute('data-vehicle-action');
+                if (!action) {
+                    renderVehicleDetails(vehicle);
+                    return;
+                }
+                if (action === 'delete') {
+                    deleteVehicle(vehicle);
+                    return;
+                }
+                setVehicleStatus(vehicle, action);
+            });
+            document.getElementById('car-form')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const payload = {
+                    id: Date.now(),
+                    name: document.getElementById('car-name').value.trim(),
+                    make: document.getElementById('car-make').value.trim(),
+                    model: document.getElementById('car-model').value.trim(),
+                    year: Number(document.getElementById('car-year').value || 0),
+                    plate: document.getElementById('car-license').value.trim().toUpperCase(),
+                    rate_day: Number(document.getElementById('car-rate').value || 0),
+                    rate_week: Number(document.getElementById('car-rate-week').value || 0),
+                    location: document.getElementById('car-location').value.trim(),
+                    status: document.getElementById('car-status').value,
+                    color: document.getElementById('car-color').value.trim(),
+                    mileage: Number(document.getElementById('car-mileage').value || 0),
+                    rto: document.getElementById('car-rto').value.trim(),
+                    vin: document.getElementById('car-vin').value.trim(),
+                    created_at: new Date().toISOString(),
+                    source: 'local-fallback'
+                };
+
+                try {
+                    if (veeraClient) {
+                        const dbPayload = { ...payload };
+                        delete dbPayload.id;
+                        delete dbPayload.source;
+                        const { data, error } = await veeraClient.from('vehicles').insert(dbPayload).select('*').limit(1);
+                        if (error) throw error;
+                        const persisted = Array.isArray(data) && data[0] ? data[0] : { ...payload, source: undefined };
+                        veeraState.vehicles.unshift(persisted);
+                        render();
+                        window.VeeraShared?.showNotice?.('Vehicle saved successfully.', 'success');
+                        closeModal('car-modal');
+                        return;
+                    }
+                    veeraState.vehicles.unshift(payload);
+                    render();
+                    window.VeeraShared?.showNotice?.('Vehicle saved successfully.', 'success');
+                } catch (error) {
+                    window.VeeraShared?.appendStoreItem?.('veera-vehicle-drafts', payload, 100);
+                    veeraState.vehicles.unshift(payload);
+                    render();
+                    window.VeeraShared?.showNotice?.('Saved locally. Backend sync can be connected later.', 'warning');
+                    console.error('Vehicle save failed:', error);
+                }
+                closeModal('car-modal');
+            });
+        }
+
+        function showModal(id) { document.getElementById(id)?.classList.add('open'); }
+        function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+
+        async function adminLogout(event) {
+            if (event) event.preventDefault();
+            if (veeraClient) await veeraClient.auth.signOut();
+            window.location.replace('login.html');
+        }
+
+        async function bootstrap() {
+            const ok = await guard();
+            if (!ok) return;
+            const savedTheme = localStorage.getItem('veera-theme');
+            if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+            bindUi();
+            await fetchData();
+        }
+
+        bootstrap();
+    </script>
+</body>
+</html>

@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veera Rentals • Reports</title>
+    <meta name="description" content="Veera Rentals analytics, reports, revenue, and performance data.">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <script src="../supabase-config.js"></script>
+    <script src="shared-utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --font-body: 'Inter', sans-serif;
+            --font-display: 'Poppins', sans-serif;
+            --sidebar-w: 260px;
+            --space-2: .5rem;
+            --space-3: .75rem;
+            --space-4: 1rem;
+            --space-5: 1.25rem;
+            --space-6: 1.5rem;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        html[data-theme="dark"] {
+            --bg: #0f141d;
+            --elev: #161c27;
+            --card: #1b2330;
+            --card2: #212c3c;
+            --text: #e9edf5;
+            --muted: #9aa7ba;
+            --border: #2b374b;
+            --primary: #53a6ff;
+        }
+        html[data-theme="light"] {
+            --bg: #f3f6fb;
+            --elev: #ffffff;
+            --card: #ffffff;
+            --card2: #f8fbff;
+            --text: #151d2c;
+            --muted: #5e6b7e;
+            --border: #d6e0ef;
+            --primary: #0069d9;
+        }
+        * { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; }
+        body { background: var(--bg); color: var(--text); font-family: var(--font-body); }
+        body:not(.auth-complete) .app-container { opacity: 0; pointer-events: none; }
+        .app-container { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; }
+        .sidebar { background: linear-gradient(180deg, var(--elev), var(--card)); border-right: 1px solid var(--border); padding: var(--space-5); display: grid; gap: var(--space-5); align-content: start; overflow-y: auto; }
+        .sidebar h1 { margin: 0; font-family: var(--font-display); font-size: 1.3rem; }
+        .sidebar-nav { display: grid; gap: var(--space-2); }
+        .sidebar-link { border: 1px solid var(--border); background: var(--card2); color: var(--text); border-radius: var(--radius-sm); padding: .55rem .85rem; cursor: pointer; text-decoration: none; display: block; text-align: left; }
+        .sidebar-link.active { background: var(--primary); color: #fff; border-color: transparent; }
+        .main-col { display: grid; grid-template-rows: auto 1fr; }
+        .top-header { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--elev) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); padding: .8rem var(--space-6); display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
+        .main-scroll { overflow-y: auto; padding: var(--space-6); display: grid; gap: var(--space-6); }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4); }
+        .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); }
+        .badge { border: 1px solid var(--border); border-radius: 999px; padding: .2rem .55rem; font-size: .75rem; color: var(--muted); }
+        .btn { border: 1px solid var(--border); background: var(--card2); color: var(--text); border-radius: var(--radius-sm); cursor: pointer; padding: .55rem .85rem; }
+        .btn-icon { width: 38px; height: 38px; display: grid; place-items: center; background: var(--card2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
+        .kpi-value { font-family: var(--font-display); font-size: 1.4rem; font-weight: 600; }
+        .muted-text { color: var(--muted); font-size: .85rem; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); }
+        .filters { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+        input, select { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card); color: var(--text); padding: .55rem .65rem; font: inherit; }
+        .stack-list { display: grid; gap: var(--space-3); }
+        .item { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card2); padding: .8rem; }
+        .chart-wrap { position: relative; height: 300px; }
+        @media (max-width: 1200px) { .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .grid-2 { grid-template-columns: 1fr; } }
+        @media (max-width: 980px) {
+            .app-container { grid-template-columns: 1fr; }
+            .sidebar { position: fixed; left: -100%; width: var(--sidebar-w); top: 0; bottom: 0; z-index: 40; transition: left .22s ease; }
+            .sidebar.open { left: 0; }
+            .grid-4, .grid-2 { grid-template-columns: 1fr; }
+            .main-scroll { padding: var(--space-4); }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar" id="sidebar">
+            <div>
+                <h1>Veera Rentals</h1>
+                <p class="muted-text" style="margin:.2rem 0 0">Operations</p>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" class="sidebar-link">Dashboard</a>
+                <a href="bookings.html" class="sidebar-link">Bookings</a>
+                <a href="fleet.html" class="sidebar-link">Fleet</a>
+                <a href="customers.html" class="sidebar-link">Customers</a>
+                <a href="reports.html" class="sidebar-link active">Reports</a>
+            </nav>
+        </aside>
+        <div class="main-col">
+            <header class="top-header">
+                <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
+                    <button class="btn-icon" id="mobile-menu-btn" style="display:none" aria-label="Toggle sidebar">☰</button>
+                    <strong>Reports • Analytics & Insights</strong>
+                </div>
+                <div style="display:flex;align-items:center;gap:.5rem">
+                    <button class="btn-icon" id="theme-toggle" aria-label="Toggle theme">🌓</button>
+                    <button class="btn" onclick="adminLogout(event)">Logout</button>
+                </div>
+            </header>
+            <main class="main-scroll">
+                <section class="card">
+                    <div class="section-header">
+                        <h2>Revenue Analytics</h2>
+                        <span class="badge" id="revenue-badge">Live</span>
+                    </div>
+                    <div class="grid-4">
+                        <article class="item">
+                            <p class="muted-text">Daily Earnings</p>
+                            <h3 id="earnings-daily" class="kpi-value">$0</h3>
+                        </article>
+                        <article class="item">
+                            <p class="muted-text">Weekly Earnings</p>
+                            <h3 id="earnings-weekly" class="kpi-value">$0</h3>
+                        </article>
+                        <article class="item">
+                            <p class="muted-text">Monthly Earnings</p>
+                            <h3 id="earnings-monthly" class="kpi-value">$0</h3>
+                        </article>
+                        <article class="item">
+                            <p class="muted-text">Total Unpaid</p>
+                            <h3 id="earnings-unpaid" class="kpi-value">$0</h3>
+                        </article>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <div class="section-header">
+                        <h2>Revenue Trend</h2>
+                        <select id="revenue-range" class="btn" style="padding:.4rem .6rem;font-size:.85rem">
+                            <option value="7">Last 7 Days</option>
+                            <option value="14" selected>Last 14 Days</option>
+                            <option value="30">Last 30 Days</option>
+                        </select>
+                    </div>
+                    <div class="chart-wrap">
+                        <canvas id="revenue-chart"></canvas>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <div class="section-header">
+                        <h2>Car-wise Performance</h2>
+                        <span class="badge" id="car-performance-count">0 Cars</span>
+                    </div>
+                    <div id="car-performance-list" class="stack-list">
+                        <p class="muted-text">No performance data yet</p>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <div class="section-header">
+                        <h2>Invoice Center</h2>
+                        <span class="badge" id="invoice-count">0</span>
+                    </div>
+                    <div class="filters" style="margin-bottom:var(--space-4)">
+                        <input type="text" id="invoice-search" placeholder="Search invoices by customer, invoice ID..." style="flex:1">
+                        <select id="invoice-status">
+                            <option value="all">All</option>
+                            <option value="paid">Paid</option>
+                            <option value="unpaid">Unpaid</option>
+                        </select>
+                    </div>
+                    <div id="invoice-list" class="stack-list">
+                        <p class="muted-text">No invoices generated yet</p>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <div class="section-header">
+                        <h2>Recent Service Activity</h2>
+                    </div>
+                    <div id="service-history-list" class="stack-list">
+                        <p class="muted-text">No service records yet (pickups, drop-offs, swaps)</p>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <div class="section-header">
+                        <h2>Quick Actions</h2>
+                    </div>
+                    <div class="filters">
+                        <button class="btn" onclick="exportData()">📥 Export Data</button>
+                        <button class="btn" onclick="reimportFromRecords()">🔄 Re-import Records</button>
+                        <button class="btn" onclick="showDailyReport()">📊 Daily Report</button>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        let veeraClient = null;
+        const veeraState = { invoices: [], bookings: [], vehicles: [] };
+        let revenueChart = null;
+
+        const clientGetter = () => window.VeeraShared?.getSupabaseClient?.() || window.getVeeraSupabaseClient?.() || null;
+        const hasAdminRole = (user) => user?.app_metadata?.role === 'admin' || user?.user_metadata?.role === 'admin';
+        const currency = (n = 0) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+
+        async function guard() {
+            veeraClient = clientGetter();
+            if (!veeraClient) {
+                window.location.replace('login.html?next=reports.html');
+                return false;
+            }
+            const { data, error } = await veeraClient.auth.getSession();
+            const user = data?.session?.user;
+            if (error || !user || !hasAdminRole(user)) {
+                window.location.replace('login.html?next=reports.html');
+                return false;
+            }
+            document.body.classList.add('auth-complete');
+            return true;
+        }
+
+        const mockSeries = (days, base, variance) => {
+            const labels = [];
+            const values = [];
+            for (let i = days - 1; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                labels.push(d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+                values.push(Math.max(0, base + Math.round((Math.random() - .5) * variance)));
+            }
+            return { labels, values };
+        };
+
+        async function fetchData() {
+            try {
+                const [invoicesRes, bookingsRes, vehiclesRes] = await Promise.all([
+                    veeraClient.from('invoices').select('*').order('created_at', { ascending: false }).limit(500),
+                    veeraClient.from('booking_requests').select('*').limit(500),
+                    veeraClient.from('vehicles').select('*').limit(500)
+                ]);
+                veeraState.invoices = invoicesRes.data || [];
+                veeraState.bookings = bookingsRes.data || [];
+                veeraState.vehicles = vehiclesRes.data || [];
+                render();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function render() {
+            const now = new Date();
+            const invoices = veeraState.invoices;
+            
+            // Daily earnings
+            const dailyInvoices = invoices.filter(i => new Date(i.created_at || now).toDateString() === now.toDateString());
+            const dailyEarnings = dailyInvoices.reduce((s, i) => s + Number(i.total_amount || 0), 0);
+            
+            // Weekly earnings
+            const weekAgo = new Date(now);
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            const weeklyInvoices = invoices.filter(i => new Date(i.created_at || now) >= weekAgo);
+            const weeklyEarnings = weeklyInvoices.reduce((s, i) => s + Number(i.total_amount || 0), 0);
+            
+            // Monthly earnings
+            const monthlyInvoices = invoices.filter(i => {
+                const d = new Date(i.created_at || now);
+                return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+            });
+            const monthlyEarnings = monthlyInvoices.reduce((s, i) => s + Number(i.total_amount || 0), 0);
+            
+            // Unpaid
+            const unpaid = invoices.reduce((s, i) => s + Math.max(0, Number(i.total_amount || 0) - Number(i.paid_amount || 0)), 0);
+
+            document.getElementById('earnings-daily').textContent = currency(dailyEarnings);
+            document.getElementById('earnings-weekly').textContent = currency(weeklyEarnings);
+            document.getElementById('earnings-monthly').textContent = currency(monthlyEarnings);
+            document.getElementById('earnings-unpaid').textContent = currency(unpaid);
+            document.getElementById('invoice-count').textContent = String(invoices.length);
+
+            const invoiceList = document.getElementById('invoice-list');
+            invoiceList.innerHTML = invoices.length ? invoices.slice(0, 15).map(inv => {
+                const owed = Number(inv.total_amount || 0) - Number(inv.paid_amount || 0);
+                return `<article class="item"><strong>${inv.invoice_number || 'Invoice'}</strong><div class="muted-text">${inv.customer_name || 'Customer'} • ${currency(inv.total_amount || 0)}</div><span class="badge" style="color:${owed > 0 ? '#ff6f7d' : '#27c88a'}">${owed > 0 ? 'Unpaid' : 'Paid'}</span></article>`;
+            }).join('') : '<p class="muted-text">No invoices found</p>';
+
+            upsertChart();
+        }
+
+        function upsertChart() {
+            const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const revenueCtx = document.getElementById('revenue-chart');
+            if (!revenueCtx) return;
+            const series = mockSeries(14, 1600, 900);
+            const common = {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: reduced ? false : { duration: 520 },
+                plugins: { legend: { position: 'top' } }
+            };
+            if (!revenueChart) {
+                revenueChart = new Chart(revenueCtx, {
+                    type: 'bar',
+                    data: { labels: series.labels, datasets: [{ label: 'Revenue', data: series.values, backgroundColor: '#53a6ff' }] },
+                    options: common
+                });
+            } else {
+                revenueChart.data.labels = series.labels;
+                revenueChart.data.datasets[0].data = series.values;
+                revenueChart.update();
+            }
+        }
+
+        function bindUi() {
+            document.getElementById('theme-toggle')?.addEventListener('click', () => {
+                const html = document.documentElement;
+                html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+                localStorage.setItem('veera-theme', html.dataset.theme);
+                upsertChart();
+            });
+            document.getElementById('mobile-menu-btn')?.addEventListener('click', () => {
+                document.getElementById('sidebar')?.classList.toggle('open');
+            });
+            document.getElementById('revenue-range')?.addEventListener('change', upsertChart);
+        }
+
+        function exportData() {
+            const rows = [
+                ['type', 'id', 'name', 'amount', 'status', 'created_at'],
+                ...veeraState.invoices.map(inv => [
+                    'invoice',
+                    inv.id ?? '',
+                    inv.customer_name || inv.customer || '',
+                    inv.amount ?? '',
+                    inv.status ?? '',
+                    inv.created_at ?? ''
+                ])
+            ];
+            const csv = rows.map(row => row.map(value => `"${String(value ?? '').replaceAll('"', '""')}"`).join(',')).join('\n');
+            window.VeeraShared?.downloadTextFile?.(`veera-reports-${new Date().toISOString().slice(0,10)}.csv`, csv, 'text/csv;charset=utf-8');
+            window.VeeraShared?.showNotice?.('Reports exported as CSV.', 'success');
+        }
+
+        function reimportFromRecords() {
+            const cache = window.VeeraShared?.readStore?.('veera-reports-cache', null);
+            if (!cache) {
+                window.VeeraShared?.showNotice?.('No cached report snapshot found yet.', 'warning');
+                return;
+            }
+            veeraState.invoices = cache.invoices || [];
+            veeraState.bookings = cache.bookings || [];
+            veeraState.vehicles = cache.vehicles || [];
+            render();
+            upsertChart();
+            window.VeeraShared?.showNotice?.('Cached report snapshot restored.', 'success');
+        }
+
+        function showDailyReport() {
+            const summary = [
+                'Veera Rentals Daily Report',
+                `Generated: ${new Date().toLocaleString()}`,
+                `Invoices: ${veeraState.invoices.length}`,
+                `Bookings: ${veeraState.bookings.length}`,
+                `Vehicles: ${veeraState.vehicles.length}`
+            ].join('\n');
+            window.VeeraShared?.downloadTextFile?.(`daily-report-${new Date().toISOString().slice(0,10)}.txt`, summary);
+            window.VeeraShared?.showNotice?.('Daily report downloaded.', 'success');
+        }
+
+        async function adminLogout(event) {
+            if (event) event.preventDefault();
+            if (veeraClient) await veeraClient.auth.signOut();
+            window.location.replace('login.html');
+        }
+
+        async function bootstrap() {
+            const ok = await guard();
+            if (!ok) return;
+            const savedTheme = localStorage.getItem('veera-theme');
+            if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+            bindUi();
+            await fetchData();
+        }
+
+        bootstrap();
+    </script>
+</body>
+</html>

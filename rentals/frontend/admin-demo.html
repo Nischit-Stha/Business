@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veera Rentals Admin - Demo Mode</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #f5f5f5; }
+        .admin-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+        .demo-banner {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            color: #664d03;
+        }
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #ddd;
+        }
+        .tab-btn {
+            padding: 0.8rem 1.5rem;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+        }
+        .tab-btn.active {
+            color: #ffd700;
+            border-bottom-color: #ffd700;
+        }
+        .tab-content {
+            display: none;
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .tab-content.active {
+            display: block;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 0.8rem;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background: #f9f9f9;
+            font-weight: 600;
+            color: #333;
+        }
+        tr:hover { background: #f5f5f5; }
+        .btn {
+            padding: 0.6rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        .btn-primary {
+            background: #ffd700;
+            color: #1a1a1a;
+        }
+        .btn-primary:hover {
+            background: #ffed4e;
+        }
+        .btn-danger {
+            background: #dc2626;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #b91c1c;
+        }
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 2rem;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        label {
+            display: block;
+            margin-bottom: 0.4rem;
+            font-weight: 600;
+            color: #333;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 0.6rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-family: inherit;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #ffd700;
+            box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <div class="demo-banner">
+            <strong>Demo Mode:</strong> This is a local demo without real Supabase connection. Changes won't persist on page refresh.
+            <a href="login.html" style="float: right; color: #664d03; text-decoration: underline;">Back to Login</a>
+        </div>
+
+        <h1>Admin Dashboard</h1>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('requests')">Requests</button>
+            <button class="tab-btn" onclick="switchTab('customers')">Customers</button>
+            <button class="tab-btn" onclick="switchTab('fleet')">Fleet</button>
+            <button class="tab-btn" onclick="switchTab('test-tools')">Test Tools</button>
+        </div>
+
+        <!-- REQUESTS TAB -->
+        <div id="requests" class="tab-content active">
+            <h2>Booking Requests</h2>
+            <button class="btn btn-primary" onclick="addSampleRequest()">+ Add Sample Request</button>
+            <table id="requests-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Customer Name</th>
+                        <th>Phone</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Vehicle</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="requests-tbody">
+                </tbody>
+            </table>
+        </div>
+
+        <!-- CUSTOMERS TAB -->
+        <div id="customers" class="tab-content">
+            <h2>Customers</h2>
+            <button class="btn btn-primary" onclick="addSampleCustomer()">+ Add Sample Customer</button>
+            <table id="customers-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Phone</th>
+                        <th>Email</th>
+                        <th>Current Vehicle</th>
+                        <th>Last Request</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="customers-tbody">
+                </tbody>
+            </table>
+        </div>
+
+        <!-- FLEET TAB -->
+        <div id="fleet" class="tab-content">
+            <h2>Fleet Inventory</h2>
+            <button class="btn btn-primary" onclick="addSampleVehicle()">+ Add Sample Vehicle</button>
+            <table id="fleet-table">
+                <thead>
+                    <tr>
+                        <th>Rego</th>
+                        <th>Status</th>
+                        <th>Current Assignment</th>
+                        <th>Mileage</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="fleet-tbody">
+                </tbody>
+            </table>
+        </div>
+
+        <!-- TEST TOOLS TAB -->
+        <div id="test-tools" class="tab-content">
+            <h2>Test Data Management</h2>
+            <div class="form-group">
+                <h3>Quick Generate Demo Data</h3>
+                <button class="btn btn-primary" onclick="generateDemoData()">Generate 5 Sample Requests + Customers + Fleet</button>
+                <button class="btn btn-danger" onclick="clearAllData()">Clear All Demo Data (⚠️ cannot undo)</button>
+            </div>
+            <div class="form-group">
+                <h3>Add Manual Request</h3>
+                <input type="text" id="req-name" placeholder="Customer Name" />
+                <input type="text" id="req-phone" placeholder="Phone" />
+                <input type="text" id="req-email" placeholder="Email" />
+                <select id="req-type">
+                    <option value="pickup">Pickup</option>
+                    <option value="drop-off">Drop-off</option>
+                    <option value="swap">Swap</option>
+                </select>
+                <select id="req-status">
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="completed">Completed</option>
+                    <option value="rejected">Rejected</option>
+                </select>
+                <input type="text" id="req-vehicle" placeholder="Vehicle Rego (e.g., ABC123)" />
+                <button class="btn btn-primary" onclick="addManualRequest()">Add Request</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // LocalStorage demo data management
+        function getDemoData() {
+            const data = localStorage.getItem('veera_demo_data');
+            return data ? JSON.parse(data) : { requests: [], customers: [], vehicles: [] };
+        }
+
+        function saveDemoData(data) {
+            localStorage.setItem('veera_demo_data', JSON.stringify(data));
+            refreshAllTabs();
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function addSampleRequest() {
+            const data = getDemoData();
+            const id = 'REQ-' + Math.random().toString(36).substring(2, 9).toUpperCase();
+            const vehicles = data.vehicles.length > 0 ? data.vehicles : [{rego: 'ABC123'}, {rego: 'XYZ789'}];
+            
+            data.requests.push({
+                id,
+                customer_name: 'Sample Customer ' + Math.floor(Math.random() * 100),
+                phone: '041' + Math.floor(Math.random() * 10000000),
+                email: 'customer@example.com',
+                type: ['pickup', 'drop-off', 'swap'][Math.floor(Math.random() * 3)],
+                status: ['pending', 'approved', 'completed'][Math.floor(Math.random() * 3)],
+                vehicle: vehicles[Math.floor(Math.random() * vehicles.length)].rego,
+                date: new Date().toLocaleDateString()
+            });
+            saveDemoData(data);
+        }
+
+        function addSampleCustomer() {
+            const data = getDemoData();
+            const id = 'CUST-' + Math.random().toString(36).substring(2, 9).toUpperCase();
+            
+            data.customers.push({
+                id,
+                name: 'Customer ' + Math.floor(Math.random() * 1000),
+                phone: '041' + Math.floor(Math.random() * 10000000),
+                email: 'cust' + Math.floor(Math.random() * 1000) + '@example.com',
+                current_vehicle: 'ABC123',
+                last_request: 'pickup'
+            });
+            saveDemoData(data);
+        }
+
+        function addSampleVehicle() {
+            const data = getDemoData();
+            const regos = ['ABC123', 'XYZ789', 'DEF456', 'GHI789', 'JKL012'];
+            
+            data.vehicles.push({
+                rego: regos.find(r => !data.vehicles.find(v => v.rego === r)) || 'VEH-' + Math.random().toString(36).substring(2, 7).toUpperCase(),
+                status: ['available', 'assigned', 'maintenance'][Math.floor(Math.random() * 3)],
+                current_assignment: Math.random() > 0.5 ? 'REQ-' + Math.random().toString(36).substring(2, 9).toUpperCase() : null,
+                mileage: Math.floor(Math.random() * 200000)
+            });
+            saveDemoData(data);
+        }
+
+        function addManualRequest() {
+            const data = getDemoData();
+            const id = 'REQ-' + Math.random().toString(36).substring(2, 9).toUpperCase();
+            
+            data.requests.push({
+                id,
+                customer_name: document.getElementById('req-name').value || 'New Customer',
+                phone: document.getElementById('req-phone').value || '0412345678',
+                email: document.getElementById('req-email').value || 'user@example.com',
+                type: document.getElementById('req-type').value,
+                status: document.getElementById('req-status').value,
+                vehicle: document.getElementById('req-vehicle').value || 'ABC123',
+                date: new Date().toLocaleDateString()
+            });
+            
+            saveDemoData(data);
+            document.getElementById('req-name').value = '';
+            document.getElementById('req-phone').value = '';
+            document.getElementById('req-email').value = '';
+            document.getElementById('req-vehicle').value = '';
+        }
+
+        function generateDemoData() {
+            const data = { requests: [], customers: [], vehicles: [] };
+            
+            // Generate 5 vehicles
+            for (let i = 0; i < 5; i++) {
+                data.vehicles.push({
+                    rego: String.fromCharCode(65 + i) + String.fromCharCode(66 + i) + String.fromCharCode(67 + i) + (100 + i),
+                    status: i < 2 ? 'assigned' : 'available',
+                    current_assignment: i < 2 ? 'REQ-' + Math.random().toString(36).substring(2, 9) : null,
+                    mileage: 50000 + i * 10000
+                });
+            }
+
+            // Generate 5 customers
+            for (let i = 0; i < 5; i++) {
+                data.customers.push({
+                    id: 'CUST-' + (1000 + i),
+                    name: ['Ali Ahmed', 'Maria Garcia', 'John Smith', 'Sarah Chen', 'James Wilson'][i],
+                    phone: '0412' + (300000 + i * 10000),
+                    email: ['ali@example.com', 'maria@example.com', 'john@example.com', 'sarah@example.com', 'james@example.com'][i],
+                    current_vehicle: data.vehicles[i % 5].rego,
+                    last_request: ['pickup', 'drop-off', 'swap'][i % 3]
+                });
+            }
+
+            // Generate 5 requests
+            for (let i = 0; i < 5; i++) {
+                data.requests.push({
+                    id: 'REQ-' + (5000 + i),
+                    customer_name: data.customers[i].name,
+                    phone: data.customers[i].phone,
+                    email: data.customers[i].email,
+                    type: ['pickup', 'drop-off', 'swap'][i % 3],
+                    status: ['pending', 'approved', 'completed', 'rejected'][i % 4],
+                    vehicle: data.vehicles[i % 5].rego,
+                    date: new Date().toLocaleDateString()
+                });
+            }
+
+            localStorage.setItem('veera_demo_data', JSON.stringify(data));
+            refreshAllTabs();
+            alert('Generated 5 sample requests, customers, and vehicles!');
+        }
+
+        function clearAllData() {
+            if (confirm('Are you sure? All demo data will be permanently deleted!')) {
+                localStorage.removeItem('veera_demo_data');
+                refreshAllTabs();
+                alert('All demo data cleared.');
+            }
+        }
+
+        function deleteRequest(id) {
+            const data = getDemoData();
+            data.requests = data.requests.filter(r => r.id !== id);
+            saveDemoData(data);
+        }
+
+        function deleteCustomer(id) {
+            const data = getDemoData();
+            data.customers = data.customers.filter(c => c.id !== id);
+            saveDemoData(data);
+        }
+
+        function deleteVehicle(rego) {
+            const data = getDemoData();
+            data.vehicles = data.vehicles.filter(v => v.rego !== rego);
+            saveDemoData(data);
+        }
+
+        function refreshRequests() {
+            const data = getDemoData();
+            const tbody = document.getElementById('requests-tbody');
+            
+            if (data.requests.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No requests yet. Add one to get started.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.requests.map(r => `
+                <tr>
+                    <td>${r.id}</td>
+                    <td>${r.customer_name}</td>
+                    <td>${r.phone}</td>
+                    <td><strong>${r.type}</strong></td>
+                    <td><span style="background: ${r.status === 'approved' ? '#d4edda' : r.status === 'pending' ? '#fff3cd' : r.status === 'completed' ? '#d1ecf1' : '#f8d7da'}; padding: 0.3rem 0.6rem; border-radius: 4px; display: inline-block;">${r.status}</span></td>
+                    <td>${r.vehicle}</td>
+                    <td>${r.date}</td>
+                    <td><button class="btn btn-danger" onclick="deleteRequest('${r.id}')">Delete</button></td>
+                </tr>
+            `).join('');
+        }
+
+        function refreshCustomers() {
+            const data = getDemoData();
+            const tbody = document.getElementById('customers-tbody');
+            
+            if (data.customers.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No customers yet. Add one to get started.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.customers.map(c => `
+                <tr>
+                    <td>${c.id}</td>
+                    <td>${c.name}</td>
+                    <td>${c.phone}</td>
+                    <td>${c.email}</td>
+                    <td>${c.current_vehicle || 'N/A'}</td>
+                    <td>${c.last_request}</td>
+                    <td><button class="btn btn-danger" onclick="deleteCustomer('${c.id}')">Delete</button></td>
+                </tr>
+            `).join('');
+        }
+
+        function refreshFleet() {
+            const data = getDemoData();
+            const tbody = document.getElementById('fleet-tbody');
+            
+            if (data.vehicles.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No vehicles yet. Add one to get started.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.vehicles.map(v => `
+                <tr>
+                    <td><strong>${v.rego}</strong></td>
+                    <td><span style="background: ${v.status === 'available' ? '#d4edda' : v.status === 'assigned' ? '#fff3cd' : '#f8d7da'}; padding: 0.3rem 0.6rem; border-radius: 4px; display: inline-block;">${v.status}</span></td>
+                    <td>${v.current_assignment || 'None'}</td>
+                    <td>${v.mileage.toLocaleString()} km</td>
+                    <td><button class="btn btn-danger" onclick="deleteVehicle('${v.rego}')">Delete</button></td>
+                </tr>
+            `).join('');
+        }
+
+        function refreshAllTabs() {
+            refreshRequests();
+            refreshCustomers();
+            refreshFleet();
+        }
+
+        // Initialize on load
+        window.addEventListener('load', refreshAllTabs);
+    </script>
+</body>
+</html>

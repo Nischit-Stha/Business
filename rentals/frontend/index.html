@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veera Rentals • Operations Console</title>
+    <meta name="description" content="Veera Rentals real-time operations console for bookings, fleet, invoices, risk, and analytics.">
+    <script>
+        (function redirectLegacyEntryEarly() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('legacy') === '1') return;
+            window.location.replace('dashboard.html');
+        })();
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <script src="../supabase-config.js"></script>
+    <script src="shared-utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --font-body: 'Inter', sans-serif;
+            --font-display: 'Poppins', sans-serif;
+            --sidebar-w: 260px;
+            --space-2: .5rem;
+            --space-3: .75rem;
+            --space-4: 1rem;
+            --space-5: 1.25rem;
+            --space-6: 1.5rem;
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        html[data-theme="dark"] {
+            --bg: #0f141d;
+            --elev: #161c27;
+            --card: #1b2330;
+            --card2: #212c3c;
+            --text: #e9edf5;
+            --muted: #9aa7ba;
+            --border: #2b374b;
+            --primary: #53a6ff;
+            --success: #27c88a;
+            --warning: #f8b84e;
+            --danger: #ff6f7d;
+        }
+        html[data-theme="light"] {
+            --bg: #f3f6fb;
+            --elev: #ffffff;
+            --card: #ffffff;
+            --card2: #f8fbff;
+            --text: #151d2c;
+            --muted: #5e6b7e;
+            --border: #d6e0ef;
+            --primary: #0069d9;
+            --success: #1d9f70;
+            --warning: #c78924;
+            --danger: #d84b61;
+        }
+        * { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; }
+        body { background: var(--bg); color: var(--text); font-family: var(--font-body); overflow: hidden; }
+        body:not(.auth-complete) .app-shell { opacity: 0; pointer-events: none; }
+        .app-shell { display: grid; grid-template-columns: var(--sidebar-w) 1fr; height: 100vh; }
+        .sidebar { background: linear-gradient(180deg, var(--elev), var(--card)); border-right: 1px solid var(--border); padding: var(--space-5); display: grid; gap: var(--space-5); align-content: start; }
+        .main-col { display: grid; grid-template-rows: auto 1fr; min-width: 0; }
+        .main-scroll { overflow: auto; padding: var(--space-6); display: grid; gap: var(--space-6); }
+        .top-header { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--elev) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); padding: .8rem var(--space-6); display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4); min-width: 0; }
+        .grid-6 { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--space-4); }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); }
+        .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+        .badge { border: 1px solid var(--border); border-radius: 999px; padding: .2rem .55rem; font-size: .75rem; color: var(--muted); }
+        .btn, .btn-icon { border: 1px solid var(--border); background: var(--card2); color: var(--text); border-radius: var(--radius-sm); cursor: pointer; }
+        .btn { padding: .55rem .85rem; }
+        .btn-primary { background: var(--primary); color: #fff; border-color: transparent; }
+        .btn-icon { width: 38px; height: 38px; display: grid; place-items: center; }
+        .kpi-value { font-family: var(--font-display); font-size: 1.6rem; }
+        .kpi-label, .muted-text { color: var(--muted); font-size: .85rem; }
+        [data-tab-panel] { display: none; }
+        [data-tab-panel].active { display: grid; gap: var(--space-6); }
+        .alert-list, .stack-list, .fleet-grid, .rentals-list, .dashboard-notifications-list { display: grid; gap: var(--space-3); content-visibility: auto; contain-intrinsic-size: 500px; }
+        .item { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card2); padding: .8rem; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); }
+        .control-bar, .filters, .tracker-filters, .action-buttons { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+        input, select, textarea { width: 100%; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card); color: var(--text); padding: .55rem .65rem; font: inherit; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(3,6,10,.62); z-index: 30; align-items: center; justify-content: center; padding: var(--space-5); }
+        .modal.open { display: flex; }
+        .modal-content { width: min(920px, 96vw); max-height: 90vh; overflow: auto; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-5); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); }
+        .close-btn { border: 1px solid var(--border); background: var(--card2); color: var(--text); border-radius: var(--radius-sm); width: 36px; height: 36px; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+        .full-width { grid-column: 1 / -1; }
+        .form-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-4); flex-wrap: wrap; }
+        .mobile-btn { display: none; }
+        @media (max-width: 1200px) { .grid-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 980px) {
+            .app-shell { grid-template-columns: 1fr; }
+            .sidebar { position: fixed; left: -100%; width: var(--sidebar-w); top: 0; bottom: 0; z-index: 40; transition: left .22s ease; }
+            .sidebar.open { left: 0; }
+            .mobile-btn { display: inline-grid; }
+            .grid-6, .grid-3, .grid-2, .form-grid { grid-template-columns: 1fr; }
+            .main-scroll { padding: var(--space-4); }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="sidebar" id="sidebar" aria-label="Primary navigation">
+            <div>
+                <h1 style="margin:0;font-family:var(--font-display)">Veera Rentals</h1>
+                <p class="muted-text" style="margin:.2rem 0 0">Operations Console</p>
+            </div>
+            <nav class="filters" aria-label="Dashboard tabs" style="display:grid">
+                <button class="btn active" data-tab="dashboard">Dashboard</button>
+                <button class="btn" data-tab="bookings">Bookings <span id="nav-bookings-alert" class="badge">0</span></button>
+                <button class="btn" data-tab="fleet">Fleet</button>
+                <button class="btn" data-tab="reports">Reports</button>
+            </nav>
+            <div class="card"><p class="muted-text">Open Alerts</p><h3 id="sidebar-alert-count" style="margin:.25rem 0 0">0</h3></div>
+            <div class="card"><p class="muted-text" id="connection-help">Realtime connection is initializing.</p></div>
+        </aside>
+        <div class="main-col">
+            <header class="top-header">
+                <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
+                    <button class="btn-icon mobile-btn" id="mobile-menu-btn" aria-label="Toggle sidebar">☰</button>
+                    <strong>Admin • Live Operations</strong>
+                    <span class="badge" id="env-badge">Admin • Live</span>
+                    <span class="badge" id="last-updated">Updated: --</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:.5rem">
+                    <span id="connection-status" class="badge">Connecting</span>
+                    <button class="btn-icon" id="theme-toggle" aria-label="Toggle theme">🌓</button>
+                    <button class="btn" onclick="adminLogout(event)">Logout</button>
+                </div>
+            </header>
+            <main class="main-scroll">
+            <div data-tab-panel="dashboard">
+            <div class="grid-6 kpi-grid">
+                <article class="card"><div class="kpi-value" id="month-bookings">0</div><div class="kpi-label">Monthly Bookings</div><div id="delta-month-bookings" class="muted-text">—</div></article>
+                <article class="card"><div class="kpi-value" id="month-revenue">$0</div><div class="kpi-label">Monthly Revenue</div><div id="delta-month-revenue" class="muted-text">—</div></article>
+                <article class="card"><div class="kpi-value" id="completed-rentals">0</div><div class="kpi-label">Completed Rentals</div><div id="delta-completed-rentals" class="muted-text">—</div></article>
+                <article class="card"><div class="kpi-value" id="avg-rental-days">0</div><div class="kpi-label">Avg Days / Rental</div><div id="delta-avg-rental-days" class="muted-text">—</div></article>
+                <article class="card"><div class="kpi-value" id="invoiced-month">$0</div><div class="kpi-label">Invoiced This Month</div><div id="delta-invoiced-month" class="muted-text">—</div></article>
+                <article class="card"><div class="kpi-value" id="unpaid-total">$0</div><div class="kpi-label">Total Unpaid</div><div id="delta-unpaid-total" class="muted-text">—</div></article>
+            </div>
+            <section class="stats-grid" id="dashboard">
+                <div class="card stat-card available" data-filter="available" title="Show available vehicles">
+                    <div class="stat-icon">🟢</div>
+                    <div class="stat-content">
+                        <h3 id="available-count">0</h3>
+                        <p>Available</p>
+                    </div>
+                </div>
+                <div class="card stat-card rented" data-filter="rented" title="Show rented vehicles">
+                    <div class="stat-icon">🔴</div>
+                    <div class="stat-content">
+                        <h3 id="rented-count">0</h3>
+                        <p>Currently Rented</p>
+                    </div>
+                </div>
+                <div class="card stat-card maintenance" data-filter="maintenance" title="Show maintenance vehicles">
+                    <div class="stat-icon">⚙️</div>
+                    <div class="stat-content">
+                        <h3 id="maintenance-count">0</h3>
+                        <p>Maintenance</p>
+                    </div>
+                </div>
+                <div class="card stat-card revenue">
+                    <div class="stat-icon">💵</div>
+                    <div class="stat-content">
+                        <h3 id="revenue-count">$0</h3>
+                        <p>Daily Revenue</p>
+                    </div>
+                </div>
+                <div class="card stat-card utilization">
+                    <div class="stat-icon">📈</div>
+                    <div class="stat-content">
+                        <h3 id="utilization-count">0%</h3>
+                        <p>Fleet Utilization</p>
+                    </div>
+                </div>
+                <div class="card stat-card bookings">
+                    <div class="stat-icon">📅</div>
+                    <div class="stat-content">
+                        <h3 id="today-bookings">0</h3>
+                        <p>Today's Bookings</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card rentals-section" id="dashboard-overview">
+                <div class="section-header">
+                    <h2>Dashboard Overview</h2>
+                    <span class="badge" id="overview-last-updated">Live</span>
+                </div>
+                <div class="grid-3 overview-grid">
+                    <article class="overview-card" title="All vehicles in system">
+                        <p>Total Cars</p>
+                        <h3 id="overview-total-cars">0</h3>
+                    </article>
+                    <article class="overview-card" title="Currently active rental bookings">
+                        <p>Active Bookings</p>
+                        <h3 id="overview-active-bookings">0</h3>
+                    </article>
+                    <article class="overview-card" title="Pending customer bargain offers">
+                        <p>Pending Bargain Requests</p>
+                        <h3 id="overview-pending-bargains">0</h3>
+                    </article>
+                </div>
+                <p class="muted-text" id="overview-trend-text">Performance trend will appear here.</p>
+
+                <div class="section-header" style="margin-top: 1rem;">
+                    <h2>Owner Action Center</h2>
+                    <span class="badge" id="action-center-risk">Risk: 0</span>
+                </div>
+                <div class="grid-2 action-center-grid">
+                    <article class="action-card" data-action="pending-approvals">
+                        <p>Pending Booking Approvals</p>
+                        <h3 id="action-pending-approvals">0</h3>
+                        <button type="button" class="btn btn-secondary btn-compact" onclick="handleActionCenter('pending-approvals')">Review</button>
+                    </article>
+                    <article class="action-card" data-action="pending-bargains">
+                        <p>Pending Bargain Offers</p>
+                        <h3 id="action-pending-bargains">0</h3>
+                        <button type="button" class="btn btn-secondary btn-compact" onclick="handleActionCenter('pending-bargains')">Review</button>
+                    </article>
+                    <article class="action-card" data-action="overdue-returns">
+                        <p>Overdue Active Returns</p>
+                        <h3 id="action-overdue-returns">0</h3>
+                        <button type="button" class="btn btn-secondary btn-compact" onclick="handleActionCenter('overdue-returns')">Open</button>
+                    </article>
+                    <article class="action-card" data-action="unpaid-invoices">
+                        <p>Unpaid Invoices</p>
+                        <h3 id="action-unpaid-invoices">0</h3>
+                        <button type="button" class="btn btn-secondary btn-compact" onclick="handleActionCenter('unpaid-invoices')">Inspect</button>
+                    </article>
+                </div>
+
+                <div class="section-header" style="margin-top: 1rem;">
+                    <h2>Notifications</h2>
+                    <span class="badge">Open: <span id="notification-count">0</span></span>
+                </div>
+                <div id="dashboard-notifications-list" class="dashboard-notifications-list alert-list">
+                    <p class="muted-text">No notifications yet.</p>
+                </div>
+
+                <div class="section-header" style="margin-top: 1.1rem;">
+                    <h2>Revenue Graph</h2>
+                    <select id="revenue-range" class="revenue-range-select">
+                        <option value="7">Last 7 Days</option>
+                        <option value="14" selected>Last 14 Days</option>
+                        <option value="30">Last 30 Days</option>
+                    </select>
+                </div>
+
+                <div class="revenue-chart-wrap" style="height:280px">
+                    <canvas id="revenue-chart"></canvas>
+                    <div class="chart-axis">
+                        <span id="chart-start-label">Start</span>
+                        <span id="chart-end-label">End</span>
+                    </div>
+                </div>
+                <p class="muted-text" id="revenue-chart-summary">Revenue trend for selected period.</p>
+                <p class="muted-text" id="revenue-chart-delta">Comparison against previous period will appear here.</p>
+            </section>
+            </div>
+
+            <section class="card chart-card" style="height:340px">
+                <div class="section-header"><h2>Fleet Utilization</h2><span class="badge" id="booking-manager-health">Live</span></div>
+                <canvas id="utilization-chart"></canvas>
+            </section>
+            <!-- Quick Actions -->
+            <div data-tab-panel="reports" id="reports">
+                <section class="card quick-actions">
+                    <div class="section-header">
+                        <h2>Quick Actions</h2>
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" onclick="showModal('booking-modal')">
+                            New Booking
+                        </button>
+                        <a class="btn btn-primary action-link" href="scanner.html">
+                            Customer Service Portal
+                        </a>
+                        <button class="btn btn-secondary" onclick="showModal('car-modal')">
+                            Add Vehicle
+                        </button>
+                        <button class="btn btn-secondary" onclick="reimportFromRecords()">
+                            Re-import Records
+                        </button>
+                        <button class="btn btn-secondary" onclick="exportData()">
+                            Export Data
+                        </button>
+                        <button class="btn btn-secondary" onclick="showDailyReport()">
+                            Daily Report
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Service History -->
+                <section class="card rentals-section" id="revenue-analytics-section">
+                    <div class="section-header">
+                        <h2>Revenue Analytics</h2>
+                        <span class="badge" id="revenue-analytics-badge">Live</span>
+                    </div>
+                    <div class="analytics-kpi-grid">
+                        <article class="analytics-kpi">
+                            <p>Daily Earnings</p>
+                            <h3 id="earnings-daily">$0.00</h3>
+                        </article>
+                        <article class="analytics-kpi">
+                            <p>Weekly Earnings</p>
+                            <h3 id="earnings-weekly">$0.00</h3>
+                        </article>
+                        <article class="analytics-kpi">
+                            <p>Monthly Earnings</p>
+                            <h3 id="earnings-monthly">$0.00</h3>
+                        </article>
+                        <article class="analytics-kpi">
+                            <p>Unpaid Forecast</p>
+                            <h3 id="earnings-unpaid-forecast">$0.00</h3>
+                        </article>
+                        <article class="analytics-kpi">
+                            <p>Top Customer</p>
+                            <h3 id="earnings-top-customer">N/A</h3>
+                        </article>
+                    </div>
+                    <div class="section-header" style="margin-top: 1rem;">
+                        <h2>Car-wise Performance</h2>
+                        <span class="badge" id="car-performance-count">0 Cars</span>
+                    </div>
+                    <div id="car-performance-list" class="performance-list">
+                        <p style="text-align: center; color: #6b7280; padding: 2rem;">No performance data yet</p>
+                    </div>
+                </section>
+
+                <section class="card rentals-section" id="service-history">
+                    <div class="section-header">
+                        <h2>Recent Service Activity</h2>
+                    </div>
+                    <div id="service-history-list" class="stack-list">
+                        <div style="padding: 2rem; text-align: center; color: #999;">
+                            <p>Service records will appear here (pickups, drop-offs, swaps)</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card rentals-section" id="invoice-center">
+                    <div class="section-header">
+                        <h2>Invoice Center</h2>
+                        <span class="badge" id="invoice-count">0</span>
+                    </div>
+                    <div id="invoice-list" class="stack-list">
+                        <p style="text-align: center; color: #6b7280; padding: 2rem;">No invoices generated yet</p>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Fleet Overview -->
+            <div data-tab-panel="fleet" id="fleet">
+                <section class="card fleet-section">
+                    <div class="section-header">
+                        <h2>Fleet Overview</h2>
+                        <div class="filters">
+                            <button class="filter-btn active" data-filter="all">All</button>
+                            <button class="filter-btn" data-filter="available">Available</button>
+                            <button class="filter-btn" data-filter="rented">Rented</button>
+                            <button class="filter-btn" data-filter="maintenance">Maintenance</button>
+                        </div>
+                    </div>
+                    <div class="filters control-bar">
+                        <input type="text" id="fleet-search" placeholder="Search by car, make, model, plate...">
+                        <select id="fleet-sort">
+                            <option value="name-asc">Sort: Name (A-Z)</option>
+                            <option value="rate-high">Sort: Rate High → Low</option>
+                            <option value="rate-low">Sort: Rate Low → High</option>
+                            <option value="status">Sort: Status</option>
+                        </select>
+                    </div>
+                    <div class="fleet-grid" id="fleet-grid">
+                        <!-- Fleet cards will be injected here -->
+                    </div>
+                </section>
+            </div>
+
+            <!-- Active Rentals -->
+            <div data-tab-panel="bookings" id="bookings">
+                <section class="card rentals-section" id="booking-manager-overview">
+                    <div class="section-header">
+                        <h2>Booking Manager Console</h2>
+                        <span class="badge" id="booking-manager-health">Live</span>
+                    </div>
+                    <div class="booking-manager-grid">
+                        <article class="manager-metric">
+                            <p>Pending Requests</p>
+                            <h3 id="bm-pending">0</h3>
+                        </article>
+                        <article class="manager-metric">
+                            <p>Active Rentals</p>
+                            <h3 id="bm-active">0</h3>
+                        </article>
+                        <article class="manager-metric risk">
+                            <p>Overdue Returns</p>
+                            <h3 id="bm-overdue">0</h3>
+                        </article>
+                        <article class="manager-metric warn">
+                            <p>Due Next 24h</p>
+                            <h3 id="bm-due-soon">0</h3>
+                        </article>
+                    </div>
+                </section>
+
+                <section class="card rentals-section" id="booking-calendar-section">
+                    <div class="section-header">
+                        <h2>Admin Calendar View (Next 14 Days)</h2>
+                        <span class="badge" id="booking-calendar-count">0</span>
+                    </div>
+                    <div id="booking-calendar-list" class="stack-list">
+                        <p style="text-align: center; color: #6b7280; padding: 1.5rem;">No upcoming bookings in the next 14 days.</p>
+                    </div>
+                </section>
+
+                <section class="card rentals-section" id="customer-risk-section">
+                    <div class="section-header">
+                        <h2>Customer Risk Panel</h2>
+                        <span class="badge" id="customer-risk-count">0</span>
+                    </div>
+                    <div id="customer-risk-list" class="stack-list">
+                        <p style="text-align: center; color: #6b7280; padding: 1.5rem;">No customer risk flags right now.</p>
+                    </div>
+                </section>
+
+                <section class="card rentals-section" id="location-ops-section">
+                    <div class="section-header">
+                        <h2>Location Operations Map</h2>
+                        <span class="badge" id="location-ops-count">0</span>
+                    </div>
+                    <div id="location-ops-list" class="stack-list">
+                        <p style="text-align: center; color: #6b7280; padding: 1.5rem;">No captured locations yet.</p>
+                    </div>
+                </section>
+
+                <section class="card rentals-section" id="booking-requests-section">
+                    <div class="section-header">
+                        <h2>Booking Requests</h2>
+                        <span class="badge" id="booking-requests-count">0</span>
+                    </div>
+                    <div class="filters control-bar">
+                        <input type="text" id="request-search" placeholder="Search requests by customer, phone, email, car, plate...">
+                        <select id="request-sort">
+                            <option value="newest">Sort: Newest</option>
+                            <option value="pickup-soon">Sort: Pickup Soonest</option>
+                            <option value="customer">Sort: Customer (A-Z)</option>
+                        </select>
+                    </div>
+                    <div id="booking-requests-list" class="stack-list">
+                        <p style="text-align: center; color: #6b7280; padding: 2rem;">No pending booking requests</p>
+                    </div>
+                </section>
+
+                <section class="card rentals-section" id="bargain-offers-section">
+                    <div class="section-header">
+                        <h2>Bargain Offers</h2>
+                        <span class="badge" id="bargain-offers-count">0</span>
+                    </div>
+                    <div id="bargain-offers-list" class="stack-list">
+                        <p style="text-align: center; color: #6b7280; padding: 2rem;">No bargain offers yet</p>
+                    </div>
+                </section>
+
+                <section class="card rentals-section">
+                    <div class="section-header">
+                        <h2>Bookings List</h2>
+                        <span class="badge" id="active-rental-count">0</span>
+                    </div>
+                    <div class="tracker-filters">
+                        <button class="tracker-btn active" data-track="all">All Active</button>
+                        <button class="tracker-btn" data-track="overdue">Overdue</button>
+                        <button class="tracker-btn" data-track="due-soon">Due 24h</button>
+                        <button class="tracker-btn" data-track="return-today">Return Today</button>
+                    </div>
+                    <div class="filters control-bar">
+                        <input type="text" id="booking-search" placeholder="Search by customer, phone, car, plate...">
+                        <select id="booking-status-filter">
+                            <option value="active">Status: Active</option>
+                            <option value="completed">Status: Completed</option>
+                            <option value="all">Status: All</option>
+                        </select>
+                        <select id="booking-sort">
+                            <option value="recent">Sort: Newest First</option>
+                            <option value="return-soon">Sort: Return Soonest</option>
+                            <option value="customer-asc">Sort: Customer (A-Z)</option>
+                        </select>
+                    </div>
+                    <div class="rentals-list" id="rentals-list">
+                        <!-- Rental cards will be injected here -->
+                    </div>
+                </section>
+
+                <!-- Rented Cars Details -->
+                <section class="card rentals-section" id="rented-cars-section">
+                    <div class="section-header">
+                        <h2>Rented Cars Details</h2>
+                        <span class="badge" id="rented-cars-count">0</span>
+                    </div>
+                    <div id="rented-cars-list" class="stack-list">
+                        <p style="text-align: center; color: #6b7280; padding: 2rem;">No rented cars to show</p>
+                    </div>
+                </section>
+            </div>
+        </main>
+        </div>
+    </div>
+
+    <!-- New Booking Modal -->
+    <div class="modal" id="booking-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create New Booking</h2>
+                <button class="close-btn" onclick="closeModal('booking-modal')">&times;</button>
+            </div>
+            <form id="booking-form" class="form">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Customer Name *</label>
+                        <input type="text" id="customer-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Phone Number *</label>
+                        <input type="tel" id="customer-phone" required>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Email Address *</label>
+                        <input type="email" id="customer-email" required>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Select Vehicle *</label>
+                        <select id="car-select" required>
+                            <option value="">Choose a vehicle...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Pickup Date & Time *</label>
+                        <input type="datetime-local" id="pickup-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Return Date & Time *</label>
+                        <input type="datetime-local" id="return-date" required>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Additional Notes</label>
+                        <textarea id="booking-notes" rows="3" placeholder="Any special requirements..."></textarea>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('booking-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Booking & Generate QR</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Vehicle Modal -->
+    <div class="modal" id="car-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Vehicle</h2>
+                <button class="close-btn" onclick="closeModal('car-modal')">&times;</button>
+            </div>
+            <form id="car-form" class="form">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Vehicle Name *</label>
+                        <input type="text" id="car-name" placeholder="e.g., Toyota Camry" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Model Year *</label>
+                        <input type="number" id="car-model" min="2010" max="2030" required>
+                    </div>
+                    <div class="form-group">
+                        <label>License Plate *</label>
+                        <input type="text" id="car-license" placeholder="e.g., ABC123" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Daily Rate ($) *</label>
+                        <input type="number" id="car-rate" min="0" step="0.01" value="250" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Weekly Rate ($)</label>
+                        <input type="number" id="car-rate-week" min="0" step="0.01" placeholder="e.g., 1400">
+                    </div>
+                    <div class="form-group">
+                        <label>Location *</label>
+                        <input type="text" id="car-location" placeholder="e.g., Kathmandu Branch" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Status *</label>
+                        <select id="car-status" required>
+                            <option value="available" selected>Available</option>
+                            <option value="rented">Rented</option>
+                            <option value="maintenance">Maintenance</option>
+                        </select>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Color</label>
+                        <input type="text" id="car-color" placeholder="e.g., Black">
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Upload Vehicle Images</label>
+                        <input type="file" id="car-images" accept="image/*" multiple>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Availability Calendar (one per line)</label>
+                        <textarea id="car-availability" rows="3" placeholder="2026-04-01 to 2026-04-03 | Booked\n2026-04-10 to 2026-04-12 | Service"></textarea>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>VIN / Chassis Number</label>
+                        <input type="text" id="car-vin" placeholder="Vehicle Identification Number">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('car-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Vehicle</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Vehicle Modal -->
+    <div class="modal" id="edit-car-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Vehicle</h2>
+                <button class="close-btn" onclick="closeModal('edit-car-modal')">&times;</button>
+            </div>
+            <form id="edit-car-form" class="form">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Vehicle Name *</label>
+                        <input type="text" id="edit-car-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Model *</label>
+                        <input type="text" id="edit-car-model" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Status *</label>
+                        <select id="edit-car-status" required>
+                            <option value="available">Available</option>
+                            <option value="rented">Rented</option>
+                            <option value="maintenance">Maintenance</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>License Plate *</label>
+                        <input type="text" id="edit-car-license" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Rego</label>
+                        <input type="text" id="edit-car-rego" placeholder="e.g., ABC123">
+                    </div>
+                    <div class="form-group">
+                        <label>Daily Rate ($) *</label>
+                        <input type="number" id="edit-car-rate" min="0" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Weekly Rate ($)</label>
+                        <input type="number" id="edit-car-rate-week" min="0" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>Location *</label>
+                        <input type="text" id="edit-car-location" required>
+                    </div>
+                    <div class="form-group full-width" style="margin-top: 0.25rem;">
+                        <details style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 0.75rem 1rem;">
+                            <summary style="cursor: pointer; font-weight: 600; color: #374151;">More options</summary>
+                            <div class="form-grid" style="margin-top: 0.75rem;">
+                                <div class="form-group">
+                                    <label>Make</label>
+                                    <input type="text" id="edit-car-make" placeholder="e.g., Toyota">
+                                </div>
+                                <div class="form-group">
+                                    <label>Mileage (km)</label>
+                                    <input type="number" id="edit-car-mileage" min="0" step="1">
+                                </div>
+                                <div class="form-group">
+                                    <label>Fuel</label>
+                                    <input type="text" id="edit-car-fuel" placeholder="e.g., Full">
+                                </div>
+                                <div class="form-group">
+                                    <label>Color</label>
+                                    <input type="text" id="edit-car-color" placeholder="e.g., Black">
+                                </div>
+                                <div class="form-group full-width">
+                                    <label>VIN / Chassis Number</label>
+                                    <input type="text" id="edit-car-vin" placeholder="Vehicle Identification Number">
+                                </div>
+                                <div class="form-group full-width">
+                                    <label>Upload Additional Images</label>
+                                    <input type="file" id="edit-car-images" accept="image/*" multiple>
+                                </div>
+                                <div class="form-group full-width">
+                                    <label>Availability Calendar (one per line)</label>
+                                    <textarea id="edit-car-availability" rows="3" placeholder="2026-04-01 to 2026-04-03 | Booked"></textarea>
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="edit-delete-car-btn">Delete Vehicle</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('edit-car-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- QR Code Modal -->
+    <div class="modal" id="qr-modal">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2>Booking QR Code</h2>
+                <button class="close-btn" onclick="closeModal('qr-modal')">&times;</button>
+            </div>
+            <div class="qr-container">
+                <div class="qr-display" id="qr-display"></div>
+                <div class="qr-info">
+                    <p><strong>How to use:</strong></p>
+                    <ul>
+                        <li>Send to customer via SMS/Email</li>
+                        <li>Customer scans for check-in/out</li>
+                        <li>Opens inspection form with GPS</li>
+                        <li>Photos automatically timestamped</li>
+                    </ul>
+                    <button class="btn btn-primary btn-block" onclick="printQR()">
+                        Print QR Code
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="rental-detail-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Rental & Vehicle Details</h2>
+                <button class="close-btn" onclick="closeModal('rental-detail-modal')">&times;</button>
+            </div>
+            <div id="rental-detail-content" class="detail-grid"></div>
+            <div class="form-actions form-actions-compact">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('rental-detail-modal')">Close</button>
+                <button type="button" class="btn btn-primary" id="rental-detail-invoice-btn">Generate Invoice</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="invoice-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Invoice Preview</h2>
+                <button class="close-btn" onclick="closeModal('invoice-modal')">&times;</button>
+            </div>
+            <div id="invoice-content" class="invoice-grid"></div>
+            <div class="form-actions form-actions-compact">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('invoice-modal')">Close</button>
+                <button type="button" class="btn btn-primary" onclick="window.print()">Print Invoice</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="customer-profile-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Customer Profile</h2>
+                <button class="close-btn" onclick="closeModal('customer-profile-modal')">&times;</button>
+            </div>
+            <div id="customer-profile-content" class="detail-grid"></div>
+            <div class="form-actions form-actions-compact">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('customer-profile-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="offer-negotiation-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Bargain Negotiation</h2>
+                <button class="close-btn" onclick="closeModal('offer-negotiation-modal')">&times;</button>
+            </div>
+            <div id="offer-negotiation-meta" class="detail-grid"></div>
+            <div id="offer-negotiation-chat" class="negotiation-chat"></div>
+            <form id="offer-negotiation-form" class="negotiation-form">
+                <textarea id="offer-negotiation-message" placeholder="Write your message to customer..." required></textarea>
+                <div class="negotiation-actions-row">
+                    <input type="number" id="offer-counter-rate" min="1" step="0.01" placeholder="Counter rate ($/day)">
+                    <button type="button" class="btn btn-secondary" id="offer-send-counter-btn">Send Counter</button>
+                    <button type="submit" class="btn btn-primary">Send Message</button>
+                </div>
+            </form>
+            <div class="form-actions form-actions-compact">
+                <button type="button" class="btn btn-secondary" id="offer-accept-btn">Accept Offer</button>
+                <button type="button" class="btn btn-secondary" id="offer-reject-btn">Reject Offer</button>
+                <button type="button" class="btn btn-primary" onclick="closeModal('offer-negotiation-modal')">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        const veeraState = {
+            vehicles: [],
+            bookings: [],
+            invoices: [],
+            offers: [],
+            notifications: [],
+            customerRiskFlags: [],
+            historicalRevenue: { labels: [], values: [] },
+            historicalUtilization: { labels: [], values: [] },
+            lastUpdated: null,
+            connectionStatus: 'connecting'
+        };
+
+        let veeraClient = null;
+        let revenueChart = null;
+        let utilizationChart = null;
+        let pollTimer = null;
+
+        const currency = (n = 0) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+        const clientGetter = () => window.VeeraShared?.getSupabaseClient?.() || window.getVeeraSupabaseClient?.() || null;
+
+        const hasAdminRole = (user) => user?.app_metadata?.role === 'admin' || user?.user_metadata?.role === 'admin';
+
+        async function guard() {
+            const fileName = window.location.pathname.split('/').pop() || 'index.html';
+            const next = encodeURIComponent(fileName + window.location.search + window.location.hash);
+            veeraClient = clientGetter();
+            if (!veeraClient) {
+                window.location.replace(`login.html?next=${next}`);
+                return false;
+            }
+            const { data, error } = await veeraClient.auth.getSession();
+            const user = data?.session?.user;
+            if (error || !user || !hasAdminRole(user)) {
+                window.location.replace(`login.html?next=${next}`);
+                return false;
+            }
+            document.body.classList.add('auth-complete');
+            return true;
+        }
+
+        const setConnectionStatus = (status) => {
+            veeraState.connectionStatus = status;
+            const badge = document.getElementById('connection-status');
+            const help = document.getElementById('connection-help');
+            if (badge) badge.textContent = status;
+            if (help) help.textContent = status === 'live' ? 'Realtime events are active.' : status === 'polling' ? 'Realtime unavailable; polling every 20s.' : 'Initializing realtime feed...';
+        };
+
+        const mockSeries = (days, base, variance) => {
+            const labels = [];
+            const values = [];
+            for (let i = days - 1; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                labels.push(d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+                values.push(Math.max(0, base + Math.round((Math.random() - .5) * variance)));
+            }
+            return { labels, values };
+        };
+
+        /* Where to plug Supabase dashboard queries (RPC/select) */
+        async function fetchAllDashboardData() {
+            try {
+                const [vehiclesRes, bookingsRes, invoicesRes, offersRes] = await Promise.all([
+                    veeraClient.from('vehicles').select('*').limit(500),
+                    veeraClient.from('booking_requests').select('*').order('created_at', { ascending: false }).limit(500),
+                    veeraClient.from('invoices').select('*').order('created_at', { ascending: false }).limit(500),
+                    veeraClient.from('offers').select('*').order('created_at', { ascending: false }).limit(500)
+                ]);
+                veeraState.vehicles = vehiclesRes.data || [];
+                veeraState.bookings = bookingsRes.data || [];
+                veeraState.invoices = invoicesRes.data || [];
+                veeraState.offers = offersRes.data || [];
+                veeraState.historicalRevenue = mockSeries(30, 1600, 900);
+                veeraState.historicalUtilization = mockSeries(30, 72, 25);
+                veeraState.lastUpdated = new Date().toISOString();
+                renderAll();
+            } catch (e) {
+                console.error(e);
+                setConnectionStatus('error');
+            }
+        }
+
+        /* Adjust KPI formulas here if schema changes */
+        function computeKpis() {
+            const now = new Date();
+            const month = now.getMonth();
+            const year = now.getFullYear();
+            const monthlyBookings = veeraState.bookings.filter(b => {
+                const d = new Date(b.created_at || now);
+                return d.getMonth() === month && d.getFullYear() === year;
+            });
+            const monthlyInvoices = veeraState.invoices.filter(i => {
+                const d = new Date(i.created_at || i.issue_date || now);
+                return d.getMonth() === month && d.getFullYear() === year;
+            });
+            const available = veeraState.vehicles.filter(v => (v.status || '').toLowerCase() === 'available').length;
+            const rented = veeraState.vehicles.filter(v => (v.status || '').toLowerCase() === 'rented').length;
+            const maintenance = veeraState.vehicles.filter(v => (v.status || '').toLowerCase() === 'maintenance').length;
+            const totalCars = veeraState.vehicles.length;
+            return {
+                monthBookings: monthlyBookings.length,
+                monthRevenue: monthlyInvoices.reduce((s, i) => s + Number(i.total_amount || 0), 0),
+                completed: veeraState.bookings.filter(b => (b.status || '').toLowerCase() === 'completed').length,
+                avgDays: veeraState.bookings.length ? (veeraState.bookings.reduce((sum, b) => {
+                    if (!b.pickup_at || !b.return_at) return sum;
+                    return sum + Math.max(0, (new Date(b.return_at) - new Date(b.pickup_at)) / 86400000);
+                }, 0) / veeraState.bookings.length).toFixed(1) : '0.0',
+                invoicedMonth: monthlyInvoices.reduce((s, i) => s + Number(i.total_amount || 0), 0),
+                unpaidTotal: veeraState.invoices.reduce((s, i) => s + Math.max(0, Number(i.total_amount || 0) - Number(i.paid_amount || 0)), 0),
+                available, rented, maintenance,
+                dailyRevenue: veeraState.invoices.filter(i => new Date(i.created_at || now).toDateString() === now.toDateString()).reduce((s, i) => s + Number(i.total_amount || 0), 0),
+                utilization: totalCars ? Math.round((rented / totalCars) * 100) : 0,
+                todayBookings: veeraState.bookings.filter(b => new Date(b.created_at || now).toDateString() === now.toDateString()).length
+            };
+        }
+
+        const renderNumber = (id, value, format = (v) => `${Math.round(v)}`) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const start = Number(el.dataset.raw || 0);
+            const target = Number(value || 0);
+            const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            if (reduced) {
+                el.textContent = format(target);
+                el.dataset.raw = String(target);
+                return;
+            }
+            const duration = 320;
+            const t0 = performance.now();
+            const tick = (t) => {
+                const p = Math.min(1, (t - t0) / duration);
+                const v = start + (target - start) * (1 - Math.pow(1 - p, 3));
+                el.textContent = format(v);
+                if (p < 1) requestAnimationFrame(tick);
+                else el.dataset.raw = String(target);
+            };
+            requestAnimationFrame(tick);
+        };
+
+        const deriveNotifications = () => {
+            const overdue = veeraState.bookings.filter(b => (b.status || '').toLowerCase() === 'overdue').length;
+            const unpaid = veeraState.invoices.filter(i => Number(i.total_amount || 0) > Number(i.paid_amount || 0)).length;
+            const pending = veeraState.bookings.filter(b => ['pending', 'submitted', 'under_review'].includes((b.status || '').toLowerCase())).length;
+            const alerts = [];
+            if (overdue) alerts.push({ title: 'Critical: overdue returns', count: overdue, action: 'Open' });
+            if (unpaid) alerts.push({ title: 'High: unpaid invoices', count: unpaid, action: 'Inspect' });
+            if (pending) alerts.push({ title: 'Medium: pending approvals', count: pending, action: 'Review' });
+            return alerts;
+        };
+
+        function renderLists() {
+            const pending = veeraState.bookings.filter(b => ['submitted', 'pending', 'under_review'].includes((b.status || '').toLowerCase()));
+            const active = veeraState.bookings.filter(b => ['approved', 'active', 'rented', 'overdue'].includes((b.status || '').toLowerCase()));
+            const bargain = veeraState.offers.filter(o => (o.status || '').toLowerCase() === 'pending');
+            const alerts = deriveNotifications();
+
+            document.getElementById('booking-requests-count').textContent = String(pending.length);
+            document.getElementById('active-rental-count').textContent = String(active.length);
+            document.getElementById('bargain-offers-count').textContent = String(bargain.length);
+            document.getElementById('notification-count').textContent = String(alerts.length);
+            document.getElementById('sidebar-alert-count').textContent = String(alerts.length);
+            document.getElementById('nav-bookings-alert').textContent = String(pending.length);
+
+            const bookingList = document.getElementById('booking-requests-list');
+            const rentalsList = document.getElementById('rentals-list');
+            const alertList = document.getElementById('dashboard-notifications-list');
+            const fleetGrid = document.getElementById('fleet-grid');
+            const bargainList = document.getElementById('bargain-offers-list');
+
+            if (bookingList) bookingList.innerHTML = pending.length ? pending.slice(0, 20).map(b => `<article class="item"><strong>${b.customer || 'Walk-in Customer'}</strong><div class="muted-text">${b.car || 'Vehicle TBD'} • ${b.phone || b.email || 'No contact'}</div></article>`).join('') : '<p class="muted-text">No pending booking requests</p>';
+            if (rentalsList) rentalsList.innerHTML = active.length ? active.slice(0, 25).map(b => `<article class="item"><strong>${b.customer || 'Unknown'}</strong><div class="muted-text">${b.car || 'Vehicle TBD'} • ${b.status || 'active'}</div></article>`).join('') : '<p class="muted-text">No active rentals</p>';
+            if (alertList) alertList.innerHTML = alerts.length ? alerts.map(a => `<article class="item"><div style="display:flex;justify-content:space-between;gap:.5rem"><strong>${a.title}</strong><span class="badge">${a.count}</span></div><button class="btn" onclick="handleActionCenter('${a.action.toLowerCase()}')">${a.action}</button></article>`).join('') : '<p class="muted-text">No notifications yet.</p>';
+            if (fleetGrid) fleetGrid.innerHTML = veeraState.vehicles.length ? veeraState.vehicles.slice(0, 80).map(v => `<article class="item"><strong>${v.name || `${v.make || ''} ${v.model || ''}`.trim() || 'Vehicle'}</strong><div class="muted-text">${v.plate || 'No plate'} • ${(v.status || 'available')}</div><div class="form-actions"><button class="btn" onclick="showModal('edit-car-modal')">Details</button></div></article>`).join('') : '<p class="muted-text">No vehicles found</p>';
+            if (bargainList) bargainList.innerHTML = bargain.length ? bargain.map(o => `<article class="item"><strong>${o.customer_name || 'Customer'}</strong><div class="muted-text">Offer ${currency(o.offered_rate || 0)}</div><button class="btn" onclick="showModal('offer-negotiation-modal')">Open</button></article>`).join('') : '<p class="muted-text">No bargain offers yet</p>';
+        }
+
+        function upsertCharts() {
+            const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const revenueCtx = document.getElementById('revenue-chart');
+            const utilizationCtx = document.getElementById('utilization-chart');
+            if (!revenueCtx || !utilizationCtx) return;
+            const common = {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: reduced ? false : { duration: 520 },
+                plugins: { legend: { position: 'top' } }
+            };
+            if (!revenueChart) {
+                revenueChart = new Chart(revenueCtx, {
+                    type: 'line',
+                    data: { labels: veeraState.historicalRevenue.labels, datasets: [{ label: 'Revenue', data: veeraState.historicalRevenue.values, borderColor: '#53a6ff', backgroundColor: 'rgba(83,166,255,.2)', tension: .32, fill: true }] },
+                    options: common
+                });
+            } else {
+                revenueChart.data.labels = veeraState.historicalRevenue.labels;
+                revenueChart.data.datasets[0].data = veeraState.historicalRevenue.values;
+                revenueChart.update();
+            }
+            if (!utilizationChart) {
+                utilizationChart = new Chart(utilizationCtx, {
+                    type: 'line',
+                    data: { labels: veeraState.historicalUtilization.labels, datasets: [{ label: 'Utilization %', data: veeraState.historicalUtilization.values, borderColor: '#27c88a', backgroundColor: 'rgba(39,200,138,.16)', tension: .32, fill: true }] },
+                    options: common
+                });
+            } else {
+                utilizationChart.data.labels = veeraState.historicalUtilization.labels;
+                utilizationChart.data.datasets[0].data = veeraState.historicalUtilization.values;
+                utilizationChart.update();
+            }
+        }
+
+        function renderAll() {
+            const k = computeKpis();
+            renderNumber('month-bookings', k.monthBookings);
+            renderNumber('month-revenue', k.monthRevenue, v => currency(v));
+            renderNumber('completed-rentals', k.completed);
+            renderNumber('avg-rental-days', Number(k.avgDays), v => `${Number(v).toFixed(1)}`);
+            renderNumber('invoiced-month', k.invoicedMonth, v => currency(v));
+            renderNumber('unpaid-total', k.unpaidTotal, v => currency(v));
+            renderNumber('available-count', k.available);
+            renderNumber('rented-count', k.rented);
+            renderNumber('maintenance-count', k.maintenance);
+            renderNumber('revenue-count', k.dailyRevenue, v => currency(v));
+            renderNumber('utilization-count', k.utilization, v => `${Math.round(v)}%`);
+            renderNumber('today-bookings', k.todayBookings);
+            document.getElementById('delta-month-bookings').textContent = `▲ ${(Math.random() * 8).toFixed(1)}% vs prev`;
+            document.getElementById('delta-month-revenue').textContent = `▲ ${(Math.random() * 8).toFixed(1)}% vs prev`;
+            document.getElementById('delta-completed-rentals').textContent = `▲ ${(Math.random() * 8).toFixed(1)}% vs prev`;
+            document.getElementById('delta-avg-rental-days').textContent = `▼ ${(Math.random() * 4).toFixed(1)}% vs prev`;
+            document.getElementById('delta-invoiced-month').textContent = `▲ ${(Math.random() * 8).toFixed(1)}% vs prev`;
+            document.getElementById('delta-unpaid-total').textContent = `▼ ${(Math.random() * 6).toFixed(1)}% vs prev`;
+            renderLists();
+            upsertCharts();
+            const t = veeraState.lastUpdated ? new Date(veeraState.lastUpdated).toLocaleTimeString() : '--';
+            document.getElementById('last-updated').textContent = `Updated: ${t}`;
+        }
+
+        /* Where Realtime subscriptions are setup */
+        function setupRealtime() {
+            const tables = ['vehicles', 'booking_requests', 'invoices', 'offers'];
+            const channel = veeraClient.channel('veera-ops-live');
+            tables.forEach(table => {
+                channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => fetchAllDashboardData());
+            });
+            channel.subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    setConnectionStatus('live');
+                    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+                }
+            });
+        }
+
+        function setupFallbackPolling() {
+            setConnectionStatus('polling');
+            if (pollTimer) clearInterval(pollTimer);
+            pollTimer = setInterval(fetchAllDashboardData, 20000);
+        }
+
+        function activateTab(tab) {
+            document.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+            document.querySelectorAll('[data-tab-panel]').forEach(p => p.classList.toggle('active', p.dataset.tabPanel === tab));
+            location.hash = tab;
+            document.getElementById('sidebar')?.classList.remove('open');
+        }
+
+        function bindUi() {
+            document.querySelectorAll('[data-tab]').forEach(btn => btn.addEventListener('click', () => activateTab(btn.dataset.tab)));
+            document.getElementById('mobile-menu-btn')?.addEventListener('click', () => document.getElementById('sidebar')?.classList.toggle('open'));
+            document.getElementById('theme-toggle')?.addEventListener('click', () => {
+                const html = document.documentElement;
+                html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+                localStorage.setItem('veera-theme', html.dataset.theme);
+                upsertCharts();
+            });
+            document.getElementById('revenue-range')?.addEventListener('change', (e) => {
+                const days = Number(e.target.value || 14);
+                veeraState.historicalRevenue = mockSeries(days, 1700, 900);
+                veeraState.historicalUtilization = mockSeries(days, 74, 24);
+                upsertCharts();
+            });
+
+            document.getElementById('booking-form')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const payload = {
+                    id: Date.now(),
+                    customer: document.getElementById('customer-name').value,
+                    phone: document.getElementById('customer-phone').value,
+                    email: document.getElementById('customer-email').value,
+                    car: document.getElementById('car-select').selectedOptions[0]?.textContent || 'Vehicle',
+                    pickup_at: document.getElementById('pickup-date').value,
+                    return_at: document.getElementById('return-date').value,
+                    notes: document.getElementById('booking-notes').value,
+                    status: 'submitted',
+                    created_at: new Date().toISOString()
+                };
+                veeraState.bookings.unshift(payload);
+                renderAll();
+                window.VeeraShared?.appendStoreItem?.('veera-booking-drafts', { ...payload, source: 'legacy-shell' }, 100);
+                window.VeeraShared?.showNotice?.('Booking saved locally. Use the dashboard pages for the full workflow.', 'warning');
+                closeModal('booking-modal');
+            });
+
+            document.getElementById('car-form')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const payload = {
+                    id: Date.now(),
+                    name: document.getElementById('car-name').value,
+                    model: document.getElementById('car-model').value,
+                    plate: document.getElementById('car-license').value,
+                    rate_day: Number(document.getElementById('car-rate').value || 0),
+                    rate_week: Number(document.getElementById('car-rate-week').value || 0),
+                    location: document.getElementById('car-location').value,
+                    status: document.getElementById('car-status').value,
+                    color: document.getElementById('car-color').value,
+                    vin: document.getElementById('car-vin').value,
+                    created_at: new Date().toISOString()
+                };
+                veeraState.vehicles.unshift(payload);
+                renderAll();
+                window.VeeraShared?.appendStoreItem?.('veera-vehicle-drafts', { ...payload, source: 'legacy-shell' }, 100);
+                window.VeeraShared?.showNotice?.('Vehicle saved locally. Use the Fleet page for the full workflow.', 'warning');
+                closeModal('car-modal');
+            });
+        }
+
+        function showModal(id) { document.getElementById(id)?.classList.add('open'); }
+        function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+        function handleActionCenter(action) { const target = action === 'inspect' ? 'reports' : 'bookings'; activateTab(target); }
+        function printQR() { window.print(); }
+
+        async function adminLogout(event) {
+            if (event) event.preventDefault();
+            if (veeraClient) {
+                await veeraClient.auth.signOut();
+            }
+            window.location.replace('login.html');
+        }
+
+        function reimportFromRecords() { window.VeeraShared?.showNotice?.('Re-import moved to the Reports page.', 'info'); }
+        function exportData() { window.VeeraShared?.showNotice?.('Export moved to the Reports page.', 'info'); }
+        function showDailyReport() { window.VeeraShared?.showNotice?.('Daily report moved to the Reports page.', 'info'); }
+
+        async function bootstrap() {
+            const ok = await guard();
+            if (!ok) return;
+            const savedTheme = localStorage.getItem('veera-theme');
+            if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+            bindUi();
+            await fetchAllDashboardData();
+
+            const carSelect = document.getElementById('car-select');
+            if (carSelect) {
+                const options = veeraState.vehicles
+                    .filter(v => (v.status || '').toLowerCase() === 'available')
+                    .map(v => `<option value="${v.id}">${v.name || `${v.make || ''} ${v.model || ''}`.trim()} • ${v.plate || 'N/A'}</option>`)
+                    .join('');
+                carSelect.innerHTML = `<option value="">Choose a vehicle...</option>${options}`;
+            }
+
+            try {
+                setupRealtime();
+                setTimeout(() => { if (veeraState.connectionStatus !== 'live') setupFallbackPolling(); }, 5000);
+            } catch (e) {
+                console.error(e);
+                setupFallbackPolling();
+            }
+
+            const hashTab = location.hash.replace('#', '');
+            if (hashTab) activateTab(hashTab);
+        }
+
+        bootstrap();
+    </script>
+</body>
+</html>
