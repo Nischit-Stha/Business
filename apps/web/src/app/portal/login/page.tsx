@@ -1,0 +1,4 @@
+import { redirect } from 'next/navigation';
+import { portalSignIn } from '@/lib/portal-actions';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
+export default async function PortalLogin({searchParams}:{searchParams:Promise<{error?:string}>}){const supabase=await createSupabaseServerClient();if((await supabase.auth.getUser()).data.user)redirect('/portal');const {error}=await searchParams;return <main className="auth-shell portal-shell"><p className="eyebrow">Veera Rentals</p><h1>Customer portal</h1><p>Sign in to see your vehicle, payments, service information and requests.</p>{error&&<p className="error" role="alert">{error}</p>}<form action={portalSignIn} className="form-card"><label>Email<input name="email" type="email" autoComplete="email" required/></label><label>Password<input name="password" type="password" autoComplete="current-password" required/></label><button>Sign in</button></form></main>}

@@ -1,0 +1,12 @@
+'use server';
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { requireCustomer } from '@/lib/auth';
+
+const value=(form:FormData,key:string)=>String(form.get(key)??'').trim();
+export async function portalSignIn(form:FormData){const supabase=await createSupabaseServerClient();const {error}=await supabase.auth.signInWithPassword({email:value(form,'email'),password:value(form,'password')});if(error)redirect('/portal/login?error=Invalid%20email%20or%20password');const {data}=await supabase.from('customer_portal_accounts').select('customer_id').eq('user_id',(await supabase.auth.getUser()).data.user?.id??'').eq('status','ACTIVE').maybeSingle();if(!data){await supabase.auth.signOut();redirect('/portal/login?error=Customer%20portal%20access%20is%20not%20active');}redirect('/portal');}
+export async function portalSignOut(){const supabase=await createSupabaseServerClient();await supabase.auth.signOut();redirect('/portal/login');}
+export async function submitPortalIssue(form:FormData){const {supabase}=await requireCustomer();const {error}=await supabase.rpc('submit_customer_portal_issue',{p_category:value(form,'category'),p_description:value(form,'description'),p_severity:value(form,'severity'),p_note:value(form,'note')||null});if(error)redirect(`/portal/issues?error=${encodeURIComponent(error.message)}`);revalidatePath('/portal');revalidatePath('/portal/issues');redirect('/portal/issues?created=1');}
+export async function requestReschedule(form:FormData){const {supabase}=await requireCustomer();const {error}=await supabase.rpc('request_portal_reschedule',{p_kind:value(form,'kind'),p_schedule_id:value(form,'scheduleId'),p_requested_for:new Date(value(form,'requestedFor')).toISOString(),p_note:value(form,'note')||null});if(error)redirect(`/portal/my-car?error=${encodeURIComponent(error.message)}`);revalidatePath('/portal/my-car');redirect('/portal/my-car?requested=1');}
+export async function requestContactChange(form:FormData){const {supabase}=await requireCustomer();const {error}=await supabase.rpc('request_portal_contact_change',{p_phone:value(form,'phone')||null,p_email:value(form,'email')||null,p_note:value(form,'note')||null});if(error)redirect(`/portal/profile?error=${encodeURIComponent(error.message)}`);revalidatePath('/portal/profile');redirect('/portal/profile?requested=1');}

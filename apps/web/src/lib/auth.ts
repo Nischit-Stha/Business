@@ -18,3 +18,12 @@ export async function requireStaff() {
   if (!profile) redirect('/access-denied');
   return { supabase, user, profile };
 }
+
+export async function requireCustomer() {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/portal/login');
+  const { data: account } = await supabase.from('customer_portal_accounts').select('customer_id,status').eq('user_id',user.id).eq('status','ACTIVE').maybeSingle();
+  if (!account) redirect('/portal/access-denied');
+  return { supabase, user, customerId: account.customer_id };
+}
