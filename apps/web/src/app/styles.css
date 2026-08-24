@@ -44,6 +44,12 @@ button, .primary-link { width: fit-content; padding: .7rem 1rem; border: 0; bord
 .wide { grid-column: 1 / -1; }
 .inline-form { display: flex; max-width: 28rem; gap: .75rem; align-items: end; }
 .error { padding: .75rem 1rem; border-radius: .4rem; background: #f4dddd; color: #822828; }
+.tabs { display: flex; gap: 1rem; margin-top: 2rem; }
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+.summary-grid div { display: grid; gap: .3rem; padding: 1rem; border: 1px solid #d5ded7; border-radius: .5rem; background: white; }
+.summary-grid small { color: #5f6d63; text-transform: uppercase; }
+.compact-form { display: flex; gap: .5rem; }
+.compact-form input { min-width: 10rem; }
 .auth-shell { max-width: 34rem; }
 @media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } .wide { grid-column: auto; } nav form { margin-left: 0; } }
 
