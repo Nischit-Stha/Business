@@ -32,6 +32,9 @@ tbody tr:last-child td { border-bottom: 0; }
 .status-available { background: #dff3e5; color: #176334; }
 .status-assigned, .status-pickup_pending, .status-return_pending { background: #fff0ca; color: #704f00; }
 .status-workshop, .status-off_road { background: #f4dddd; color: #822828; }
+.severity-critical, .severity-high { background: #f4dddd; color: #822828; }
+.severity-medium { background: #fff0ca; color: #704f00; }
+.severity-low { background: #e2edf7; color: #244f73; }
 .empty { padding: 1rem; color: #5f6d63; }
 .form-card, .form-grid { max-width: 46rem; margin-top: 2rem; padding: 1.5rem; border: 1px solid #d5ded7; border-radius: .75rem; background: white; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }

@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { requireStaff } from '@/lib/auth';
 
@@ -23,7 +24,23 @@ export async function returnVehicleForm(form: FormData) {
 }
 
 export async function swapVehicleForm(form: FormData) {
-  await swapVehicle({ assignmentId: String(form.get('assignmentId')), newVehicleId: String(form.get('newVehicleId')), oldReturnOdometer: Number(form.get('oldReturnOdometer')), newPickupOdometer: Number(form.get('newPickupOdometer')) });
+  const agreementId = String(form.get('agreementId'));
+  const { supabase } = await requireStaff();
+  const { error } = await supabase.rpc('swap_active_agreement_vehicle', {
+    p_agreement_id: agreementId,
+    p_new_vehicle_id: String(form.get('newVehicleId')),
+    p_old_return_odometer: Number(form.get('oldReturnOdometer')),
+    p_new_pickup_odometer: Number(form.get('newPickupOdometer')),
+  });
+  if (error) {
+    await supabase.rpc('report_vehicle_swap_failure', {
+      p_agreement_id: agreementId, p_summary: error.message,
+      p_metadata: { target_vehicle_id: String(form.get('newVehicleId')) },
+    });
+    redirect(`/swap?error=${encodeURIComponent(error.message)}`);
+  }
+  revalidatePath('/fleet'); revalidatePath('/assignments'); revalidatePath('/agreements'); revalidatePath('/owner');
+  redirect(`/agreements/${agreementId}`);
 }
 
 export async function assignVehicle(input: {
