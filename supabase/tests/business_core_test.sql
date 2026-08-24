@@ -1,13 +1,16 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(15);
+select plan(28);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
 values
   ('30000000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'staff@example.test', '', now(), now(), now()),
-  ('30000000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'outsider@example.test', '', now(), now(), now());
+  ('30000000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'outsider@example.test', '', now(), now(), now()),
+  ('30000000-0000-4000-8000-000000000003', '00000000-0000-0000-8000-000000000000', 'authenticated', 'authenticated', 'disabled@example.test', '', now(), now(), now());
 insert into public.staff_profiles (user_id, full_name)
 values ('30000000-0000-4000-8000-000000000001', 'Synthetic Staff');
+insert into public.staff_profiles (user_id, full_name, status, is_active)
+values ('30000000-0000-4000-8000-000000000003', 'Disabled Synthetic Staff', 'DISABLED', false);
 insert into public.customers (id, full_name, licence_number, status)
 values ('40000000-0000-4000-8000-000000000001', 'Test Customer', 'TEST-LICENCE-001', 'ACTIVE');
 insert into public.vehicles (id, registration, make, model, year, odometer, operational_status, weekly_rate)
@@ -85,6 +88,54 @@ select is((select count(*)::integer from public.vehicles), 0, 'non-staff authent
 select throws_ok(
   $$select public.assign_vehicle_to_customer('40000000-0000-4000-8000-000000000001', '50000000-0000-4000-8000-000000000001', 1050)$$,
   '42501', 'staff access required', 'non-staff cannot invoke assignment workflow'
+);
+
+select set_config('request.jwt.claim.sub', '30000000-0000-4000-8000-000000000003', true);
+select is((select count(*)::integer from public.customers), 0, 'disabled staff cannot read customer data');
+select throws_ok(
+  $$select public.create_customer('Denied Person','0400 000 999','denied@example.test','DENIED-1','2030-01-01','1 Denied Street')$$,
+  '42501', 'staff access required', 'disabled staff cannot create customers'
+);
+
+select set_config('request.jwt.claim.sub', '30000000-0000-4000-8000-000000000001', true);
+select lives_ok(
+  $$select public.create_customer('Casey Synthetic','0400 000 333','casey@example.test','SYN-C333','2031-03-01','3 Synthetic Street')$$,
+  'staff can create a valid customer'
+);
+select throws_ok(
+  $$select public.create_customer('Invalid','bad','bad','SYN-BAD','2031-03-01','3 Synthetic Street')$$,
+  '22023', 'invalid phone', 'customer validation rejects invalid phone'
+);
+select lives_ok(
+  $$select public.update_customer((select id from public.customers where licence_number='SYN-C333'),'Casey Synthetic Updated','0400 000 334','casey.updated@example.test','SYN-C333','2032-03-01','4 Synthetic Street')$$,
+  'staff can update a customer'
+);
+select lives_ok(
+  $$select public.change_customer_status((select id from public.customers where licence_number='SYN-C333'),'BLOCKED')$$,
+  'staff can change customer status'
+);
+select ok((select count(*) >= 3 from public.audit_events where entity_type='customer'), 'customer changes create audit events');
+
+select lives_ok(
+  $$select public.create_vehicle('SYN900','SYNTHVIN900','Synthetic','Sedan',2025,10,450,'AVAILABLE')$$,
+  'staff can create a vehicle'
+);
+select throws_ok(
+  $$select public.create_vehicle('syn900','SYNTHVIN901','Synthetic','Sedan',2025,10,450,'AVAILABLE')$$,
+  '23505', null, 'duplicate registration is blocked case-insensitively'
+);
+select lives_ok(
+  $$select public.update_vehicle((select id from public.vehicles where registration='SYN900'),'SYN900','SYNTHVIN900','Synthetic','Wagon',2025,20,475,'WORKSHOP')$$,
+  'staff can update non-assignment vehicle information'
+);
+select throws_ok(
+  $$select public.update_vehicle((select id from public.vehicles where registration='SYN900'),'SYN900','SYNTHVIN900','Synthetic','Wagon',2025,20,475,'ASSIGNED')$$,
+  '42501', 'assignment state is workflow controlled', 'vehicle update cannot fake assigned state'
+);
+select ok((select count(*) >= 2 from public.audit_events where entity_type='vehicle' and action in ('VEHICLE_CREATED','VEHICLE_EDITED')), 'vehicle changes create audit events');
+select throws_ok(
+  $$update public.vehicles set operational_status='ASSIGNED' where registration='SYN900'$$,
+  '42501', null, 'authenticated browser role cannot write vehicles directly'
 );
 
 select * from finish();

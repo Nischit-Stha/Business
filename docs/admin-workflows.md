@@ -1,5 +1,21 @@
 # Admin Workflows
 
+## Staff provisioning
+
+There is no public signup route. Provision staff in two controlled steps:
+
+1. An authorized administrator creates the user in Supabase Auth using the dashboard or a secured server-side admin tool. Never expose the service-role key to the web app.
+2. For the first administrator only, a database owner inserts the matching profile during an approved local/staging operation:
+
+   ```sql
+   insert into public.staff_profiles (user_id, full_name, role, status, is_active)
+   values ('AUTH-USER-UUID', 'Staff display name', 'ADMIN', 'ACTIVE', true);
+   ```
+
+After bootstrap, an active `ADMIN` calls `public.set_staff_access(user_id, full_name, role, status)` from a secured admin tool. It accepts roles `ADMIN` and `STAFF`, statuses `ACTIVE` and `DISABLED`, synchronizes the legacy `is_active` flag, and writes `STAFF_ACCESS_CHANGED` audit events. Disabling a profile immediately removes staff authorization even if its Auth session remains valid. Role and status are never read from Auth user metadata.
+
+Do not provision production until the separately reviewed production migration/runbook task.
+
 ## Pickup
 
 1. Customer submits pickup request.

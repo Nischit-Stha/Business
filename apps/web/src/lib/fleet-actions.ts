@@ -2,14 +2,28 @@
 
 import { revalidatePath } from 'next/cache';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { requireStaff } from '@/lib/auth';
 
 async function invokeWorkflow(functionName: string, parameters: Record<string, unknown>) {
+  await requireStaff();
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc(functionName, parameters);
   if (error) throw new Error(error.message);
   revalidatePath('/fleet');
   revalidatePath('/assignments');
   return data;
+}
+
+export async function assignVehicleForm(form: FormData) {
+  await assignVehicle({ customerId: String(form.get('customerId')), vehicleId: String(form.get('vehicleId')), pickupOdometer: Number(form.get('pickupOdometer')) });
+}
+
+export async function returnVehicleForm(form: FormData) {
+  await returnVehicle({ assignmentId: String(form.get('assignmentId')), returnOdometer: Number(form.get('returnOdometer')) });
+}
+
+export async function swapVehicleForm(form: FormData) {
+  await swapVehicle({ assignmentId: String(form.get('assignmentId')), newVehicleId: String(form.get('newVehicleId')), oldReturnOdometer: Number(form.get('oldReturnOdometer')), newPickupOdometer: Number(form.get('newPickupOdometer')) });
 }
 
 export async function assignVehicle(input: {

@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { requireStaff } from '@/lib/auth';
 
 export type FleetVehicle = {
   id: string;
@@ -18,7 +18,7 @@ export type FleetVehicle = {
 };
 
 export async function getFleet(): Promise<FleetVehicle[]> {
-  const supabase = await createSupabaseServerClient();
+  const { supabase } = await requireStaff();
   const { data, error } = await supabase
     .from('vehicles')
     .select(
@@ -32,7 +32,7 @@ export async function getFleet(): Promise<FleetVehicle[]> {
 }
 
 export async function getCustomers() {
-  const supabase = await createSupabaseServerClient();
+  const { supabase } = await requireStaff();
   const { data, error } = await supabase
     .from('customers')
     .select('id, full_name, phone, email, licence_expiry, status')
@@ -42,7 +42,7 @@ export async function getCustomers() {
 }
 
 export async function getAssignmentHistory() {
-  const supabase = await createSupabaseServerClient();
+  const { supabase } = await requireStaff();
   const { data, error } = await supabase
     .from('vehicle_assignments')
     .select(
