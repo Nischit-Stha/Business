@@ -1,0 +1,22 @@
+Workbook profile
+================
+input_file: /home/redmoon/Desktop/Business-main/Current file.xlsx
+output_csv: /home/redmoon/Desktop/Business-main/imports/current_file_cleaned.csv
+output_sql: /home/redmoon/Desktop/Business-main/imports/current_file_to_supabase.sql
+rows_after_cleaning: 151
+unique_plates: 151
+unique_customers: 124
+sum_expected_weekly_credits: 41745.00
+sum_pending_amount: 105946.57
+sum_received_amount: 36070.00
+
+Top 10 due_day values:
+due_day
+NIL          26
+Monday       25
+Friday       24
+Wednesday    24
+Tuesday      20
+Thursday     16
+Sunday       10
+Saturday      6

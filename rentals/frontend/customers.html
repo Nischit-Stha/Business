@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veera Rentals • Customers</title>
+    <meta name="description" content="Veera Rentals customer profiles and account insights.">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <script src="../supabase-config.js"></script>
+    <script src="shared-utils.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --font-body: 'Inter', sans-serif;
+            --font-display: 'Poppins', sans-serif;
+            --sidebar-w: 260px;
+            --space-2: .5rem;
+            --space-3: .75rem;
+            --space-4: 1rem;
+            --space-5: 1.25rem;
+            --space-6: 1.5rem;
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+        html[data-theme="dark"] {
+            --bg: #0f141d;
+            --elev: #161c27;
+            --card: #1b2330;
+            --card2: #212c3c;
+            --text: #e9edf5;
+            --muted: #9aa7ba;
+            --border: #2b374b;
+            --primary: #53a6ff;
+            --danger: #ff6f7d;
+            --success: #27c88a;
+        }
+        html[data-theme="light"] {
+            --bg: #f3f6fb;
+            --elev: #ffffff;
+            --card: #ffffff;
+            --card2: #f8fbff;
+            --text: #151d2c;
+            --muted: #5e6b7e;
+            --border: #d6e0ef;
+            --primary: #0069d9;
+            --danger: #d84b61;
+            --success: #1d9f70;
+        }
+        * { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; }
+        body { background: var(--bg); color: var(--text); font-family: var(--font-body); }
+        body:not(.auth-complete) .app-container { opacity: 0; pointer-events: none; }
+        .app-container { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; }
+        .sidebar { background: linear-gradient(180deg, var(--elev), var(--card)); border-right: 1px solid var(--border); padding: var(--space-5); display: grid; gap: var(--space-5); align-content: start; overflow-y: auto; }
+        .sidebar h1 { margin: 0; font-family: var(--font-display); font-size: 1.3rem; }
+        .sidebar-nav { display: grid; gap: var(--space-2); }
+        .sidebar-link { border: 1px solid var(--border); background: var(--card2); color: var(--text); border-radius: var(--radius-sm); padding: .55rem .85rem; cursor: pointer; text-decoration: none; display: block; text-align: left; }
+        .sidebar-link.active { background: var(--primary); color: #fff; border-color: transparent; }
+        .main-col { display: grid; grid-template-rows: auto 1fr; }
+        .top-header { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--elev) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); padding: .8rem var(--space-6); display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
+        .main-scroll { overflow-y: auto; padding: var(--space-6); display: grid; gap: var(--space-6); }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4); }
+        .badge { border: 1px solid var(--border); border-radius: 999px; padding: .2rem .55rem; font-size: .75rem; color: var(--muted); }
+        .btn { border: 1px solid var(--border); background: var(--card2); color: var(--text); border-radius: var(--radius-sm); cursor: pointer; padding: .55rem .85rem; }
+        .btn-icon { width: 38px; height: 38px; display: grid; place-items: center; background: var(--card2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
+        .btn-primary { background: var(--primary); color: #fff; border-color: transparent; }
+        .btn:disabled { opacity: .55; cursor: not-allowed; }
+        .muted-text { color: var(--muted); font-size: .85rem; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); flex-wrap: wrap; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); }
+        .item { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card2); padding: var(--space-4); }
+        .kpi-value { font-size: 1.35rem; font-weight: 700; }
+        .kpi-label { color: var(--muted); font-size: .8rem; margin-top: .2rem; }
+        .control-bar, .filters, .pagination { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
+        input, select { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card); color: var(--text); padding: .55rem .65rem; font: inherit; }
+        .customer-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--space-4); margin-top: var(--space-4); }
+        .customer-item { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card2); padding: var(--space-4); display: grid; gap: var(--space-2); }
+        .customer-item h3 { margin: 0; font-size: 1rem; }
+        .pill { display: inline-block; border-radius: 999px; padding: .16rem .5rem; font-size: .74rem; border: 1px solid var(--border); color: var(--muted); }
+        .pill.active { color: var(--success); border-color: color-mix(in srgb, var(--success) 40%, var(--border)); }
+        .pill.risk { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
+        .pagination { justify-content: space-between; margin-top: var(--space-4); }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(3,6,10,.62); z-index: 30; align-items: center; justify-content: center; padding: var(--space-5); }
+        .modal.open { display: flex; }
+        .modal-content { width: min(980px, 96vw); max-height: 90vh; overflow: auto; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-5); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); }
+        .close-btn { border: 1px solid var(--border); background: var(--card2); color: var(--text); border-radius: var(--radius-sm); width: 36px; height: 36px; cursor: pointer; }
+        .profile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+        .table-wrap { overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-md); }
+        table { width: 100%; border-collapse: collapse; font-size: .84rem; }
+        th, td { border-bottom: 1px solid var(--border); padding: .55rem .6rem; text-align: left; }
+        th { color: var(--muted); font-weight: 600; }
+        @media (max-width: 980px) {
+            .app-container { grid-template-columns: 1fr; }
+            .sidebar { position: fixed; left: -100%; width: var(--sidebar-w); top: 0; bottom: 0; z-index: 40; transition: left .22s ease; }
+            .sidebar.open { left: 0; }
+            .main-scroll { padding: var(--space-4); }
+            .grid-4, .profile-grid { grid-template-columns: 1fr; }
+            .customer-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar" id="sidebar">
+            <div>
+                <h1>Veera Rentals</h1>
+                <p class="muted-text" style="margin:.2rem 0 0">Operations</p>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" class="sidebar-link">Dashboard</a>
+                <a href="bookings.html" class="sidebar-link">Bookings</a>
+                <a href="fleet.html" class="sidebar-link">Fleet</a>
+                <a href="customers.html" class="sidebar-link active">Customers</a>
+                <a href="reports.html" class="sidebar-link">Reports</a>
+            </nav>
+        </aside>
+        <div class="main-col">
+            <header class="top-header">
+                <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
+                    <button class="btn-icon" id="mobile-menu-btn" style="display:none" aria-label="Toggle sidebar">☰</button>
+                    <strong>Customers • Profiles & Accounts</strong>
+                    <span class="badge" id="customers-count">0 Profiles</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:.5rem">
+                    <button class="btn-icon" id="theme-toggle" aria-label="Toggle theme">🌓</button>
+                    <button class="btn" onclick="adminLogout(event)">Logout</button>
+                </div>
+            </header>
+            <main class="main-scroll">
+                <section class="card">
+                    <div class="grid-4">
+                        <article class="item"><div class="kpi-value" id="kpi-total-customers">0</div><div class="kpi-label">Total Customers</div></article>
+                        <article class="item"><div class="kpi-value" id="kpi-active-customers">0</div><div class="kpi-label">Active Renters</div></article>
+                        <article class="item"><div class="kpi-value" id="kpi-risk-customers">0</div><div class="kpi-label">Risk Accounts</div></article>
+                        <article class="item"><div class="kpi-value" id="kpi-average-ltv">$0</div><div class="kpi-label">Avg Lifetime Value</div></article>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <div class="section-header">
+                        <h2 style="margin:0">Customer Profiles</h2>
+                        <button class="btn" id="export-customers">Export CSV</button>
+                    </div>
+                    <div class="control-bar">
+                        <input type="text" id="customer-search" placeholder="Search name, email, phone, vehicle preference..." style="flex:1">
+                        <select id="customer-sort">
+                            <option value="name-asc">Sort: Name (A-Z)</option>
+                            <option value="recent">Sort: Recent Activity</option>
+                            <option value="bookings-high">Sort: Bookings High → Low</option>
+                            <option value="ltv-high">Sort: LTV High → Low</option>
+                        </select>
+                    </div>
+                    <div class="filters" style="margin-top:var(--space-3)">
+                        <button class="btn active" data-filter="all">All</button>
+                        <button class="btn" data-filter="active">Active</button>
+                        <button class="btn" data-filter="new">New (30 days)</button>
+                        <button class="btn" data-filter="risk">Risk</button>
+                    </div>
+                    <div class="customer-grid" id="customer-grid"><p class="muted-text">No customer profiles available</p></div>
+                    <div class="pagination">
+                        <span class="muted-text" id="customer-pagination-info">Showing 0-0 of 0</span>
+                        <div style="display:flex;gap:.5rem">
+                            <button class="btn" id="customers-prev">Previous</button>
+                            <button class="btn" id="customers-next">Next</button>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <div class="modal" id="customer-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="profile-name" style="margin:0">Customer Profile</h2>
+                <button class="close-btn" onclick="closeModal('customer-modal')">&times;</button>
+            </div>
+            <div class="profile-grid">
+                <section class="card" style="margin:0">
+                    <h3 style="margin-top:0">Contact & Account</h3>
+                    <p class="muted-text" id="profile-contact">—</p>
+                    <div style="display:grid;gap:.55rem;margin:.55rem 0 .35rem">
+                        <input id="profile-edit-name" type="text" placeholder="Full name">
+                        <input id="profile-edit-email" type="email" placeholder="Email address">
+                        <input id="profile-edit-phone" type="text" placeholder="Phone number">
+                        <input id="profile-edit-preference" type="text" placeholder="Preferred vehicle">
+                    </div>
+                    <div class="control-bar">
+                        <button class="btn btn-primary" id="save-customer-profile">Save Profile</button>
+                    </div>
+                    <p class="muted-text" id="profile-created">—</p>
+                    <p class="muted-text" id="profile-preference">—</p>
+                    <p class="muted-text" id="profile-score">—</p>
+                </section>
+                <section class="card" style="margin:0">
+                    <h3 style="margin-top:0">Performance</h3>
+                    <p class="muted-text" id="profile-bookings">—</p>
+                    <p class="muted-text" id="profile-active">—</p>
+                    <p class="muted-text" id="profile-spend">—</p>
+                    <p class="muted-text" id="profile-unpaid">—</p>
+                </section>
+            </div>
+            <div class="profile-grid" style="margin-top:var(--space-4)">
+                <section>
+                    <h3>Recent Bookings</h3>
+                    <div class="table-wrap"><table><thead><tr><th>Date</th><th>Vehicle</th><th>Status</th></tr></thead><tbody id="profile-bookings-table"><tr><td colspan="3" class="muted-text">No bookings</td></tr></tbody></table></div>
+                </section>
+                <section>
+                    <h3>Recent Invoices</h3>
+                    <div class="table-wrap"><table><thead><tr><th>Invoice</th><th>Amount</th><th>Status</th></tr></thead><tbody id="profile-invoices-table"><tr><td colspan="3" class="muted-text">No invoices</td></tr></tbody></table></div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let veeraClient = null;
+        const veeraState = {
+            customers: [],
+            bookings: [],
+            invoices: [],
+            filter: 'all',
+            sort: 'name-asc',
+            search: '',
+            page: 1,
+            pageSize: 20,
+            selectedCustomer: null
+        };
+
+        const clientGetter = () => window.VeeraShared?.getSupabaseClient?.() || window.getVeeraSupabaseClient?.() || null;
+        const hasAdminRole = (user) => user?.app_metadata?.role === 'admin' || user?.user_metadata?.role === 'admin';
+
+        function escapeHtml(value) {
+            const text = String(value ?? '');
+            return text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+        }
+
+        function toText(value, fallback = 'N/A') {
+            return window.VeeraShared?.sanitizeText?.(value, fallback) ?? fallback;
+        }
+
+        function toNumber(...values) {
+            for (const value of values) {
+                const numeric = Number(value);
+                if (Number.isFinite(numeric)) return numeric;
+            }
+            return 0;
+        }
+
+        function formatCurrency(value) {
+            return `$${Number(value || 0).toLocaleString()}`;
+        }
+
+        function getBookingDate(record) {
+            return record?.pickup_date || record?.start_date || record?.created_at || null;
+        }
+
+        function profileKey(record) {
+            const email = String(record?.email || record?.customer_email || '').trim().toLowerCase();
+            const phone = String(record?.phone || record?.customer_phone || '').trim();
+            const id = String(record?.id || '').trim();
+            if (email) return `email:${email}`;
+            if (phone) return `phone:${phone}`;
+            if (id) return `id:${id}`;
+            return `name:${String(record?.name || record?.customer_name || 'unknown').trim().toLowerCase()}`;
+        }
+
+        function isPersistedCustomer(profile) {
+            const rowId = profile?.customerRowId;
+            return rowId !== null && rowId !== undefined && rowId !== '';
+        }
+
+        function buildProfiles() {
+            const map = new Map();
+            const sourceRows = [
+                ...(Array.isArray(veeraState.customers) ? veeraState.customers : []),
+                ...(Array.isArray(window.VeeraShared?.readStore?.('veera-customer-drafts', [])) ? window.VeeraShared.readStore('veera-customer-drafts', []) : [])
+            ];
+
+            sourceRows.forEach(row => {
+                const key = profileKey(row);
+                if (!map.has(key)) {
+                    map.set(key, {
+                        id: row?.id || key,
+                        customerRowId: row?.id || null,
+                        key,
+                        name: toText(row?.name || row?.customer_name, 'Unknown Customer'),
+                        email: toText(row?.email || row?.customer_email, ''),
+                        phone: toText(row?.phone || row?.customer_phone, ''),
+                        preferredVehicle: toText(row?.preferred_vehicle || row?.vehicle_preference || ''),
+                        createdAt: row?.created_at || null,
+                        lastActivity: row?.updated_at || row?.created_at || null,
+                        totalBookings: 0,
+                        activeBookings: 0,
+                        overdueCount: 0,
+                        totalSpent: 0,
+                        unpaidAmount: 0,
+                        bookings: [],
+                        invoices: []
+                    });
+                }
+            });
+
+            (veeraState.bookings || []).forEach(booking => {
+                const key = profileKey(booking);
+                const status = String(booking?.status || '').toLowerCase();
+                const amount = toNumber(booking?.total, booking?.amount, booking?.estimated_total);
+                const bookingDate = getBookingDate(booking);
+                if (!map.has(key)) {
+                    map.set(key, {
+                        id: booking?.customer_id || key,
+                        customerRowId: null,
+                        key,
+                        name: toText(booking?.customer_name, 'Unknown Customer'),
+                        email: toText(booking?.customer_email, ''),
+                        phone: toText(booking?.customer_phone || booking?.phone, ''),
+                        preferredVehicle: toText(booking?.vehicle_name || booking?.vehicle_type || ''),
+                        createdAt: booking?.created_at || bookingDate,
+                        lastActivity: bookingDate || booking?.created_at || null,
+                        totalBookings: 0,
+                        activeBookings: 0,
+                        overdueCount: 0,
+                        totalSpent: 0,
+                        unpaidAmount: 0,
+                        bookings: [],
+                        invoices: []
+                    });
+                }
+                const entry = map.get(key);
+                entry.totalBookings += 1;
+                if (status === 'active' || status === 'approved') entry.activeBookings += 1;
+                if (status === 'overdue') entry.overdueCount += 1;
+                entry.totalSpent += amount;
+                entry.bookings.push({
+                    date: bookingDate,
+                    vehicle: toText(booking?.vehicle_name || booking?.vehicle_type || booking?.car_name, 'Vehicle'),
+                    status: status || 'pending'
+                });
+                if (bookingDate && (!entry.lastActivity || new Date(bookingDate) > new Date(entry.lastActivity))) {
+                    entry.lastActivity = bookingDate;
+                }
+            });
+
+            (veeraState.invoices || []).forEach(invoice => {
+                const key = profileKey(invoice);
+                const total = toNumber(invoice?.total_amount, invoice?.amount, invoice?.grand_total, invoice?.total);
+                const status = String(invoice?.status || '').toLowerCase();
+                if (!map.has(key)) {
+                    map.set(key, {
+                        id: invoice?.customer_id || key,
+                        customerRowId: null,
+                        key,
+                        name: toText(invoice?.customer_name, 'Unknown Customer'),
+                        email: toText(invoice?.customer_email, ''),
+                        phone: toText(invoice?.customer_phone || invoice?.phone, ''),
+                        preferredVehicle: 'N/A',
+                        createdAt: invoice?.created_at || null,
+                        lastActivity: invoice?.created_at || null,
+                        totalBookings: 0,
+                        activeBookings: 0,
+                        overdueCount: 0,
+                        totalSpent: 0,
+                        unpaidAmount: 0,
+                        bookings: [],
+                        invoices: []
+                    });
+                }
+                const entry = map.get(key);
+                entry.totalSpent += total;
+                if (status === 'unpaid' || status === 'overdue') entry.unpaidAmount += total;
+                entry.invoices.push({
+                    number: toText(invoice?.invoice_number || invoice?.id || 'Invoice'),
+                    amount: total,
+                    status: status || 'open'
+                });
+            });
+
+            return Array.from(map.values()).map(profile => {
+                const created = profile.createdAt ? new Date(profile.createdAt) : null;
+                const now = new Date();
+                const isNew = created ? ((now - created) / (1000 * 60 * 60 * 24)) <= 30 : false;
+                const riskScore = (profile.overdueCount * 2) + (profile.unpaidAmount > 0 ? 1 : 0);
+                return { ...profile, isNew, riskScore };
+            });
+        }
+
+        function applyView(profiles) {
+            const query = veeraState.search.trim().toLowerCase();
+            let rows = [...profiles];
+
+            if (veeraState.filter === 'active') {
+                rows = rows.filter(profile => profile.activeBookings > 0);
+            } else if (veeraState.filter === 'new') {
+                rows = rows.filter(profile => profile.isNew);
+            } else if (veeraState.filter === 'risk') {
+                rows = rows.filter(profile => profile.riskScore > 0);
+            }
+
+            if (query) {
+                rows = rows.filter(profile => {
+                    const text = `${profile.name} ${profile.email} ${profile.phone} ${profile.preferredVehicle}`.toLowerCase();
+                    return text.includes(query);
+                });
+            }
+
+            rows.sort((left, right) => {
+                if (veeraState.sort === 'bookings-high') return right.totalBookings - left.totalBookings;
+                if (veeraState.sort === 'ltv-high') return right.totalSpent - left.totalSpent;
+                if (veeraState.sort === 'recent') return new Date(right.lastActivity || 0) - new Date(left.lastActivity || 0);
+                return String(left.name).localeCompare(String(right.name));
+            });
+
+            return rows;
+        }
+
+        function updateKpis(profiles) {
+            const total = profiles.length;
+            const active = profiles.filter(profile => profile.activeBookings > 0).length;
+            const risk = profiles.filter(profile => profile.riskScore > 0).length;
+            const avgLtv = total ? profiles.reduce((sum, profile) => sum + profile.totalSpent, 0) / total : 0;
+            document.getElementById('customers-count').textContent = `${total} Profiles`;
+            document.getElementById('kpi-total-customers').textContent = total.toLocaleString();
+            document.getElementById('kpi-active-customers').textContent = active.toLocaleString();
+            document.getElementById('kpi-risk-customers').textContent = risk.toLocaleString();
+            document.getElementById('kpi-average-ltv').textContent = formatCurrency(avgLtv.toFixed(0));
+        }
+
+        function render() {
+            const allProfiles = buildProfiles();
+            updateKpis(allProfiles);
+            const visibleProfiles = applyView(allProfiles);
+            const total = visibleProfiles.length;
+            const pages = Math.max(1, Math.ceil(total / veeraState.pageSize));
+            if (veeraState.page > pages) veeraState.page = pages;
+            const startIndex = (veeraState.page - 1) * veeraState.pageSize;
+            const pageRows = visibleProfiles.slice(startIndex, startIndex + veeraState.pageSize);
+
+            const grid = document.getElementById('customer-grid');
+            if (!pageRows.length) {
+                grid.innerHTML = '<p class="muted-text">No customer profiles match current filters.</p>';
+            } else {
+                grid.innerHTML = pageRows.map(profile => `
+                    <article class="customer-item">
+                        <h3>${escapeHtml(profile.name)}</h3>
+                        <div class="muted-text">${escapeHtml(profile.email || 'No email')} • ${escapeHtml(profile.phone || 'No phone')}</div>
+                        <div class="muted-text">Bookings: ${profile.totalBookings} • Active: ${profile.activeBookings}</div>
+                        <div class="muted-text">LTV: ${formatCurrency(profile.totalSpent)} • Unpaid: ${formatCurrency(profile.unpaidAmount)}</div>
+                        <div style="display:flex;gap:.45rem;flex-wrap:wrap">
+                            <span class="pill ${profile.activeBookings > 0 ? 'active' : ''}">${profile.activeBookings > 0 ? 'Active' : 'Idle'}</span>
+                            <span class="pill ${profile.riskScore > 0 ? 'risk' : ''}">${profile.riskScore > 0 ? 'Risk' : 'Healthy'}</span>
+                            ${profile.isNew ? '<span class="pill">New</span>' : ''}
+                        </div>
+                        <button class="btn btn-primary" style="margin-top:.35rem" data-customer-key="${escapeHtml(profile.key)}">View Profile</button>
+                    </article>
+                `).join('');
+            }
+
+            const displayStart = total === 0 ? 0 : startIndex + 1;
+            const displayEnd = Math.min(startIndex + veeraState.pageSize, total);
+            document.getElementById('customer-pagination-info').textContent = `Showing ${displayStart}-${displayEnd} of ${total}`;
+            document.getElementById('customers-prev').disabled = veeraState.page <= 1;
+            document.getElementById('customers-next').disabled = veeraState.page >= pages;
+        }
+
+        function renderProfileModal(profile) {
+            if (!profile) return;
+            document.getElementById('profile-name').textContent = profile.name;
+            document.getElementById('profile-contact').textContent = `Email: ${profile.email || 'N/A'} • Phone: ${profile.phone || 'N/A'}`;
+            document.getElementById('profile-edit-name').value = profile.name || '';
+            document.getElementById('profile-edit-email').value = profile.email || '';
+            document.getElementById('profile-edit-phone').value = profile.phone || '';
+            document.getElementById('profile-edit-preference').value = profile.preferredVehicle || '';
+            document.getElementById('profile-created').textContent = `Created: ${profile.createdAt ? new Date(profile.createdAt).toLocaleDateString() : 'Unknown'}`;
+            document.getElementById('profile-preference').textContent = `Preferred Vehicle: ${profile.preferredVehicle || 'N/A'}`;
+            document.getElementById('profile-score').textContent = `Risk Score: ${profile.riskScore}`;
+            document.getElementById('profile-bookings').textContent = `Total Bookings: ${profile.totalBookings}`;
+            document.getElementById('profile-active').textContent = `Active Bookings: ${profile.activeBookings}`;
+            document.getElementById('profile-spend').textContent = `Lifetime Value: ${formatCurrency(profile.totalSpent)}`;
+            document.getElementById('profile-unpaid').textContent = `Outstanding: ${formatCurrency(profile.unpaidAmount)}`;
+
+            const bookingsTable = document.getElementById('profile-bookings-table');
+            const recentBookings = [...profile.bookings].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)).slice(0, 5);
+            bookingsTable.innerHTML = recentBookings.length
+                ? recentBookings.map(booking => `<tr><td>${booking.date ? new Date(booking.date).toLocaleDateString() : 'N/A'}</td><td>${escapeHtml(booking.vehicle)}</td><td>${escapeHtml(booking.status)}</td></tr>`).join('')
+                : '<tr><td colspan="3" class="muted-text">No bookings</td></tr>';
+
+            const invoicesTable = document.getElementById('profile-invoices-table');
+            const recentInvoices = [...profile.invoices].slice(0, 5);
+            invoicesTable.innerHTML = recentInvoices.length
+                ? recentInvoices.map(invoice => `<tr><td>${escapeHtml(invoice.number)}</td><td>${formatCurrency(invoice.amount)}</td><td>${escapeHtml(invoice.status)}</td></tr>`).join('')
+                : '<tr><td colspan="3" class="muted-text">No invoices</td></tr>';
+
+            showModal('customer-modal');
+        }
+
+        async function saveSelectedCustomerProfile() {
+            const profile = veeraState.selectedCustomer;
+            if (!profile) return;
+
+            const payload = {
+                name: document.getElementById('profile-edit-name').value.trim(),
+                email: document.getElementById('profile-edit-email').value.trim().toLowerCase(),
+                phone: document.getElementById('profile-edit-phone').value.trim(),
+                preferred_vehicle: document.getElementById('profile-edit-preference').value.trim(),
+                updated_at: new Date().toISOString()
+            };
+
+            try {
+                if (veeraClient && isPersistedCustomer(profile)) {
+                    const { error } = await veeraClient.from('customers').update(payload).eq('id', profile.customerRowId);
+                    if (error) throw error;
+                } else if (veeraClient) {
+                    const insertPayload = {
+                        ...payload,
+                        created_at: new Date().toISOString()
+                    };
+                    const { data, error } = await veeraClient.from('customers').insert(insertPayload).select('*').limit(1);
+                    if (error) throw error;
+                    if (Array.isArray(data) && data[0]?.id) profile.customerRowId = data[0].id;
+                } else {
+                    throw new Error('Supabase client not ready');
+                }
+
+                const existingIndex = veeraState.customers.findIndex(item => String(item?.id || '') === String(profile.customerRowId || ''));
+                if (existingIndex >= 0) {
+                    veeraState.customers.splice(existingIndex, 1, { ...veeraState.customers[existingIndex], ...payload, id: profile.customerRowId || veeraState.customers[existingIndex].id });
+                } else {
+                    veeraState.customers.unshift({ id: profile.customerRowId || Date.now(), ...payload, created_at: new Date().toISOString() });
+                }
+
+                veeraState.selectedCustomer = {
+                    ...veeraState.selectedCustomer,
+                    name: payload.name || veeraState.selectedCustomer.name,
+                    email: payload.email || veeraState.selectedCustomer.email,
+                    phone: payload.phone || veeraState.selectedCustomer.phone,
+                    preferredVehicle: payload.preferred_vehicle || veeraState.selectedCustomer.preferredVehicle,
+                    customerRowId: profile.customerRowId || veeraState.selectedCustomer.customerRowId
+                };
+
+                render();
+                renderProfileModal(veeraState.selectedCustomer);
+                window.VeeraShared?.showNotice?.('Customer profile saved.', 'success');
+            } catch (error) {
+                console.error('Customer save failed:', error);
+                window.VeeraShared?.appendStoreItem?.('veera-customer-drafts', {
+                    id: profile.customerRowId || Date.now(),
+                    name: payload.name,
+                    email: payload.email,
+                    phone: payload.phone,
+                    preferred_vehicle: payload.preferred_vehicle,
+                    created_at: new Date().toISOString(),
+                    source: 'local-fallback'
+                }, 300);
+                window.VeeraShared?.showNotice?.('Saved locally. Database write failed.', 'warning');
+            }
+        }
+
+        function exportCsv() {
+            const rows = applyView(buildProfiles());
+            const headers = ['Name', 'Email', 'Phone', 'Bookings', 'Active', 'LTV', 'Outstanding', 'Risk Score'];
+            const body = rows.map(profile => [
+                `"${String(profile.name || '').replaceAll('"', '""')}"`,
+                `"${String(profile.email || '').replaceAll('"', '""')}"`,
+                `"${String(profile.phone || '').replaceAll('"', '""')}"`,
+                profile.totalBookings,
+                profile.activeBookings,
+                profile.totalSpent,
+                profile.unpaidAmount,
+                profile.riskScore
+            ].join(','));
+            const csv = [headers.join(','), ...body].join('\n');
+            window.VeeraShared?.downloadTextFile?.(`veera-customers-${new Date().toISOString().slice(0, 10)}.csv`, csv, 'text/csv;charset=utf-8');
+            window.VeeraShared?.showNotice?.('Customer report exported.', 'success');
+        }
+
+        async function fetchData() {
+            try {
+                const [customersResp, bookingsResp, invoicesResp] = await Promise.all([
+                    veeraClient.from('customers').select('*').limit(1000),
+                    veeraClient.from('booking_requests').select('*').limit(2000),
+                    veeraClient.from('invoices').select('*').limit(2000)
+                ]);
+
+                veeraState.customers = customersResp?.error ? [] : (customersResp?.data || []);
+                veeraState.bookings = bookingsResp?.error ? [] : (bookingsResp?.data || []);
+                veeraState.invoices = invoicesResp?.error ? [] : (invoicesResp?.data || []);
+
+                if (customersResp?.error) {
+                    console.warn('Customers table unavailable. Profiles are derived from bookings and invoices.', customersResp.error.message);
+                }
+            } catch (error) {
+                console.error('Unable to load customer data:', error);
+                window.VeeraShared?.showNotice?.('Failed to load live data. Local cache is still available.', 'warning');
+            }
+            render();
+        }
+
+        function bindUi() {
+            document.getElementById('theme-toggle')?.addEventListener('click', () => {
+                const html = document.documentElement;
+                html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+                localStorage.setItem('veera-theme', html.dataset.theme);
+            });
+            document.getElementById('mobile-menu-btn')?.addEventListener('click', () => {
+                document.getElementById('sidebar')?.classList.toggle('open');
+            });
+
+            document.getElementById('customer-search')?.addEventListener('input', (event) => {
+                veeraState.search = event.target.value || '';
+                veeraState.page = 1;
+                render();
+            });
+
+            document.getElementById('customer-sort')?.addEventListener('change', (event) => {
+                veeraState.sort = event.target.value;
+                veeraState.page = 1;
+                render();
+            });
+
+            document.querySelectorAll('[data-filter]').forEach(button => {
+                button.addEventListener('click', () => {
+                    veeraState.filter = button.dataset.filter;
+                    veeraState.page = 1;
+                    document.querySelectorAll('[data-filter]').forEach(item => item.classList.remove('active'));
+                    button.classList.add('active');
+                    render();
+                });
+            });
+
+            document.getElementById('customers-prev')?.addEventListener('click', () => {
+                if (veeraState.page > 1) {
+                    veeraState.page -= 1;
+                    render();
+                }
+            });
+
+            document.getElementById('customers-next')?.addEventListener('click', () => {
+                const total = applyView(buildProfiles()).length;
+                const pages = Math.max(1, Math.ceil(total / veeraState.pageSize));
+                if (veeraState.page < pages) {
+                    veeraState.page += 1;
+                    render();
+                }
+            });
+
+            document.getElementById('customer-grid')?.addEventListener('click', (event) => {
+                const trigger = event.target.closest('[data-customer-key]');
+                if (!trigger) return;
+                const key = trigger.getAttribute('data-customer-key');
+                const profile = buildProfiles().find(item => item.key === key);
+                if (!profile) return;
+                veeraState.selectedCustomer = profile;
+                renderProfileModal(profile);
+            });
+
+            document.getElementById('export-customers')?.addEventListener('click', exportCsv);
+            document.getElementById('save-customer-profile')?.addEventListener('click', saveSelectedCustomerProfile);
+        }
+
+        function showModal(id) { document.getElementById(id)?.classList.add('open'); }
+        function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+
+        async function adminLogout(event) {
+            if (event) event.preventDefault();
+            if (veeraClient) await veeraClient.auth.signOut();
+            window.location.replace('login.html');
+        }
+
+        async function guard() {
+            veeraClient = clientGetter();
+            if (!veeraClient) {
+                window.location.replace('login.html?next=customers.html');
+                return false;
+            }
+            const { data, error } = await veeraClient.auth.getSession();
+            const user = data?.session?.user;
+            if (error || !user || !hasAdminRole(user)) {
+                window.location.replace('login.html?next=customers.html');
+                return false;
+            }
+            document.body.classList.add('auth-complete');
+            return true;
+        }
+
+        async function bootstrap() {
+            const ok = await guard();
+            if (!ok) return;
+            const savedTheme = localStorage.getItem('veera-theme');
+            if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+            bindUi();
+            await fetchData();
+        }
+
+        bootstrap();
+    </script>
+</body>
+</html>
