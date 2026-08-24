@@ -1,0 +1,25 @@
+# Dependencies and build output
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+# Local and production secrets (keep documented examples only)
+.env
+.env.*
+!.env.example
+!**/.env.example
+*.pem
+*.key
+
+# Supabase local runtime state
+supabase/.branches/
+supabase/.temp/
+
+# Logs, editors, and operating systems
+*.log
+.DS_Store
+.idea/
+.vscode/
+

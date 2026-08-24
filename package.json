@@ -1,0 +1,28 @@
+{
+  "name": "veera-rentals",
+  "version": "2.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspace=@veera/web",
+    "build": "npm run build --workspace=@veera/web",
+    "lint": "npm run lint --workspace=@veera/web",
+    "typecheck": "npm run typecheck --workspace=@veera/web",
+    "test": "npm run test --workspace=@veera/web",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:reset": "supabase db reset"
+  },
+  "devDependencies": {
+    "eslint": "9.39.2",
+    "prettier": "3.3.3",
+    "supabase": "2.115.0"
+  }
+}
