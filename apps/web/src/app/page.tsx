@@ -1,11 +1,14 @@
+import Link from 'next/link';
+
 export default function HomePage() {
   return (
     <main>
       <p className="eyebrow">Veera Rentals</p>
-      <h1>V2 foundation</h1>
+      <h1>Fleet operations</h1>
       <p>
-        The new server-controlled operations platform is being built here. Business workflows will be migrated in reviewed stages.
+        Staff-only visibility for customers, vehicles, and vehicle custody history.
       </p>
+      <nav className="home-links"><Link href="/fleet">Fleet</Link><Link href="/customers">Customers</Link><Link href="/assignments">Assignments</Link></nav>
     </main>
   );
 }
