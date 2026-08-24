@@ -12,6 +12,9 @@ insert into public.vehicles(id,registration,make,model,year,odometer,operational
 ('52000000-0000-4000-8000-000000000002','SWP002','Synthetic','New',2025,2000,'AVAILABLE',100),
 ('52000000-0000-4000-8000-000000000003','SWP003','Synthetic','Busy',2025,3000,'AVAILABLE',100),
 ('52000000-0000-4000-8000-000000000004','SWP004','Synthetic','Open',2025,4000,'AVAILABLE',100);
+insert into public.customer_approvals(customer_id,status,decided_by,decided_at) select id,'APPROVED','32000000-0000-4000-8000-000000000001',now() from public.customers on conflict(customer_id) do update set status='APPROVED',decided_by=excluded.decided_by,decided_at=excluded.decided_at;
+insert into public.customer_documents(customer_id,document_type,status,expiry_date,verified_by,verified_at) select c.id,t,'VERIFIED',current_date+365,'32000000-0000-4000-8000-000000000001',now() from public.customers c cross join (values('DRIVER_LICENCE'),('PROOF_OF_ADDRESS')) d(t);
+insert into public.vehicle_compliance(vehicle_id,compliance_type,status,issued_at,expires_at,verified_by) select v.id,t,'VALID',current_date-1,current_date+365,'32000000-0000-4000-8000-000000000001' from public.vehicles v cross join (values('REGISTRATION'),('RWC')) x(t);
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub','32000000-0000-4000-8000-000000000001',true);

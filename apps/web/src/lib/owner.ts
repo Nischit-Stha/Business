@@ -5,6 +5,7 @@ import { requireStaff } from '@/lib/auth';
 export async function getOwnerDashboard() {
   const { supabase, profile } = await requireStaff();
   await supabase.rpc('refresh_owner_exceptions', { p_overdue_days: 14, p_large_balance: 2000 });
+  await supabase.rpc('refresh_readiness_exceptions', { p_expiring_days: 30, p_offroad_days: 7 });
   const [metrics, exceptions, staff] = await Promise.all([
     supabase.rpc('owner_dashboard_metrics', { p_overdue_days: 14 }),
     supabase.from('operational_exceptions').select('*').neq('status', 'RESOLVED').order('created_at'),
