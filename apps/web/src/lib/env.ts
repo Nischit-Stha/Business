@@ -5,6 +5,11 @@ export type PublicEnvironment = {
   supabaseAnonKey: string;
 };
 
+export type PrivateEnvironment = {
+  supabaseUrl: string;
+  supabaseServiceRoleKey: string;
+};
+
 export function readPublicEnvironment(
   environment: Readonly<Record<string, string | undefined>> = process.env,
 ): PublicEnvironment {
@@ -18,4 +23,15 @@ export function readPublicEnvironment(
   }
 
   return { supabaseUrl, supabaseAnonKey };
+}
+
+export function readPrivateEnvironment(
+  environment: Readonly<Record<string, string | undefined>> = process.env,
+): PrivateEnvironment {
+  const supabaseUrl = environment.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseServiceRoleKey = environment.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseServiceRoleKey || supabaseServiceRoleKey === 'replace-with-local-service-role-key') {
+    throw new Error('Server-only SUPABASE_SERVICE_ROLE_KEY must contain a local or staging value.');
+  }
+  return { supabaseUrl, supabaseServiceRoleKey };
 }
