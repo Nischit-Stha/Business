@@ -17,6 +17,8 @@ export type FleetVehicle = {
   }>;
 };
 
+export type FleetOperation = { id:string; registration:string; make:string; model:string; year:number; odometer:number; operational_status:string; current_customer:string|null; agreement_id:string|null; agreement_status:string|null; next_pickup_at:string|null; next_return_at:string|null; open_issue_count:number; maintenance_status:string|null; ready_for_allocation:boolean };
+
 export async function getFleet(): Promise<FleetVehicle[]> {
   const { supabase } = await requireStaff();
   const { data, error } = await supabase
@@ -29,6 +31,13 @@ export async function getFleet(): Promise<FleetVehicle[]> {
 
   if (error) throw new Error(`Unable to load fleet: ${error.message}`);
   return (data ?? []) as unknown as FleetVehicle[];
+}
+
+export async function getFleetOperations(): Promise<FleetOperation[]> {
+  const { supabase } = await requireStaff();
+  const { data, error } = await supabase.from('fleet_operations').select('*').order('registration');
+  if (error) throw new Error(`Unable to load fleet operations: ${error.message}`);
+  return (data ?? []) as FleetOperation[];
 }
 
 export async function getCustomers() {

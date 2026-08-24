@@ -1,20 +1,20 @@
 import 'server-only';
 
 import { requireStaff } from '@/lib/auth';
+import { prioritizeAttention, type OwnerDashboard } from '@/lib/owner-dashboard';
 
 export async function getOwnerDashboard() {
   const { supabase, profile } = await requireStaff();
   await supabase.rpc('refresh_owner_exceptions', { p_overdue_days: 14, p_large_balance: 2000 });
   await supabase.rpc('refresh_readiness_exceptions', { p_expiring_days: 30, p_offroad_days: 7 });
-  const [metrics, exceptions, staff] = await Promise.all([
-    supabase.rpc('owner_dashboard_metrics', { p_overdue_days: 14 }),
-    supabase.from('operational_exceptions').select('*').neq('status', 'RESOLVED').order('created_at'),
+  await supabase.rpc('refresh_maintenance_compliance_attention');
+  const [dashboard, staff] = await Promise.all([
+    supabase.rpc('owner_operations_dashboard'),
     supabase.from('staff_profiles').select('user_id, full_name').eq('status', 'ACTIVE').eq('is_active', true).order('full_name'),
   ]);
-  const error = metrics.error ?? exceptions.error ?? staff.error;
+  const error = dashboard.error ?? staff.error;
   if (error) throw new Error(`Unable to load owner dashboard: ${error.message}`);
-  const severityOrder: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
-  const queue = [...(exceptions.data ?? [])].sort((a, b) =>
-    (severityOrder[a.severity] ?? 9) - (severityOrder[b.severity] ?? 9) || a.created_at.localeCompare(b.created_at));
-  return { metrics: metrics.data?.[0], exceptions: queue, staff: staff.data ?? [], profile };
+  const data = dashboard.data as OwnerDashboard | null;
+  if (!data) throw new Error('Unable to load owner dashboard: no dashboard data returned');
+  return { dashboard: { ...data, attention: prioritizeAttention(data.attention ?? []) }, staff: staff.data ?? [], profile };
 }

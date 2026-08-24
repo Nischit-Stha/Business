@@ -39,7 +39,7 @@ insert into public.maintenance_plans(vehicle_id,last_completed_service_odometer)
 set local role authenticated;
 select is((select next_service_odometer from public.maintenance_plans where vehicle_id='53000000-0000-4000-8000-000000000002'),15000,'10,000 km threshold calculated');
 select public.record_odometer('53000000-0000-4000-8000-000000000002',15000,'MANUAL');
-select is((select status from public.vehicle_maintenance_status where vehicle_id='53000000-0000-4000-8000-000000000002'),'DUE','service due detected');
+select is((select status from public.vehicle_maintenance_status where vehicle_id='53000000-0000-4000-8000-000000000002'),'OVERDUE','service is overdue at the service odometer threshold');
 select public.open_maintenance_job('53000000-0000-4000-8000-000000000002','Synthetic service');
 select public.complete_maintenance_job((select id from public.maintenance_jobs where vehicle_id='53000000-0000-4000-8000-000000000002'),15100,'Complete',125);
 select is((select next_service_odometer from public.maintenance_plans where vehicle_id='53000000-0000-4000-8000-000000000002'),25100,'completed service advances threshold');
