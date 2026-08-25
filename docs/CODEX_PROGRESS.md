@@ -1,6 +1,79 @@
 # Codex progress
 
-## Current task — Customer Self-Service Portal
+## Current task — Staff frontend and UX transformation
+
+**Status:** Implemented and verified locally on 2026-08-25. Not committed. No migrations, RLS policies, authorization rules, financial logic, operational workflows, credentials, or production data were changed.
+
+### Architecture and design system
+
+- Replaced the flat staff link row with a fixed, grouped application shell: desktop sidebar, active route state, tablet/mobile drawer, contextual top bar, staff identity, sign-out control, attention shortcut, skip link, and global search.
+- Added reusable page header, breadcrumbs, metric card, status/severity badge, action, table, filter/search, empty/loading/error, form field, section card, and activity timeline primitives.
+- Introduced consistent tokens for colour, type, spacing, borders, radii, elevation, focus states, breakpoints, and operational severity. Staff tables become labelled card-like rows on narrow screens; fleet and customer lists use purpose-built responsive cards.
+- Kept data loading in server components and all writes in the existing server actions. No operational state moved to browser storage.
+- Added a server-authorized global search route for vehicle registration/make/model, customer name, exact agreement ID, and issue description. Results expose operational summaries only and remain governed by staff RLS.
+- Added shared route loading and customer-safe error boundaries. Raw database details are not rendered by the new states.
+
+### Substantially redesigned pages
+
+- `/owner` — contextual greeting, dominant severity-aware attention queue, exception filters, clearer metrics, and preserved assignment/resolution workflows.
+- `/fleet` — live search, nine quick filters, responsive vehicle cards, status/readiness hierarchy, explicit blocker explanations, odometer, customer, maintenance, issues, and next movement.
+- `/customers` — searchable CRM-style card list, operational filters, reduced PII in the list, licence/document attention, and clear status.
+- `/payments` — staff-friendly due/overdue/upcoming/paid sections, outstanding values, overdue age, human status badges, useful empty states, and advanced reconciliation separated from routine work.
+- `/portal` — mobile-first My Car hero, next payment/payment status/service summaries, customer-language quick actions, and attention-only supporting cards.
+- `/search` — new grouped global operations search.
+- All other staff routes inherit the redesigned responsive shell, navigation, form controls, tables, focus treatment, badges, and feedback states without losing their existing workflows.
+
+### Files created
+
+- `apps/web/src/components/ui.tsx`
+- `apps/web/src/components/ui.test.tsx`
+- `apps/web/src/components/staff-navigation.tsx`
+- `apps/web/src/components/fleet-board.tsx`
+- `apps/web/src/components/customer-list.tsx`
+- `apps/web/src/app/search/page.tsx`
+- `apps/web/src/app/loading.tsx`
+- `apps/web/src/app/error.tsx`
+- `apps/web/src/app/operations.css`
+- `apps/web/src/app/workflows.css`
+- `apps/web/src/app/portal.css`
+- `docs/frontend-transformation-plan.md`
+
+### Files modified
+
+- `apps/web/src/components/staff-nav.tsx`
+- `apps/web/src/app/layout.tsx`
+- `apps/web/src/app/styles.css`
+- `apps/web/src/app/owner/page.tsx`
+- `apps/web/src/app/fleet/page.tsx`
+- `apps/web/src/app/customers/page.tsx`
+- `apps/web/src/app/payments/page.tsx`
+- `apps/web/src/app/portal/page.tsx`
+- `apps/web/vitest.config.ts`
+- `docs/CODEX_PROGRESS.md`
+
+### Backend limitations retained for review
+
+- Fleet filtering is intentionally client-side over the existing `fleet_operations` result. At roughly 150 vehicles this is responsive; significant scale needs a reviewed paginated/search RPC or server query rather than loading the full fleet.
+- The customer list source currently exposes core customer records but not a single safe projection joining active agreement, vehicle, payment, document, issue, and portal status. The redesigned list therefore avoids inventing those fields; an operational customer-summary view would enable the full requested filter set efficiently.
+- The vehicle detail sources do not currently provide one consolidated movement/current-agreement/payment projection. Existing maintenance, compliance, issue, document, and edit capabilities remain available, but ideal decision tabs require a reviewed read model.
+- Pickup/return checklists have scheduling and completion state but no explicit persisted readiness-reason/checklist-step projection, so blockers cannot yet be presented with the same precision as fleet allocation readiness.
+- Issues do not expose a reliable “my issues” identity filter or a distinct waiting-state model in the current route query. Notifications likewise do not have a separate staff-facing “needs attention” projection beyond status grouping.
+- No chart was added because the current owner payload supplies point-in-time metrics, not a trustworthy time series.
+
+### Verification
+
+- `npm run lint` — PASS.
+- `npm run typecheck` — PASS.
+- `npm test` — PASS, 25 tests across 7 files, including 4 shared UI presentation/accessibility tests.
+- `npm run build` — PASS, 37 generated routes including the new `/search` route.
+- `npm run supabase:reset` — PASS against local Supabase only.
+- `npm exec supabase -- test db` — PASS, 338 assertions across 14 files.
+- `npm exec supabase -- db lint --local` — PASS, no schema errors.
+- `git diff --check` — PASS.
+
+No commit was created. The pre-existing uncommitted working tree was preserved.
+
+## Previous task — Customer Self-Service Portal
 
 **Status:** Implemented and verified locally on 2026-08-25. Not committed. No production connection, real provider, credential, or real customer data was used.
 

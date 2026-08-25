@@ -1,10 +1,13 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import './styles.css';
+import './operations.css';
+import './workflows.css';
+import './portal.css';
 
 export const metadata: Metadata = {
-  title: 'Veera Rentals V2',
-  description: 'Operations platform foundation for Veera Rentals',
+  title: { default: 'Veera Operations', template: '%s · Veera' },
+  description: 'Commercial fleet and rental operations platform',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
