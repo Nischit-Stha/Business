@@ -38,7 +38,9 @@ jwt_expiry = 3600
 enable_signup = false
 
 [auth.email]
-enable_signup = false
+# Keep global sign-ups disabled while allowing provisioned users to sign in
+# with email and password.
+enable_signup = true
 enable_confirmations = true
 
 [analytics]

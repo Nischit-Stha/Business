@@ -242,3 +242,12 @@ Untracked files/directories:
 - `supabase/tests/notification_engine_test.sql`
 
 `git diff --check` reports no whitespace errors. No commit was created.
+# Portal request workflow and secure document exchange — 2026-08-25
+
+- Added a six-state customer portal request lifecycle with staff assignment, customer-safe responses, audited decisions/completion, and controlled pickup/return rescheduling through the existing scheduling RPCs.
+- Added staff request queues and a pending-document review queue.
+- Added portal request history and customer uploads for driver licences and proof of address with content-signature checks, 10 MiB limits, sanitized names, server-generated private paths, immutable replacement history, and staff verification/rejection/replacement decisions.
+- Added customer document access authorization with 60-second signed URLs generated server-side; storage paths and signed URLs are never exposed in portal projections or persisted.
+- Added durable signed-agreement document types and a service-role registration boundary for already-signed PDFs, ready for a future Renta/signing-provider adapter without implementing e-signing.
+- Added customer-safe notification templates for request/document/agreement events and owner exception refresh for delayed requests, repeated rejection, and missing required documents.
+- Added pgTAP security/workflow coverage in `supabase/tests/portal_workflow_exchange_test.sql`.

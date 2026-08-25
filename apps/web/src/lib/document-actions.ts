@@ -3,9 +3,9 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { requireStaff } from '@/lib/auth';
+import { requireCustomer, requireStaff } from '@/lib/auth';
 import { createPrivilegedStorageClient } from '@/lib/supabase/privileged-storage';
-import { buildDocumentObjectPath, cleanDocumentFilename, detectDocumentType, DOCUMENT_MAX_BYTES } from '@/lib/document-validation';
+import { buildAgreementDocumentObjectPath, buildDocumentObjectPath, cleanDocumentFilename, detectDocumentType, DOCUMENT_MAX_BYTES } from '@/lib/document-validation';
 
 function safeReturnPath(value: FormDataEntryValue | null) {
   const path = String(value ?? '');
@@ -61,3 +61,31 @@ export async function viewDocument(form: FormData) {
   if (signedError || !data?.signedUrl) fail(path,signedError?.message ?? 'Unable to create secure link');
   redirect(data.signedUrl);
 }
+
+export async function uploadPortalDocument(form: FormData) {
+  const file = form.get('file');
+  if (!(file instanceof File) || file.size === 0) fail('/portal/documents', 'Choose a non-empty document');
+  if (file.size > DOCUMENT_MAX_BYTES) fail('/portal/documents', 'File size exceeds 10 MiB limit');
+  const bytes = new Uint8Array(await file.arrayBuffer()); const detected = detectDocumentType(bytes);
+  if (!detected) fail('/portal/documents', 'Only genuine PDF, JPEG, and PNG files are supported');
+  const [mime, rule] = detected; const documentType = String(form.get('documentType'));
+  if (!['DRIVER_LICENCE','PROOF_OF_ADDRESS'].includes(documentType)) fail('/portal/documents', 'Unsupported document type');
+  const { user, customerId } = await requireCustomer(); const objectPath = buildDocumentObjectPath(customerId, documentType, randomUUID(), rule.extension);
+  const storage = createPrivilegedStorageClient(); const checksum=createHash('sha256').update(bytes).digest('hex');
+  const {error:uploadError}=await storage.storage.from('customer-documents').upload(objectPath,bytes,{contentType:mime,upsert:false,cacheControl:'private, max-age=0'});
+  if(uploadError) fail('/portal/documents',uploadError.message);
+  const {error}=await storage.rpc('register_portal_document_upload',{p_actor:user.id,p_document_type:documentType,p_bucket:'customer-documents',p_object_path:objectPath,p_original_filename:cleanDocumentFilename(file.name),p_mime_type:mime,p_file_size:file.size,p_checksum_sha256:checksum,p_expiry_date:String(form.get('expiryDate')||'')||null});
+  if(error){await storage.storage.from('customer-documents').remove([objectPath]);fail('/portal/documents',error.message);} revalidatePath('/portal/documents');redirect('/portal/documents?uploaded=1');
+}
+
+export async function viewPortalDocument(form: FormData) {
+  const {supabase}=await requireCustomer(); const id=String(form.get('documentId'));
+  const {data,error}=await supabase.rpc('authorize_customer_document_access',{p_document_id:id}); const document=Array.isArray(data)?data[0]:data;
+  if(error||!document) fail('/portal/documents',error?.message??'Document unavailable');
+  const storage=createPrivilegedStorageClient(); const {data:link,error:linkError}=await storage.storage.from(document.storage_bucket).createSignedUrl(document.storage_object_path,60);
+  if(linkError||!link?.signedUrl) fail('/portal/documents',linkError?.message??'Unable to create secure link'); redirect(link.signedUrl);
+}
+
+export async function reviewPortalDocument(form:FormData){const {supabase}=await requireStaff();const {error}=await supabase.rpc('review_portal_document',{p_document_id:String(form.get('documentId')),p_decision:String(form.get('decision')),p_reason:String(form.get('reason')||'')||null});if(error)fail('/operations/documents',error.message);revalidatePath('/operations/documents');redirect('/operations/documents');}
+
+export async function uploadSignedAgreement(form:FormData){const customerId=String(form.get('customerId')),agreementId=String(form.get('agreementId'));const path=`/customers/${customerId}`;const file=form.get('file');if(!(file instanceof File)||file.size===0)fail(path,'Choose a signed PDF');if(file.size>DOCUMENT_MAX_BYTES)fail(path,'File size exceeds 10 MiB limit');const bytes=new Uint8Array(await file.arrayBuffer());const detected=detectDocumentType(bytes);if(!detected||detected[0]!=='application/pdf')fail(path,'Signed agreement must be a genuine PDF');const {user}=await requireStaff();const objectPath=buildAgreementDocumentObjectPath(customerId,agreementId,randomUUID());const storage=createPrivilegedStorageClient();const {error:uploadError}=await storage.storage.from('customer-documents').upload(objectPath,bytes,{contentType:'application/pdf',upsert:false,cacheControl:'private, max-age=0'});if(uploadError)fail(path,uploadError.message);const {error}=await storage.rpc('register_signed_agreement_upload',{p_actor:user.id,p_customer_id:customerId,p_agreement_id:agreementId,p_document_type:String(form.get('documentType')),p_object_path:objectPath,p_original_filename:cleanDocumentFilename(file.name),p_mime_type:'application/pdf',p_file_size:file.size,p_checksum_sha256:createHash('sha256').update(bytes).digest('hex')});if(error){await storage.storage.from('customer-documents').remove([objectPath]);fail(path,error.message);}revalidatePath(path);}

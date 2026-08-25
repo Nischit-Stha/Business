@@ -28,3 +28,5 @@ export function buildDocumentObjectPath(subjectId: string, documentType: string,
   }
   return `${customer ? 'customers' : 'vehicles'}/${subjectId}/${documentType.toLowerCase()}/${objectId}.${extension}`;
 }
+
+export function buildAgreementDocumentObjectPath(customerId:string,agreementId:string,objectId:string){const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;if(!uuid.test(customerId)||!uuid.test(agreementId)||!uuid.test(objectId))throw new Error('Invalid agreement document path input');return `customers/${customerId}/agreements/${agreementId}/${objectId}.pdf`;}
