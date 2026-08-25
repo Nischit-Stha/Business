@@ -55,9 +55,9 @@ select is((select agreements_checked from public.run_open_agreement_schedule_ext
 select public.report_vehicle_swap_failure((select id from public.agreements limit 1),'Synthetic failure');
 select public.report_vehicle_swap_failure((select id from public.agreements limit 1),'Synthetic failure updated');
 select is((select count(*)::integer from public.operational_exceptions where exception_type='VEHICLE_SWAP_FAILURE'),1,'open exceptions are deduplicated');
-select lives_ok($$select public.assign_exception((select id from public.operational_exceptions limit 1),'32000000-0000-4000-8000-000000000001')$$,'exception can be assigned');
-select lives_ok($$select public.resolve_exception((select id from public.operational_exceptions limit 1),'Reviewed synthetic failure')$$,'exception can be resolved');
-select is((select status from public.operational_exceptions limit 1),'RESOLVED','exception resolution is durable');
+select lives_ok($$select public.assign_exception((select id from public.operational_exceptions where exception_type='VEHICLE_SWAP_FAILURE'),'32000000-0000-4000-8000-000000000001')$$,'exception can be assigned');
+select lives_ok($$select public.resolve_exception((select id from public.operational_exceptions where exception_type='VEHICLE_SWAP_FAILURE'),'Reviewed synthetic failure')$$,'exception can be resolved');
+select is((select status from public.operational_exceptions where exception_type='VEHICLE_SWAP_FAILURE'),'RESOLVED','exception resolution is durable');
 
 select set_config('request.jwt.claim.sub','32000000-0000-4000-8000-000000000002',true);
 select is((select count(*)::integer from public.operational_exceptions),0,'unauthorized user cannot read exceptions');

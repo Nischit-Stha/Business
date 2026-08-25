@@ -4,6 +4,7 @@ import './styles.css';
 import './operations.css';
 import './workflows.css';
 import './portal.css';
+import { TrialBanner } from '@/components/trial-banner';
 
 export const metadata: Metadata = {
   title: { default: 'Veera Operations', template: '%s · Veera' },
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body><TrialBanner/>{children}</body>
     </html>
   );
 }

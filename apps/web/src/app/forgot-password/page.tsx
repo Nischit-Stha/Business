@@ -1,0 +1,3 @@
+import Link from 'next/link';
+import { requestPasswordRecovery } from '@/lib/account-actions';
+export default async function ForgotPassword({searchParams}:{searchParams:Promise<{sent?:string}>}){const {sent}=await searchParams;return <main className="auth-shell"><p className="eyebrow">Account recovery</p><h1>Reset your password</h1>{sent?<p role="status">If that account exists, a recovery link has been sent.</p>:<form action={requestPasswordRecovery} className="form-card"><label>Email<input name="email" type="email" autoComplete="email" required/></label><button>Send recovery link</button></form>}<Link href="/login">Back to sign in</Link></main>}

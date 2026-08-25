@@ -1,0 +1,16 @@
+import { expect,test,type Page } from '@playwright/test';
+const staff={email:'e2e.staff@example.test',password:'Synthetic-Staff-2026!'};
+const customerA={email:'e2e.customer.a@example.test',password:'Synthetic-Customer-A-2026!'};
+async function login(page:Page,kind:'staff'|'customer'){const account=kind==='staff'?staff:customerA;await page.goto(kind==='staff'?'/login':'/portal/login');await page.getByLabel('Email').fill(account.email);await page.getByLabel('Password').fill(account.password);await page.getByRole('button',{name:'Sign in'}).click();await expect(page).toHaveURL(kind==='staff'?/\/fleet$/:/\/portal$/);}
+test.describe('staff trial workflows',()=>{test.beforeEach(async({page})=>login(page,'staff'));
+ for(const [name,path,heading] of [
+  ['dashboard','/owner',/Operations|Dashboard|Good/],['customer lookup','/customers',/Customers/],['vehicle lookup','/fleet',/Fleet/],['payment review','/payments',/Payments/],['issue creation','/operations/issues/new',/Report vehicle issue/],['maintenance action','/operations/maintenance',/Maintenance/],['portal request review','/operations/portal-requests',/Customer requests/],['toll fine review','/operations/tolls-fines',/Toll|fine/i],
+ ] as const)test(name,async({page})=>{await page.goto(path);await expect(page).toHaveURL(new RegExp(path.replaceAll('/','\\/')));await expect(page.getByRole('heading',{level:1})).toContainText(heading);});
+ test('staff cannot use customer-only context',async({page})=>{await page.goto('/portal');await expect(page).toHaveURL(/portal\/access-denied/);});
+});
+test.describe('customer trial workflows',()=>{test.beforeEach(async({page})=>login(page,'customer'));
+ for(const [name,path,heading] of [['dashboard','/portal',/Avery|Portal/],['payments','/portal/payments',/Payments/],['vehicle','/portal/my-car',/My car/],['document upload','/portal/documents',/Documents/],['issue submission','/portal/issues',/Vehicle issues/],['portal request','/portal/profile',/Profile and requests/]] as const)test(name,async({page})=>{await page.goto(path);await expect(page.getByRole('heading',{level:1})).toContainText(heading);});
+ test('logout',async({page})=>{await page.getByRole('button',{name:/sign out/i}).click();await expect(page).toHaveURL(/portal\/login/);});
+ test('customer cannot access staff routes',async({page})=>{await page.goto('/fleet');await expect(page).toHaveURL(/access-denied/);});
+ test('customer A cannot access customer B data through projections',async({request})=>{const response=await request.post(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/token?grant_type=password`,{headers:{apikey:process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!},data:customerA});const token=(await response.json()).access_token;const rows=await request.get(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/portal_profile?customer_id=eq.10000000-0000-4000-8000-000000000002`,{headers:{apikey:process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,Authorization:`Bearer ${token}`}});expect(await rows.json()).toEqual([]);});
+});

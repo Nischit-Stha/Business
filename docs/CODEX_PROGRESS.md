@@ -1,5 +1,91 @@
 # Codex progress
 
+## Current task — Veera V2 Trial Readiness Sprint
+
+**Status:** Implemented and verified locally on 2026-08-25. Not committed and not deployed. Only synthetic local fixtures were used; no real customer, banking, government, RENTA, STARR365, SMS, or production system was connected.
+
+### 1. Completed workstreams
+
+- Customer onboarding: administrator-only staff/customer invitations through Supabase Auth, 24-hour metadata lifecycle, expiry job, resend, password setup/recovery, active/disabled portal and staff links, global session revocation, and immutable security audit records. Supabase owns raw invite/recovery tokens; Veera never persists them.
+- Account security: deny-by-default server role gates, fresh-session/AAL2 boundary for sensitive admin actions, MFA assurance-level integration point, password policy UI, session revocation, disabled Auth users, recovery enumeration resistance, and documented production Auth/rate-limit policy.
+- Email: replaceable provider interface retained; Resend email adapter added with environment-only configuration, idempotency key, 15-second timeout, safe error categories, existing immutable delivery-attempt logging, SENT on acceptance, and DELIVERED from verified Svix webhook receipts. Local remains the default.
+- Scheduler: authenticated POST-only endpoint, timing-safe bearer validation, service-role-only database wrapper bound to an active admin actor, fixed reviewed job registry, locking, minute idempotency/replay behavior, immutable execution/failure records, bounded batches, outer SQL timeout, request IDs and safe response summaries.
+- E2E: Playwright and synthetic Auth fixtures added; 18 browser tests pass.
+- Staging: complete environment/migration/Auth/Storage/email/scheduler/reset/backup/restore/rollback/smoke-test runbook added. Nothing was deployed.
+- Security hardening: reviewed RLS, server actions, Storage/signed URLs, SSR Auth, CSRF assumptions, rate limits, uploads, traversal, IDOR, privilege escalation, redirects, logging/errors, dependencies and secrets. Safe fixes and severity-ranked residual findings are in `docs/security-review-trial.md`.
+- Integration boundaries: typed, disabled-by-default RENTA and STARR365 adapters cover the requested operations and make no network calls.
+- Trial mode: persistent non-production/synthetic-data banner, external-provider fail-closed guard, documented safe reset, and admin-visible environment status without secret values.
+
+### 2. Provider choices
+
+- Application email: Resend behind `NotificationProvider`; production-capable but not enabled or live-tested with credentials.
+- Supabase Auth invitation/recovery email: Supabase custom SMTP, with Resend recommended in staging/production after domain verification.
+- Local default: `LocalNotificationProvider`; external use requires both `EMAIL_PROVIDER=RESEND` and explicit `ALLOW_EXTERNAL_PROVIDERS=true` outside production.
+- SMS was not added. RENTA and STARR365 remain disabled capability contracts only.
+
+### 3. Auth and security changes
+
+- New `account_invitations` and immutable `account_security_events` tables with admin-only RLS reads and controlled RPCs.
+- New server-only Supabase admin client; service-role credentials are never referenced from browser code.
+- New invite/setup/recovery/callback/admin access pages; callback has an allow-listed local redirect target.
+- Disabling access updates the Veera role/account link, bans the Supabase Auth user and globally revokes sessions. Password updates revoke other sessions.
+- Sensitive provisioning/disable/resend actions require an AAL2 session when available or a sign-in within ten minutes.
+- Production policy recommends mandatory admin MFA, 12+ character passwords, leaked-password checks, exact redirect origins, one-hour JWTs, refresh-token reuse detection, gateway CAPTCHA/rate limits and forced reauthentication for sensitive/financial actions.
+
+### 4. E2E coverage
+
+- Staff: login, owner dashboard, customer lookup, vehicle lookup, payment review, issue creation page, maintenance action page, portal request review and toll/fine review.
+- Customer: login, dashboard, payments, vehicle, document upload page, issue submission page, portal request page and logout.
+- Authorization: customer denied staff route, staff denied customer context, and Customer A receives no Customer B portal projection rows.
+- Fixtures are fixed synthetic `.example.test` identities loaded only by the local seed.
+
+### 5. Staging readiness
+
+- Ready for a controlled staging deployment review, secret provisioning, verified staging domain/Auth redirects, Resend domain/SMTP setup, scheduler secret/actor setup, backup validation and smoke/UAT execution.
+- The app prevents accidental external provider use in non-production by default and visibly labels local/trial mode.
+- No automatic production or staging deployment was performed.
+
+### 6. Remaining blockers before Veera trial
+
+- Provision an isolated staging Supabase project and host, secrets and exact Auth redirect allow-list; verify backup/restore and alert ownership.
+- Verify a sending domain and synthetic inboxes, configure Resend/Supabase SMTP and webhook, then conduct delivery/SENT/DELIVERED testing with explicit external-provider approval.
+- Configure the managed cron caller and dedicated active admin actor; test authentication, replay, overlap, timeout and alert behavior in staging.
+- Complete staff/customer UAT, accessibility/device testing, privacy/legal/content review, operational support and incident procedures.
+- Enable/test gateway rate limiting and CAPTCHA. Perform an independent focused RLS/IDOR/Storage security review before inviting trial users.
+
+### 7. Remaining blockers before production
+
+- Enforce MFA for all admins and deliver enrolment/recovery-code UX; add explicit high-risk financial reauthentication coverage.
+- Add WAF/edge limits, malware scanning/quarantine, CSP/security headers, centralized privacy-approved security telemetry, CI SAST/secret/dependency scanning and retention policies.
+- Complete independent penetration testing, disaster-recovery restore exercise, production monitoring/on-call readiness and formal go-live/rollback approval.
+- Confirm official RENTA/STARR365 capabilities and contracts before enabling any adapter. Banking/government/SMS integrations remain out of scope and disconnected.
+
+### 8. Files created/modified
+
+- Database/tests: `supabase/migrations/20260825050000_trial_readiness_security.sql`, `supabase/seed.sql`, and a deterministic selector correction in `supabase/tests/owner_operations_test.sql`.
+- Auth/admin/trial: account setup/reset, forgot-password, Auth callback, admin accounts/environment pages, account actions, server-only admin client, trial banner, auth/env/layout/login/style updates.
+- Email/scheduler: Resend provider/factory/tests, worker safe-category mapping, verified webhook route and authenticated scheduler route.
+- Integrations/E2E: `external-adapters.ts`, Playwright config and `e2e/trial-workflows.spec.ts`; package manifests/lockfile updated for Playwright and Svix.
+- Documentation/config: `.env.example`, `docs/trial-readiness.md`, `docs/security-review-trial.md`, and this report.
+- Unrelated untracked `apps/web/AGENTS.md` and `apps/web/CLAUDE.md` were preserved and not edited.
+
+### 9. Test totals and verification
+
+- `npm run lint` — PASS, zero warnings.
+- `npm run typecheck` — PASS.
+- `npm test` — PASS: 29 tests across 8 files.
+- `npm run build` — PASS: 47 app routes/static pages, including new Auth/admin/scheduler/webhook routes.
+- `npm run supabase:reset` — PASS against local project only, including migration and synthetic Auth seed.
+- `npm exec supabase -- test db` — PASS: 382 assertions across 15 SQL files.
+- `npm exec supabase -- db lint --local` — PASS: no schema errors or warnings.
+- `npm run test:e2e --workspace=@veera/web` — PASS: 18 browser tests.
+- `npm audit` — PASS: 0 vulnerabilities.
+- `git diff --check` — PASS.
+
+### 10. Git status
+
+Working tree contains the uncommitted sprint modifications/new files listed above, plus preserved unrelated untracked `apps/web/AGENTS.md` and `apps/web/CLAUDE.md`. No commit was created.
+
 ## Current task — Staff frontend and UX transformation
 
 **Status:** Implemented and verified locally on 2026-08-25. Not committed. No migrations, RLS policies, authorization rules, financial logic, operational workflows, credentials, or production data were changed.

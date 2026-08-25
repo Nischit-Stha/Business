@@ -11,7 +11,8 @@ export async function runNotificationWorker(client: Client, limit = 20, provider
   for (const row of (claimed.data ?? []) as Row[]) {
     const started = performance.now();
     const outcome = await provider.deliver({ id: row.id, channel: row.channel, recipient: row.recipient, subject: row.subject, renderedMessage: row.rendered_message });
-    const completed = await client.rpc('complete_notification', { p_id: row.id, p_claim_token: row.claim_token, p_outcome: outcome.kind, p_provider_message_id: outcome.kind === 'SUCCESS' ? outcome.providerMessageId : null, p_failure_reason: outcome.kind === 'SUCCESS' ? null : outcome.message, p_safe_error_category: outcome.kind === 'SUCCESS' ? null : 'UNKNOWN', p_duration_ms: Math.round(performance.now()-started), p_provider: 'LOCAL_SYNTHETIC' });
+    const safeCategory = outcome.kind === 'SUCCESS' ? null : ['TIMEOUT','RATE_LIMIT','INVALID_RECIPIENT','PROVIDER_UNAVAILABLE','REJECTED'].includes(outcome.message) ? outcome.message : 'UNKNOWN';
+    const completed = await client.rpc('complete_notification', { p_id: row.id, p_claim_token: row.claim_token, p_outcome: outcome.kind, p_provider_message_id: outcome.kind === 'SUCCESS' ? outcome.providerMessageId : null, p_failure_reason: outcome.kind === 'SUCCESS' ? null : safeCategory, p_safe_error_category: safeCategory, p_duration_ms: Math.round(performance.now()-started), p_provider: provider.name });
     if (completed.error) throw new Error(completed.error.message);
     results.push(completed.data);
   }
