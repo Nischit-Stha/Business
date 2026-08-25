@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(26);
+select plan(37);
 
 insert into auth.users(id,instance_id,aud,role,email,encrypted_password,email_confirmed_at,created_at,updated_at) values
 ('33000000-0000-4000-8000-000000000001','00000000-0000-0000-0000-000000000000','authenticated','authenticated','collections.staff@example.test','',now(),now(),now()),
@@ -34,18 +34,31 @@ select set_config('request.jwt.claim.role','authenticated',true);
 select lives_ok($$select public.create_toll_fine_notice('TOLL','EXACT-1','53000000-0000-4000-8000-000000000001','COL001',now()-interval '5 days',now()-interval '4 days',12.50,'SYNTHETIC')$$,'exact notice is created and matched');
 select is((select status from public.toll_fine_notices where external_reference='EXACT-1'),'MATCHED','exact single assignment is deterministic');
 select is((select matched_customer_id from public.notice_match_results where notice_id=(select id from public.toll_fine_notices where external_reference='EXACT-1')),'43000000-0000-4000-8000-000000000001'::uuid,'exact match returns customer');
-select lives_ok($$select public.create_toll_fine_notice('FINE','NONE-1','53000000-0000-4000-8000-000000000002','COL002',now()-interval '5 days',now()-interval '4 days',100,'SYNTHETIC')$$,'no-match notice is accepted for review');
-select is((select status from public.toll_fine_notices where external_reference='NONE-1'),'REVIEW_REQUIRED','no match requires review');
+select lives_ok($$select public.create_toll_fine_notice('PARKING_FINE','NONE-1','53000000-0000-4000-8000-000000000002','COL002',now()-interval '5 days',now()-interval '4 days',100,'SYNTHETIC')$$,'no-match notice is accepted for review');
+select is((select status from public.toll_fine_notices where external_reference='NONE-1'),'NEEDS_REVIEW','no match requires review');
 select lives_ok($$select public.create_toll_fine_notice('TOLL','AMBIG-1','53000000-0000-4000-8000-000000000003','COL003',now()-interval '5 days',now()-interval '4 days',20,'SYNTHETIC')$$,'ambiguous notice is accepted for review');
-select ok((select status='REVIEW_REQUIRED' from public.toll_fine_notices where external_reference='AMBIG-1') and (select candidate_count=2 from public.notice_match_results where notice_id=(select id from public.toll_fine_notices where external_reference='AMBIG-1')),'ambiguous match is not silently assigned');
-select throws_ok($$select public.review_notice_allocation((select id from public.toll_fine_notices where external_reference='AMBIG-1'),'CONFIRMED','43000000-0000-4000-8000-000000000001','63000000-0000-4000-8000-000000000002','Not allowed')$$,'P0001','confirmation must use exact automated match','ambiguous suggestion cannot be confirmed');
+select ok((select status='NEEDS_REVIEW' from public.toll_fine_notices where external_reference='AMBIG-1') and (select candidate_count=2 from public.notice_match_results where notice_id=(select id from public.toll_fine_notices where external_reference='AMBIG-1')),'ambiguous match is not silently assigned');
+select throws_ok($$select public.review_notice_allocation((select id from public.toll_fine_notices where external_reference='AMBIG-1'),'CONFIRMED','43000000-0000-4000-8000-000000000001','63000000-0000-4000-8000-000000000002','Not allowed')$$,'P0001','confirmation must use high-confidence automated match','ambiguous suggestion cannot be confirmed');
+select throws_ok($$select public.review_notice_allocation((select id from public.toll_fine_notices where external_reference='AMBIG-1'),'MANUALLY_ASSIGNED','43000000-0000-4000-8000-000000000002','63000000-0000-4000-8000-000000000003','')$$,'22023','override reason required','override reason is mandatory');
 select lives_ok($$select public.review_notice_allocation((select id from public.toll_fine_notices where external_reference='AMBIG-1'),'MANUALLY_ASSIGNED','43000000-0000-4000-8000-000000000002','63000000-0000-4000-8000-000000000003','Reviewed custody evidence')$$,'manual allocation with reason succeeds');
 select ok((select match_status='AMBIGUOUS' from public.notice_match_results where notice_id=(select id from public.toll_fine_notices where external_reference='AMBIG-1')) and (select automated_match_result_id is not null from public.notice_allocations where notice_id=(select id from public.toll_fine_notices where external_reference='AMBIG-1')),'manual override preserves automated result');
+select lives_ok($$select public.transition_toll_fine_notice((select id from public.toll_fine_notices where external_reference='AMBIG-1'),'DISPUTED','Synthetic dispute')$$,'confirmed notice can be disputed');
+select lives_ok($$select public.refresh_toll_fine_owner_attention()$$,'owner attention refresh runs');
+select is((select status from public.operational_exceptions where entity_id=(select id from public.toll_fine_notices where external_reference='AMBIG-1') and exception_type='DISPUTED_NOTICE'),'OPEN','dispute creates deduplicated owner attention');
+select lives_ok($$select public.transition_toll_fine_notice((select id from public.toll_fine_notices where external_reference='AMBIG-1'),'CANCELLED','Dispute resolved externally')$$,'disputed notice can be cancelled');
+select lives_ok($$select public.refresh_toll_fine_owner_attention()$$,'owner attention refresh clears resolved lifecycle items');
+select is((select status from public.operational_exceptions where entity_id=(select id from public.toll_fine_notices where external_reference='AMBIG-1') and exception_type='DISPUTED_NOTICE'),'RESOLVED','owner attention resolves when dispute closes');
 select is((select count(*)::integer from public.vehicle_assignments),3,'notice allocation does not alter assignment history');
 select lives_ok($$select public.review_notice_allocation((select id from public.toll_fine_notices where external_reference='EXACT-1'),'CONFIRMED','43000000-0000-4000-8000-000000000001','63000000-0000-4000-8000-000000000001','Confirmed against custody history')$$,'exact driver is confirmed');
-select lives_ok($$select public.transition_toll_fine_notice((select id from public.toll_fine_notices where external_reference='EXACT-1'),'NOMINATED','Synthetic nomination')$$,'notice can be nominated');
-select lives_ok($$select public.transition_toll_fine_notice((select id from public.toll_fine_notices where external_reference='EXACT-1'),'RESOLVED','Synthetic resolution')$$,'notice can be resolved');
+select lives_ok($$select public.transition_toll_fine_notice((select id from public.toll_fine_notices where external_reference='EXACT-1'),'TRANSFER_PENDING','Synthetic transfer preparation')$$,'notice can become transfer pending');
+select lives_ok($$select public.transition_toll_fine_notice((select id from public.toll_fine_notices where external_reference='EXACT-1'),'TRANSFERRED','Synthetic external completion')$$,'notice can be marked transferred');
 select is((select count(*)::integer from public.notice_status_history where notice_id=(select id from public.toll_fine_notices where external_reference='EXACT-1')),3,'resolution lifecycle history is retained');
+select ok((select transferred_at is not null from public.toll_fine_notices where external_reference='EXACT-1'),'transferred timestamp is recorded');
+reset role;
+select throws_ok($$update public.notice_match_results set reason='mutated' where notice_id=(select id from public.toll_fine_notices where external_reference='EXACT-1')$$,'P0001','historical toll/fine evidence is immutable','historical evidence cannot be mutated');
+set local role authenticated;
+select throws_ok($$select public.create_toll_fine_notice('TOLL','EXACT-1','53000000-0000-4000-8000-000000000001','COL001',now(),now(),1,'SYNTHETIC')$$,'23505',null,'duplicate external reference is rejected');
+select is((select match_confidence from public.toll_fine_notices where external_reference='EXACT-1'),'HIGH','clear custody receives high confidence');
 
 select public.create_agreement('43000000-0000-4000-8000-000000000001','53000000-0000-4000-8000-000000000001','WEEKLY_RENTAL',current_date-28,current_date+7,current_date-21,100);
 select public.transition_agreement((select id from public.agreements),'PENDING_SIGNATURE'); select public.transition_agreement((select id from public.agreements),'ACTIVE');

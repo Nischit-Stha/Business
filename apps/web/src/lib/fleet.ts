@@ -42,12 +42,9 @@ export async function getFleetOperations(): Promise<FleetOperation[]> {
 
 export async function getCustomers() {
   const { supabase } = await requireStaff();
-  const { data, error } = await supabase
-    .from('customers')
-    .select('id, full_name, phone, email, licence_expiry, status')
-    .order('full_name');
+  const { data, error } = await supabase.from('customer_operational_summary').select('*').order('full_name');
   if (error) throw new Error(`Unable to load customers: ${error.message}`);
-  return data ?? [];
+  return (data ?? []).map(row=>({...row,id:row.customer_id}));
 }
 
 export async function getAssignmentHistory() {

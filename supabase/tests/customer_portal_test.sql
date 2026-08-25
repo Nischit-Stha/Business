@@ -60,7 +60,7 @@ select is((select vehicle_id from public.vehicle_issues where source='CUSTOMER_P
 set local role authenticated; select set_config('request.jwt.claim.sub','36000000-0000-4000-8000-000000000002',true);
 select hasnt_column('public','portal_issues','assigned_to','issue view hides internal assignee');
 select hasnt_column('public','portal_issues','resolution','issue view hides staff resolution commentary');
-select is((select count(*)::int from public.portal_notifications),1,'customer sees own non-internal notification');
+select is((select count(*)::int from public.portal_notifications),2,'customer sees own non-internal notifications including payment receipt');
 select is((select count(*)::int from public.notifications),0,'raw notification rows remain inaccessible');
 select hasnt_column('public','portal_notifications','provider_message_id','notification history hides provider metadata');
 select hasnt_column('public','portal_notifications','failure_reason','notification history hides failure details');

@@ -324,3 +324,21 @@ Untracked files/directories:
 - Added durable signed-agreement document types and a service-role registration boundary for already-signed PDFs, ready for a future Renta/signing-provider adapter without implementing e-signing.
 - Added customer-safe notification templates for request/document/agreement events and owner exception refresh for delayed requests, repeated rejection, and missing required documents.
 - Added pgTAP security/workflow coverage in `supabase/tests/portal_workflow_exchange_test.sql`.
+
+# Tolls and fines automation — 2026-08-25
+
+- Added the provider-neutral toll/fine model, requested types and lifecycle, deterministic custody/agreement matching, explicit confidence states, and immutable evidence snapshots.
+- Added checksum/idempotency-protected synthetic CSV staging with server-side parsing/validation, duplicate external-reference handling, and per-row rejection reports.
+- Added `/operations/tolls-fines` queues, manual entry, match inspection, staff confirmation/override/no-match actions, dispute and transfer lifecycle controls, and active-staff authorization.
+- Added deduplicated owner attention for high-value unresolved fines, ambiguity, overdue transfers, repeated unmatched events, disputes, and assignment-history inconsistencies.
+- Added an intentionally disabled customer-safe projection and documented the future Starr365 adapter boundary in `docs/tolls-fines-automation.md`.
+- No real provider/government connection, production credential, customer portal access, or automatic liability transfer was added.
+
+# Operational automation sprint — 2026-08-25
+
+- Preserved and completed the toll/fine automation foundation with provider-neutral synthetic import, custody evidence, reviewed transfer workflow, and exception-only owner attention.
+- Added a fixed local/staging scheduled-job registry, bounded due runner, locking/idempotency, failure isolation, immutable terminal execution history, audited controls, and `/operations/automation`.
+- Completed payment-received notifications, configurable pre-due stages, immutable safe delivery attempts, internal delivery receipts, missing-contact attention, optional safe issue-status automation, bounded settings, and attention-first notification queues.
+- Added staff-safe customer, vehicle, movement-readiness, issue-queue, and notification-attention read models; adopted them in customer filtering, vehicle detail, and pickup/return decision screens.
+- Added focused pgTAP coverage for scheduler selection/locking/idempotency/failure isolation/authorization, notification completion, and read-model security/accuracy.
+- No production cron, provider, webhook, Starr365, toll provider, VicRoads, government system, credential, or real customer data was introduced.

@@ -1,0 +1,6 @@
+'use server';
+import {revalidatePath} from 'next/cache';import {redirect} from 'next/navigation';import {requireStaff} from '@/lib/auth';
+const field=(form:FormData,key:string)=>String(form.get(key)??'').trim();const fail=(message:string):never=>redirect(`/operations/automation?error=${encodeURIComponent(message)}`);
+export async function runJobNow(form:FormData){const {supabase}=await requireStaff();const {error}=await supabase.rpc('run_scheduled_job',{p_job_key:field(form,'jobKey'),p_trigger_source:'MANUAL',p_idempotency_key:`manual:${field(form,'jobKey')}:${crypto.randomUUID()}`});if(error)fail(error.message);revalidatePath('/operations/automation');revalidatePath('/owner');redirect('/operations/automation');}
+export async function runDueJobs(){const {supabase}=await requireStaff();const {error}=await supabase.rpc('run_due_scheduled_jobs',{p_limit:8});if(error)fail(error.message);revalidatePath('/operations/automation');revalidatePath('/notifications');revalidatePath('/owner');redirect('/operations/automation');}
+export async function setJobEnabled(form:FormData){const {supabase}=await requireStaff();const {error}=await supabase.rpc('set_scheduled_job_enabled',{p_job_key:field(form,'jobKey'),p_enabled:field(form,'enabled')==='true'});if(error)fail(error.message);revalidatePath('/operations/automation');redirect('/operations/automation');}
