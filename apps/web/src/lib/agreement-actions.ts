@@ -69,3 +69,9 @@ export async function reversePayment(form: FormData) {
   if (error) fail(`/agreements/${agreementId}`, error.message);
   revalidatePath(`/agreements/${agreementId}`); revalidatePath('/payments'); redirect(`/agreements/${agreementId}`);
 }
+
+export async function confirmRtoOwnershipTransfer(form:FormData){
+  const agreementId=value(form,'agreementId');const path=`/agreements/${agreementId}`;
+  const {supabase}=await requireStaff();const {error}=await supabase.rpc('confirm_rto_ownership_transfer',{p_agreement_id:agreementId,p_external_reference:value(form,'externalReference'),p_confirmation_note:value(form,'confirmationNote')});
+  if(error)fail(path,error.message);revalidatePath(path);redirect(path);
+}

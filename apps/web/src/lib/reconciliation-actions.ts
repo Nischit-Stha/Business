@@ -82,3 +82,5 @@ export async function reverseBankReconciliation(form: FormData) {
   const {error}=await supabase.rpc('reverse_bank_reconciliation',{p_transaction_id:id,p_reason:value(form,'reason')});if(error)fail(path,error.message);
   revalidatePath('/reconciliation');revalidatePath(path);revalidatePath('/payments');revalidatePath('/collections');redirect(path);
 }
+
+export async function updatePaymentInstructions(form:FormData){const path='/reconciliation';const{supabase}=await requireStaff();const{error}=await supabase.rpc('update_business_payment_instructions',{p_instructions:value(form,'instructions'),p_approved:form.get('approved')==='on',p_reason:value(form,'reason')});if(error)fail(path,error.message);revalidatePath(path);revalidatePath('/portal/payments');redirect(path);}

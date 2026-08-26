@@ -1,5 +1,189 @@
 # Codex progress
 
+## VEERA V2 AUTONOMOUS COMPLETION SPRINT
+
+**Status:** Safe repository work completed and verified locally on 2026-08-26. Branch remains `veera-v2`; no merge, push, remote deployment, production access, real data or real provider connection occurred.
+
+### Starting repository state
+
+- Started from commit `ddeb071` (`veera-v2-trial-ready`) plus the uncommitted staging/UAT work documented below.
+- Existing customer, fleet, assignment, agreement/payment, reconciliation, maintenance, issue, toll/fine, portal, notification, scheduler, Auth and private-document foundations were already implemented and extensively tested; they were preserved.
+- `docs/current-state-matrix.md` records the audited classification used to avoid redoing verified work.
+
+### Phases completed or safely extended
+
+- Finished local staging/UAT deliverables: structured issue register, realistic 150-vehicle demo data, representative responsive checks, performance evidence and demo path. Credential-dependent remote actions remain explicit blockers.
+- Added controlled rent-to-own completion: stored contract/schedule progress, amount paid/remaining balance, immutable administrator confirmation of external/legal transfer and a database guard preventing premature completion. Veera never performs ownership transfer.
+- Added **Today**, a direct daily staff task hub, and **Reports**, a compact trustworthy management snapshot without invented KPIs.
+- Replaced the full-ledger payments page read with bounded server-side Due/Overdue/Upcoming/Paid queues including customer, car, amounts, overdue age and reminder state.
+- Added audited administrator control of customer-visible PayID instructions. No bank/PayID connection was added.
+- Added invitation expiry to the fixed scheduler registry. Existing controlled portal rescheduling, document/request notifications and document aging were verified and retained.
+- Expanded the portal issue category list to match the complete staff model.
+- Added a provider-neutral disabled bank-feed boundary, a 500-vehicle synthetic scale extension, and future data-migration/integration runbooks.
+- Added/updated demo, business value, staff operations, technical deployment, production readiness and integration documentation.
+
+### Phases skipped because already complete
+
+- Customer approval/readiness; safe vehicle allocation and overlap protection; ordinary payment allocation/reversal; synthetic reconciliation; owner exceptions; portal request decisions with atomic schedule application; private document versioning; issue timeline; maintenance intervals/odometer/workshop rules; toll/fine custody matching; notification retry/deduplication/delivery attempts; Auth invitations/recovery; RENTA/STARR365 disabled interfaces; and security hardening already had working implementations and regression coverage.
+- Secure issue/service attachments were not added: the requested evidence can already be stored through the reviewed private document system, while a new attachment schema would expand sensitive-file scope without a demonstrated operational need.
+- No dead V1 or legacy messaging code was removed because it was not proven safe to delete during this sprint.
+
+### UX, security and scale findings
+
+- UX: staff can begin at Today, routine payments no longer render the entire schedule ledger, RTO completion language distinguishes operational completion from legal transfer, and PayID visibility is explicit/audited.
+- Security: new mutations are server-authorized; RTO and payment-setting evidence is immutable/attributable; public projections remain staff-gated; external adapters fail closed; no secrets entered source.
+- Scale: 500 vehicles/335 customers loaded successfully. Local PostgreSQL timings were approximately 16 ms for the 500-row fleet projection, 6 ms for a 250-row customer summary and 0.8 ms for the bounded overdue-payment queue. The scaled browser payments smoke improved from roughly 29 seconds to 8 seconds on first dev compilation; deployed production timing still requires staging measurement.
+
+### Tests and totals
+
+- `npm run lint` — PASS.
+- `npm run typecheck` — PASS.
+- `npm test` — PASS: 29 tests across 8 files.
+- `npm run build` — PASS: 49 routes/pages including `/today` and `/reports`.
+- `npm run supabase:reset` — PASS on the unlinked local project.
+- `npm exec supabase -- test db` — PASS: 401 assertions across 16 SQL files.
+- `npm exec supabase -- db lint --local` — PASS.
+- `npm run test:e2e --workspace=@veera/web` — PASS: 23 tests against 500-vehicle synthetic scale.
+- `npm audit` — PASS: 0 vulnerabilities.
+- `git diff --check` — PASS.
+
+### Commits and deployment state
+
+- No checkpoint commit was created; the sprint remains an uncommitted reviewable diff. No push was attempted.
+- Local staging-equivalent is operational. Remote staging Supabase/web host, exact public Auth origin, staging secrets, Resend domain/inboxes and managed scheduler caller were unavailable and therefore not deployed/configured.
+- Production integrations still absent: real bank/PayID feed, government systems, RENTA, STARR365, SMS/WhatsApp and production customer email.
+
+### Readiness and remaining HIGH risks
+
+- **Demo readiness:** ready for a supervised local synthetic demo using the demo guide and seed. Remote/email/managed-cron demonstration remains blocked externally.
+- **Trial readiness:** application-level foundation is strong, but real-user trial is blocked on isolated staging, provider certification, rate limits/CAPTCHA, monitoring/support ownership, backup restore evidence, accessibility/security review and UAT approval.
+- **Production readiness:** not ready. Highest risks are infrastructure/security operations, mandatory admin MFA enrolment, malware scanning, independent penetration/RLS review, privacy/legal/retention decisions, real-data migration reconciliation and incident/DR readiness.
+
+### Recommended next human actions
+
+1. Provision and approve the exact isolated staging Supabase project, web origin/domain, secrets, backup owner and alert owner.
+2. Execute `docs/deployment.md`, then conduct independent keyboard/screen-reader and RLS/IDOR/Storage review.
+3. Verify Resend/Supabase SMTP only with synthetic staging inboxes; configure managed cron and exercise failure alerts.
+4. Review agreement/RTO wording, PayID instructions, privacy/retention and trial support with the business/legal owners.
+5. Run a measured Veera demo/UAT, close every BLOCKER/HIGH item in `docs/UAT_ISSUES.md`, then approve a small real-user trial separately.
+
+### WHAT VEERA CAN DO NOW
+
+Veera can manage customers, fleet readiness/custody, three agreement types, weekly obligations and staged reconciliation, maintenance/compliance, issues, tolls/fines, documents, notifications, automation, daily work, owner exceptions and trustworthy management totals as one server-controlled system.
+
+### WHAT STAFF CAN DO NOW
+
+Staff can approve customers, allocate safe cars, create agreements, complete pickups/returns, record/reconcile/correct payments, manage service/issues/tolls/documents/requests, review automation and work from Today. Administrators can explicitly approve PayID instructions and confirm an externally completed RTO ownership transfer.
+
+### WHAT CUSTOMERS CAN DO NOW
+
+Customers can accept provisioned access, sign in/recover passwords, see their own car/agreement/payments/service/notifications, upload and securely view approved own documents, report issues, request schedule/contact changes, track safe responses and sign out.
+
+### WHAT IS STILL NOT CONNECTED
+
+No real bank/PayID feed, government service, RENTA, STARR365, SMS/WhatsApp or production email is connected. Remote staging and managed scheduling are not provisioned.
+
+### WHAT MUST HAPPEN BEFORE REAL CUSTOMER DATA
+
+Approve the migration mapping/dry-run/reconciliation plan, privacy and retention rules; provision isolated staging with monitoring/backups; complete independent security/accessibility review; certify providers; and obtain explicit business UAT approval.
+
+### WHAT MUST HAPPEN BEFORE PRODUCTION
+
+Close `docs/production-readiness-checklist.md`, including MFA, WAF/rate limits, malware scanning, telemetry/on-call, restore exercise, penetration test, legal/privacy/provider approvals, incident response and formal go-live/rollback ownership.
+
+## Current task — Staging Deployment and UAT Sprint
+
+**Status:** Local staging-equivalent sprint completed on 2026-08-25 with synthetic data only. No production system or real customer, banking, government, RENTA, STARR365, SMS, or email provider was connected. Remote staging deployment is blocked because an isolated Supabase project, web host, public staging origin, secrets, and provider accounts were not supplied.
+
+### 1. Staging environment status
+
+- Confirmed `supabase/config.toml` is an unlinked local project (`veera-v2-local`), then cleanly reapplied all 20 forward-only migrations and the default seed.
+- Local Auth/API/PostgreSQL/Storage/Mailpit services were available. Auth sign-in and staff/customer separation passed in browser tests; both document buckets and signed-access authorization passed database tests.
+- Trial/provider configuration remains fail closed: external providers, RENTA and STARR365 are disabled by default. No production flag was enabled.
+- Remote staging Supabase/web deployment, exact redirect allow-list, backup/restore validation, CAPTCHA/rate limits and staging alert ownership remain BLOCKED pending provisioned infrastructure and an approved exact staging origin.
+
+### 2. UAT workflows completed
+
+- Staff browser smoke: owner dashboard, customer and vehicle lookup, payments, issue creation, maintenance, portal-request review, toll/fine review, and route separation.
+- Customer browser smoke: invitation-ready login identity, portal dashboard, agreement/vehicle, payments, maintenance information, documents, issue/request pages, notification-visible portal data, password recovery entry, logout and cross-customer denial.
+- Database workflow suites cover customer approval/documents, assignment/blocking/pickup/return, exact/partial/multi-week/manual payments, ambiguous reconciliation, reminders, maintenance lifecycle, toll/fine match/review/override/transfer, portal request decisions, immutable audit/financial history, notifications and owner exceptions.
+- Scheduler database coverage passed for fixed job registry, staff/service boundary, locking, idempotency/duplicate prevention, bounded retry, failure isolation/history and repeated-failure owner attention. The managed HTTP caller/alert boundary remains untested without staging infrastructure.
+
+### 3. UAT issues found/fixed
+
+- Structured register: `docs/UAT_ISSUES.md`.
+- Found 2 BLOCKER, 3 HIGH, 2 MEDIUM and 1 LOW issues.
+- Fixed HIGH UAT-001 (missing realistic demo/scale seed), HIGH UAT-002 (null maintenance status crashed My Car), and LOW UAT-008 (redundant server-action form encoding warning).
+- Open issues are not hidden: remote staging and Resend are BLOCKERs; managed scheduler configuration is HIGH; payments first-load performance and full assistive-technology review remain open.
+
+### 4. Accessibility/responsive findings
+
+- Browser checks cover 1440×900 desktop, 1280×800 laptop, 768×1024 tablet, and 430×932, 390×844 and 360×800 mobile widths across major staff and portal pages.
+- Checked visible H1s, keyboard focus visibility and absence of document-level horizontal overflow. Existing semantic labels, status text (not color-only), responsive cards/tables and private-upload guidance remained intact.
+- No responsive blocker was found. Full axe, screen-reader and manual contrast/touch-target certification remains before a real-user trial.
+
+### 5. Security validation
+
+- 382 database assertions passed across 15 files, including cross-customer IDOR denial, base-table isolation, private Storage, signed-access authorization, immutable financial/audit history, duplicate controls and provider/scheduler boundaries.
+- Browser tests passed staff/customer route separation and direct Customer A → Customer B projection denial.
+- Environment tests passed fail-closed external-provider configuration. `npm audit` found 0 vulnerabilities; schema lint found no errors; no secret was added to source.
+- Staging-only gateway rate limits/CAPTCHA, real webhook receipt verification and an independent non-destructive security review remain required after infrastructure provisioning.
+
+### 6. Performance findings
+
+- Synthetic scale: 150 vehicles, 100 customers, 60 active agreements, 1,560 weekly schedule items and representative issues, maintenance, notifications and exceptions.
+- Local PostgreSQL measurements: owner metrics about 2.3 ms, fleet projection about 13.2 ms, customer operational summary about 5.0 ms.
+- The first dev-server browser load of `/payments` took roughly 24–26 seconds at scale. This is open as UAT-003; measure the deployed production build before adding a paginated/server-grouped read model.
+
+### 7. Demo dataset
+
+- Added `supabase/seed.uat.sql`, an additive, idempotent, synthetic-only UAT seed with explicit synthetic staff audit attribution.
+- It includes available and assigned vehicles, a workshop vehicle, overdue and fully paid schedules, an ambiguous synthetic payment, upcoming service, expired registration, pickup/return today, an open issue, a toll requiring review, a portal request and owner-attention inputs.
+- The default seed remains intentionally small so deterministic pgTAP assertions are not polluted.
+
+### 8. Demo walkthrough (10–15 minutes)
+
+1. Owner dashboard: show only actionable exceptions and explain management by exception.
+2. Fleet: filter available cars, open an assigned vehicle and show readiness blockers.
+3. Customer/assignment: open a synthetic approved customer and connect customer, car and agreement.
+4. Payments: show weekly schedule, overdue versus paid states and ambiguous reconciliation.
+5. Reminders: show queued/scheduled/delivered synthetic notifications and retry-safe automation.
+6. Maintenance: show upcoming service, workshop/off-road state and readiness restoration.
+7. Customer portal: sign in as Avery Example and show car, agreement, payments and private documents.
+8. Vehicle issue: show the open warning-light issue and its staff/customer lifecycle.
+9. Toll/fine: review the ambiguous synthetic notice and custody evidence.
+10. Owner queue: return to the exception queue and emphasize fewer calls, fewer manual checks and scalable fleet oversight.
+
+### 9. Test totals
+
+- `npm run lint` — PASS.
+- `npm run typecheck` — PASS.
+- `npm test` — PASS: 29 tests across 8 files.
+- `npm run build` — PASS: 47 routes/pages.
+- `npm run supabase:reset` — PASS, local unlinked project only.
+- `npm exec supabase -- test db` — PASS: 382 assertions across 15 SQL files.
+- `npm exec supabase -- db lint --local` — PASS: no schema errors.
+- `npm run test:e2e --workspace=@veera/web` — PASS: 21 tests against the scaled UAT dataset, including representative responsive widths.
+- `npm audit` — PASS: 0 vulnerabilities.
+- `git diff --check` — PASS.
+
+### 10. Blockers before Veera demo
+
+- For a local supervised demo: no code blocker after final checks; use synthetic identities and the UAT seed only.
+- For a remotely accessible staging demo: provision isolated Supabase/web projects, exact Auth callbacks, secrets, backup/restore ownership and smoke-test access.
+- Resend delivery and managed scheduler demonstrations are blocked until staging-only provider/domain/inbox and cron/alert configuration exists.
+
+### 11. Blockers before real-user trial
+
+- Resolve all BLOCKER/HIGH items in `docs/UAT_ISSUES.md`.
+- Complete real staging Auth/email/webhook/scheduler/storage smoke tests, rate-limit/CAPTCHA configuration, independent RLS/IDOR review, accessibility review, backup restore exercise and operational support/incident ownership.
+- Keep real banking, government, RENTA, STARR365 and SMS disconnected until separately reviewed and approved.
+
+### 12. Git status
+
+- Sprint changes are uncommitted as requested. No commit or remote deployment was created.
+- Changed files include the portal null-state fix, responsive E2E coverage, upload-form warning cleanup, this report, the UAT issue register and the synthetic UAT seed.
+
 ## Current task — Veera V2 Trial Readiness Sprint
 
 **Status:** Implemented and verified locally on 2026-08-25. Not committed and not deployed. Only synthetic local fixtures were used; no real customer, banking, government, RENTA, STARR365, SMS, or production system was connected.
