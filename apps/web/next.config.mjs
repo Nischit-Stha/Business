@@ -7,7 +7,7 @@ const nextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   async headers() {
-    const development = process.env.VEERA_RUNTIME_MODE === 'development' || !process.env.VEERA_RUNTIME_MODE;
+    const development = process.env.NODE_ENV === 'development';
     const scriptPolicy = development ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'" : "script-src 'self' 'unsafe-inline'";
     const connectPolicy = development ? "connect-src 'self' https://*.supabase.co wss://*.supabase.co http://127.0.0.1:54321 ws://127.0.0.1:54321" : "connect-src 'self' https://*.supabase.co wss://*.supabase.co";
     const securityHeaders = [

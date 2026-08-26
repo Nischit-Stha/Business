@@ -683,3 +683,51 @@ Untracked files/directories:
 ## 8. Git status
 
 The working tree contains the modified and untracked files listed above. Generated Playwright results were removed; `apps/web/next-env.d.ts` was restored after Next.js rewrote it during testing. No commit, push or deployment was performed.
+
+# Production build failure diagnosis — 2026-08-26
+
+## Root cause
+
+- The ignored local web environment file set `VEERA_RUNTIME_MODE=staging`, but `readRuntimeMode()` deliberately accepts only `development`, `trial`, or `production`.
+- The shared root layout renders `TrialBanner`, which calls `readRuntimeMode()` during static generation. Its validation error therefore failed every otherwise-static route, including `/_not-found`, before Next.js could print the underlying exception. `next build --debug-prerender` reported export failures on 46 paths.
+- A clean diagnostic build with only `VEERA_RUNTIME_MODE=trial` overridden generated all 50 routes. This isolated the failure from Supabase initialization, middleware, authenticated pages, runtime credentials, and dynamic route declarations.
+- The final route manifest confirms Auth, admin/environment, Today, Reports, Portal, and other authenticated Supabase-backed pages are dynamically rendered. No authentication or static-generation bypass was required.
+
+## Exact fix
+
+- Corrected `apps/web/.env.local` to the documented canonical staging/trial value: `VEERA_RUNTIME_MODE=trial`. The file remains ignored and no secret was added to source control.
+- Preserved strict runtime-mode validation so unknown deployment modes still fail closed.
+- Preserved the CSP fix: development alone permits `'unsafe-eval'`; production builds do not.
+- Restored generated `apps/web/next-env.d.ts` to the repository-expected `.next/types` imports after Next.js development/E2E generation.
+
+## Files changed
+
+- Local ignored configuration: `apps/web/.env.local`.
+- Preserved CSP feature files: `apps/web/next.config.mjs`, `apps/web/src/lib/security-headers.test.ts`.
+- Updated evidence: `docs/CODEX_PROGRESS.md`.
+- No source page, migration, authentication rule, Supabase client, middleware, or secret file was changed for the build fix.
+
+## Final verification and totals
+
+- `npm run lint`: pass, zero warnings.
+- `npm run typecheck`: pass.
+- `npm test`: 11 files, 39 tests passed.
+- `npm run build`: pass, 50/50 routes generated; authenticated/data-backed routes remain dynamic.
+- `npm run supabase:reset`: pass against the local `veera-v2` branch with all 22 forward migrations and synthetic seed.
+- `npm exec supabase -- test db`: 17 files, 409 assertions passed.
+- `npm exec supabase -- db lint --local`: pass, no schema errors.
+- `npm run test:e2e --workspace=@veera/web`: 25 tests passed in 2.6 minutes.
+- `npm audit`: zero vulnerabilities.
+- `git diff --check`: pass.
+- Combined automated assertion count: 473 (39 unit + 409 database + 25 browser), excluding lint, typecheck, build, audit, and schema lint.
+- No commit or push was performed.
+# Human UAT Fix Sprint 1 — 2026-08-26
+
+- Fixed the portal revoke crash. Root cause: the account action passed a user UUID to an Auth admin sign-out endpoint that requires a JWT, after already changing account/Auth state. Access changes now use an idempotent audited RPC, retain account relationships, write immutable security history, ban/unban through the supported Auth admin API, compensate Auth state if the database step fails, and show explicit results.
+- Separated planning from physical custody. Agreements and pickup checklists represent the planned vehicle; direct assignment is disabled; an ACTIVE custody row is created only by successful readiness-checked pickup completion.
+- Added an existing-data pickup handover card/checklist with scheduled/actual time, customer, vehicle, agreement, odometer, issues, approval/documents, compliance, maintenance, blockers, and required keys/vehicle confirmation.
+- Made return disposition server-derived. Maintenance work results in WORKSHOP; condition, issue, agreement, compliance, or overdue-service blockers result in OFF_ROAD; only a clear vehicle becomes AVAILABLE.
+- Confirmed Notifications as the durable staff workflow. Legacy Messaging is read-only and directs staff to Notifications.
+- Rebuilt Today as a concise actionable queue for overdue payments, pickups, returns, high/critical issues, maintenance/compliance blockers, approvals, portal requests, and notification failures.
+- Replaced the dense compliance grid with searchable blocking/warning/valid cards, plain-language states, prominent expiries, and collapsed updates without changing compliance rules.
+- Added database regression coverage for access audit/history, failed revoke, custody boundary, pickup confirmation, and safe return state; expanded browser coverage for Today actions, notification navigation, revoke/restore, and all required viewport widths.

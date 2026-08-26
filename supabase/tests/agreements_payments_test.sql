@@ -24,7 +24,10 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','31000000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claim.role','authenticated',true);
 
-select public.assign_vehicle_to_customer('41000000-0000-4000-8000-000000000001','51000000-0000-4000-8000-000000000001',100,now() - interval '30 days');
+set local role postgres;
+insert into public.vehicle_assignments(customer_id,vehicle_id,assigned_at,pickup_odometer,assignment_status,created_by) values('41000000-0000-4000-8000-000000000001','51000000-0000-4000-8000-000000000001',now()-interval '30 days',100,'ACTIVE','31000000-0000-4000-8000-000000000001');
+update public.vehicles set operational_status='ASSIGNED' where id='51000000-0000-4000-8000-000000000001';
+set local role authenticated;select set_config('request.jwt.claim.sub','31000000-0000-4000-8000-000000000001',true);select set_config('request.jwt.claim.role','authenticated',true);
 select lives_ok(
   format($sql$select public.create_agreement('41000000-0000-4000-8000-000000000001','51000000-0000-4000-8000-000000000001','WEEKLY_RENTAL',%L,%L,%L,100,0,null,null,null,null)$sql$,
     current_date - 14, current_date + 21, current_date - 14),
@@ -86,7 +89,10 @@ select ok((select count(*)=1 from public.payment_transactions where transaction_
   'reversal preserves the original receipt');
 select ok((select count(*) >= 1 from public.audit_events where action='PAYMENT_REVERSED'),'reversal is audited');
 
-select public.assign_vehicle_to_customer('41000000-0000-4000-8000-000000000001','51000000-0000-4000-8000-000000000002',100,now() - interval '2 days');
+set local role postgres;
+insert into public.vehicle_assignments(customer_id,vehicle_id,assigned_at,pickup_odometer,assignment_status,created_by) values('41000000-0000-4000-8000-000000000001','51000000-0000-4000-8000-000000000002',now()-interval '2 days',100,'ACTIVE','31000000-0000-4000-8000-000000000001');
+update public.vehicles set operational_status='ASSIGNED' where id='51000000-0000-4000-8000-000000000002';
+set local role authenticated;select set_config('request.jwt.claim.sub','31000000-0000-4000-8000-000000000001',true);select set_config('request.jwt.claim.role','authenticated',true);
 select public.create_agreement('41000000-0000-4000-8000-000000000001','51000000-0000-4000-8000-000000000002','WEEKLY_RENTAL',current_date,current_date,current_date,125);
 select public.transition_agreement((select id from public.agreements where vehicle_id='51000000-0000-4000-8000-000000000002'),'PENDING_SIGNATURE');
 select public.transition_agreement((select id from public.agreements where vehicle_id='51000000-0000-4000-8000-000000000002'),'ACTIVE');

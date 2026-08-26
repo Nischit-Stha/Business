@@ -11,24 +11,28 @@ insert into public.customers(id,full_name,licence_number,status) values('4300000
 insert into public.vehicles(id,registration,make,model,year,odometer,operational_status,weekly_rate) values
 ('53000000-0000-4000-8000-000000000001','RDY001','Synthetic','One',2025,1000,'AVAILABLE',100),
 ('53000000-0000-4000-8000-000000000002','RDY002','Synthetic','Two',2025,5000,'AVAILABLE',100);
+insert into public.agreements(id,customer_id,vehicle_id,agreement_type,status,start_date,first_due_date,weekly_amount,created_by) values
+('63000000-0000-4000-8000-000000000001','43000000-0000-4000-8000-000000000001','53000000-0000-4000-8000-000000000001','WEEKLY_RENTAL','ACTIVE',current_date,current_date,100,'33000000-0000-4000-8000-000000000001');
+insert into public.pickup_checklists(agreement_id,customer_id,vehicle_id,status,scheduled_at) values
+('63000000-0000-4000-8000-000000000001','43000000-0000-4000-8000-000000000001','53000000-0000-4000-8000-000000000001','PREPARING',now());
 set local role authenticated; select set_config('request.jwt.claim.role','authenticated',true); select set_config('request.jwt.claim.sub','33000000-0000-4000-8000-000000000001',true);
-select throws_ok($$select public.assign_vehicle_to_customer('43000000-0000-4000-8000-000000000001','53000000-0000-4000-8000-000000000001',1000)$$,'P0001','customer prerequisites are incomplete','unapproved customer blocked');
+select throws_ok($$select public.complete_pickup((select id from public.pickup_checklists),1000,now(),true)$$,'P0001','customer approval or required documents are incomplete','unapproved customer blocked');
 select public.decide_customer_approval('43000000-0000-4000-8000-000000000001','APPROVED');
-select throws_ok($$select public.assign_vehicle_to_customer('43000000-0000-4000-8000-000000000001','53000000-0000-4000-8000-000000000001',1000)$$,'P0001','customer prerequisites are incomplete','verified documents required');
+select throws_ok($$select public.complete_pickup((select id from public.pickup_checklists),1000,now(),true)$$,'P0001','customer approval or required documents are incomplete','verified documents required');
 select public.set_customer_document('43000000-0000-4000-8000-000000000001','DRIVER_LICENCE','VERIFIED',current_date-1);
 select public.set_customer_document('43000000-0000-4000-8000-000000000001','PROOF_OF_ADDRESS','VERIFIED',null);
 select is((select ready from public.customer_readiness where customer_id='43000000-0000-4000-8000-000000000001'),false,'expired licence blocks readiness');
 select public.set_customer_document('43000000-0000-4000-8000-000000000001','DRIVER_LICENCE','VERIFIED',current_date+365);
 select public.set_vehicle_compliance('53000000-0000-4000-8000-000000000001','REGISTRATION','EXPIRED',current_date-365,current_date-1);
 select public.set_vehicle_compliance('53000000-0000-4000-8000-000000000001','RWC','VALID',current_date,current_date+365);
-select throws_ok($$select public.assign_vehicle_to_customer('43000000-0000-4000-8000-000000000001','53000000-0000-4000-8000-000000000001',1000)$$,'P0001','vehicle compliance is incomplete or expired','expired registration blocks pickup');
+select throws_ok($$select public.complete_pickup((select id from public.pickup_checklists),1000,now(),true)$$,'P0001','vehicle registration or RWC is incomplete or expired','expired registration blocks pickup');
 select public.set_vehicle_compliance('53000000-0000-4000-8000-000000000001','REGISTRATION','VALID',current_date,current_date+365);
 select public.set_vehicle_compliance('53000000-0000-4000-8000-000000000001','RWC','MISSING',null,null);
-select throws_ok($$select public.assign_vehicle_to_customer('43000000-0000-4000-8000-000000000001','53000000-0000-4000-8000-000000000001',1000)$$,'P0001','vehicle compliance is incomplete or expired','missing RWC blocks pickup');
+select throws_ok($$select public.complete_pickup((select id from public.pickup_checklists),1000,now(),true)$$,'P0001','vehicle registration or RWC is incomplete or expired','missing RWC blocks pickup');
 select public.set_vehicle_compliance('53000000-0000-4000-8000-000000000001','RWC','EXPIRED',current_date-365,current_date-1);
-select throws_ok($$select public.assign_vehicle_to_customer('43000000-0000-4000-8000-000000000001','53000000-0000-4000-8000-000000000001',1000)$$,'P0001','vehicle compliance is incomplete or expired','expired RWC blocks pickup');
+select throws_ok($$select public.complete_pickup((select id from public.pickup_checklists),1000,now(),true)$$,'P0001','vehicle registration or RWC is incomplete or expired','expired RWC blocks pickup');
 select public.set_vehicle_compliance('53000000-0000-4000-8000-000000000001','RWC','VALID',current_date,current_date+365);
-select lives_ok($$select public.assign_vehicle_to_customer('43000000-0000-4000-8000-000000000001','53000000-0000-4000-8000-000000000001',1100)$$,'successful pickup readiness');
+select lives_ok($$select public.complete_pickup((select id from public.pickup_checklists),1100,now(),true)$$,'successful pickup readiness');
 select ok((select count(*)>0 from public.audit_events where action='CUSTOMER_APPROVED' and entity_id='43000000-0000-4000-8000-000000000001'),'approval decision is audited');
 select public.create_return_checklist((select id from public.vehicle_assignments where vehicle_id='53000000-0000-4000-8000-000000000001'));
 select lives_ok($$select public.complete_return((select id from public.return_checklists),1200,'GOOD',false,'RELEASE')$$,'return completes');

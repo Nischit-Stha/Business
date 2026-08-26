@@ -19,7 +19,10 @@ insert into public.vehicle_compliance(vehicle_id,compliance_type,status,issued_a
 set local role authenticated;
 select set_config('request.jwt.claim.sub','32000000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claim.role','authenticated',true);
-select public.assign_vehicle_to_customer('42000000-0000-4000-8000-000000000001','52000000-0000-4000-8000-000000000001',1000,now()-interval '20 days');
+set local role postgres;
+insert into public.vehicle_assignments(customer_id,vehicle_id,assigned_at,pickup_odometer,assignment_status,created_by) values('42000000-0000-4000-8000-000000000001','52000000-0000-4000-8000-000000000001',now()-interval '20 days',1000,'ACTIVE','32000000-0000-4000-8000-000000000001');
+update public.vehicles set operational_status='ASSIGNED' where id='52000000-0000-4000-8000-000000000001';
+set local role authenticated;select set_config('request.jwt.claim.sub','32000000-0000-4000-8000-000000000001',true);select set_config('request.jwt.claim.role','authenticated',true);
 select public.create_agreement('42000000-0000-4000-8000-000000000001','52000000-0000-4000-8000-000000000001','WEEKLY_RENTAL',current_date-14,null,current_date-14,100);
 select public.transition_agreement((select id from public.agreements where vehicle_id='52000000-0000-4000-8000-000000000001'),'PENDING_SIGNATURE');
 select public.transition_agreement((select id from public.agreements where vehicle_id='52000000-0000-4000-8000-000000000001'),'ACTIVE');
@@ -36,7 +39,10 @@ select is((select count(*)::integer from public.payment_transactions),(select pa
 select is((select count(*)::integer from public.payment_schedule_items),(select schedule from before_counts),'schedule is unchanged');
 select is((select count(*)::integer from public.vehicle_assignments where customer_id='42000000-0000-4000-8000-000000000001'),2,'assignment history is preserved');
 
-select public.assign_vehicle_to_customer('42000000-0000-4000-8000-000000000001','52000000-0000-4000-8000-000000000003',3000);
+set local role postgres;
+insert into public.vehicle_assignments(customer_id,vehicle_id,assigned_at,pickup_odometer,assignment_status,created_by) values('42000000-0000-4000-8000-000000000001','52000000-0000-4000-8000-000000000003',now(),3000,'ACTIVE','32000000-0000-4000-8000-000000000001');
+update public.vehicles set operational_status='ASSIGNED' where id='52000000-0000-4000-8000-000000000003';
+set local role authenticated;select set_config('request.jwt.claim.sub','32000000-0000-4000-8000-000000000001',true);select set_config('request.jwt.claim.role','authenticated',true);
 select throws_ok($$select public.swap_active_agreement_vehicle((select id from public.agreements where status='ACTIVE'),'52000000-0000-4000-8000-000000000003',1200,3000)$$,'P0001','replacement vehicle is not available','unavailable target is blocked');
 select throws_ok($$select public.swap_active_agreement_vehicle((select id from public.agreements where status='ACTIVE'),'52000000-0000-4000-8000-000000000004',900,4000)$$,'P0001','odometer cannot move backwards','failed swap rejects odometer rollback');
 select ok((select vehicle_id='52000000-0000-4000-8000-000000000002' from public.agreements where status='ACTIVE') and

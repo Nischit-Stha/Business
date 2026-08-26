@@ -34,14 +34,18 @@ export async function inviteAccount(form:FormData){
 }
 
 export async function setAccountEnabled(form:FormData){
-  await requireFreshAdmin();const userId=value(form,'userId'),enabled=value(form,'enabled')==='true',accountType=value(form,'accountType');if(!/^[0-9a-f-]{36}$/.test(userId))fail('Invalid account');
+  const {supabase}=await requireFreshAdmin();const userId=value(form,'userId'),enabled=value(form,'enabled')==='true',accountType=value(form,'accountType'),customerId=value(form,'customerId'),fullName=value(form,'fullName'),staffRole=value(form,'staffRole');if(!/^[0-9a-f-]{36}$/.test(userId)||!['STAFF','CUSTOMER'].includes(accountType))fail('Choose a valid account');
   const admin=createSupabaseAdminClient();
-  const table=accountType==='CUSTOMER'?'customer_portal_accounts':'staff_profiles';
-  const changes=accountType==='CUSTOMER'?{status:enabled?'ACTIVE':'DISABLED'}:{status:enabled?'ACTIVE':'DISABLED',is_active:enabled};
-  const {error}=await admin.from(table).update(changes).eq('user_id',userId);if(error)fail('Unable to change access');
-  const {error:authError}=await admin.auth.admin.updateUserById(userId,{ban_duration:enabled?'none':'876000h'});if(authError)fail('Access changed but Auth disable failed');
-  if(!enabled)await admin.auth.admin.signOut(userId,'global');
-  revalidatePath('/admin/accounts');redirect('/admin/accounts?updated=1');
+  const {error:authError}=await admin.auth.admin.updateUserById(userId,{ban_duration:enabled?'none':'876000h'});
+  if(authError)fail(`Access was not changed. Authentication access could not be ${enabled?'enabled':'revoked'}. Try again.`);
+  const {error}=accountType==='CUSTOMER'
+    ?await supabase.rpc('set_customer_portal_access',{p_user_id:userId,p_customer_id:customerId,p_enabled:enabled})
+    :await supabase.rpc('set_staff_access',{p_user_id:userId,p_full_name:fullName,p_role:staffRole,p_status:enabled?'ACTIVE':'DISABLED'});
+  if(error){
+    await admin.auth.admin.updateUserById(userId,{ban_duration:enabled?'876000h':'none'});
+    fail('Access was not changed. The account record could not be updated safely. Try again.');
+  }
+  revalidatePath('/admin/accounts');redirect(`/admin/accounts?updated=${enabled?'enabled':'revoked'}&type=${accountType.toLowerCase()}`);
 }
 
 export async function resendInvitation(form:FormData){

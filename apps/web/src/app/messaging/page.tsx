@@ -1,9 +1,58 @@
+import Link from 'next/link';
 import { StaffNav } from '@/components/staff-nav';
 import { requireStaff } from '@/lib/auth';
-import { cancelMessage, generateMessages, processMessages, retryMessage } from '@/lib/messaging-actions';
-
-const groups=[['Queued',['QUEUED','SENDING']],['Retrying',['RETRY_WAIT']],['Sent',['SENT','DELIVERED']],['Failed',['FAILED']],['Suppressed',['SUPPRESSED','CANCELLED']]] as const;
-export default async function MessagingPage({searchParams}:{searchParams:Promise<{error?:string}>}){
- const {error}=await searchParams;const {supabase}=await requireStaff();const {data}=await supabase.from('message_deliveries').select('id,logical_key,template_key,channel,provider,recipient,status,attempt_count,max_attempts,next_attempt_at,last_error_code,last_error,suppression_reason,created_at,customers(full_name)').order('created_at',{ascending:false}).limit(250);
- return <main><StaffNav/><p className="eyebrow">Synthetic delivery only — FAKE provider</p><h1>Messaging</h1>{error&&<p className="error">{error}</p>}<div className="inline-form"><form action={generateMessages}><button>Generate reminders</button></form><form action={processMessages}><button>Run fake worker</button></form></div>{groups.map(([label,statuses])=><section key={label}><h2>{label}</h2><div className="table-wrap"><table><thead><tr><th>Created</th><th>Customer</th><th>Template</th><th>Channel</th><th>Status</th><th>Attempts</th><th>Inspect</th><th>Action</th></tr></thead><tbody>{data?.filter(d=>(statuses as readonly string[]).includes(d.status)).map(d=><tr key={d.id}><td>{new Date(d.created_at).toLocaleString('en-AU')}</td><td>{d.customers?.[0]?.full_name}</td><td>{d.template_key}</td><td>{d.channel} / {d.provider}</td><td>{d.status}</td><td>{d.attempt_count}/{d.max_attempts}</td><td><details><summary>Details</summary><small>Recipient: {d.recipient??'none'}<br/>Key: {d.logical_key}<br/>Error: {d.last_error_code??'—'} {d.last_error??d.suppression_reason??''}<br/>Next: {d.next_attempt_at}</small></details></td><td>{d.status==='FAILED'?<form action={retryMessage}><input type="hidden" name="deliveryId" value={d.id}/><button>Retry safe failure</button></form>:['QUEUED','RETRY_WAIT'].includes(d.status)?<form action={cancelMessage}><input type="hidden" name="deliveryId" value={d.id}/><button>Cancel</button></form>:'—'}</td></tr>)}</tbody></table></div></section>)}</main>;
+export default async function MessagingPage() {
+  const { supabase } = await requireStaff();
+  const { data } = await supabase
+    .from('message_deliveries')
+    .select('id,template_key,channel,status,created_at,customers(full_name)')
+    .order('created_at', { ascending: false })
+    .limit(100);
+  return (
+    <main>
+      <StaffNav />
+      <p className="eyebrow">Legacy delivery history</p>
+      <h1>Messaging has moved</h1>
+      <div className="callout">
+        <strong>
+          Use Notification operations for all current customer reminders and
+          delivery failures.
+        </strong>
+        <p>
+          This read-only history remains available during migration. Do not
+          generate, retry, or cancel messages here.
+        </p>
+        <Link className="primary-link" href="/notifications">
+          Open Notification operations
+        </Link>
+      </div>
+      <section>
+        <h2>Legacy message history</h2>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Created</th>
+                <th>Customer</th>
+                <th>Template</th>
+                <th>Channel</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data?.map((d) => (
+                <tr key={d.id}>
+                  <td>{new Date(d.created_at).toLocaleString('en-AU')}</td>
+                  <td>{d.customers?.[0]?.full_name ?? '—'}</td>
+                  <td>{d.template_key.replaceAll('_', ' ').toLowerCase()}</td>
+                  <td>{d.channel}</td>
+                  <td>{d.status.replaceAll('_', ' ').toLowerCase()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  );
 }

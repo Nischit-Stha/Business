@@ -1,11 +1,11 @@
 import { createAgreement } from '@/lib/agreement-actions';
 
-type OptionData = { customers: Array<{ id: string; full_name: string }>; assignments: Array<{ customer_id: string; vehicle_id: string; vehicles: Array<{ registration: string; make: string; model: string }> }> };
+type OptionData = { customers: Array<{ id: string; full_name: string }>; vehicles: Array<{ id: string; registration: string; make: string; model: string }> };
 
 export function AgreementForm({ options }: { options: OptionData }) {
   return <form action={createAgreement} className="form-grid">
     <label>Customer<select name="customerId" required><option value="">Select customer</option>{options.customers.map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}</select></label>
-    <label>Assigned vehicle<select name="vehicleId" required><option value="">Select vehicle</option>{options.assignments.map((a) => <option key={a.vehicle_id} value={a.vehicle_id}>{a.vehicles[0]?.registration} — {a.vehicles[0]?.make} {a.vehicles[0]?.model}</option>)}</select><small>Activation verifies the selected customer and vehicle have a matching active assignment.</small></label>
+    <label>Vehicle planned for pickup<select name="vehicleId" required><option value="">Select a ready vehicle</option>{options.vehicles.map((v) => <option key={v.id} value={v.id}>{v.registration} — {v.make} {v.model}</option>)}</select><small>This plans the vehicle only. Physical custody starts after staff complete the pickup handover.</small></label>
     <label>Type<select name="agreementType" required><option>WEEKLY_RENTAL</option><option>RENT_TO_OWN</option><option>SHORT_TERM</option></select></label>
     <label>Weekly amount<input name="weeklyAmount" type="number" min="0.01" step="0.01" required /></label>
     <label>Start date<input name="startDate" type="date" required /></label>

@@ -28,12 +28,12 @@ export async function getAgreement(id: string) {
 
 export async function getAgreementFormOptions() {
   const { supabase } = await requireStaff();
-  const [customers, assignments] = await Promise.all([
+  const [customers, vehicles] = await Promise.all([
     supabase.from('customers').select('id, full_name').eq('status', 'ACTIVE').order('full_name'),
-    supabase.from('vehicle_assignments').select('customer_id, vehicle_id, vehicles(registration, make, model)').eq('assignment_status', 'ACTIVE'),
+    supabase.from('vehicles').select('id, registration, make, model').in('operational_status',['AVAILABLE','PICKUP_PENDING']).order('registration'),
   ]);
-  if (customers.error || assignments.error) throw new Error('Unable to load agreement options.');
-  return { customers: customers.data ?? [], assignments: assignments.data ?? [] };
+  if (customers.error || vehicles.error) throw new Error('Unable to load agreement options.');
+  return { customers: customers.data ?? [], vehicles: vehicles.data ?? [] };
 }
 
 export async function getPaymentsDashboard() {

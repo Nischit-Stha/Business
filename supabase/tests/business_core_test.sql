@@ -26,18 +26,19 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub', '30000000-0000-4000-8000-000000000001', true);
 select set_config('request.jwt.claim.role', 'authenticated', true);
 
-select lives_ok(
+select throws_ok(
   $$select public.assign_vehicle_to_customer('40000000-0000-4000-8000-000000000001', '50000000-0000-4000-8000-000000000001', 1010, now() - interval '3 hours')$$,
-  'staff can assign an available vehicle'
+  '55000','direct custody assignment is disabled; schedule and complete a pickup handover','direct assignment cannot start custody'
 );
 select is(
   (select operational_status from public.vehicles where id = '50000000-0000-4000-8000-000000000001'),
-  'ASSIGNED', 'assigned vehicle becomes ASSIGNED'
+  'AVAILABLE', 'planning does not change physical custody state'
 );
-select throws_ok(
-  $$select public.assign_vehicle_to_customer('40000000-0000-4000-8000-000000000001', '50000000-0000-4000-8000-000000000001', 1010, now() - interval '3 hours')$$,
-  'P0001', 'vehicle is not available', 'the same vehicle cannot be assigned twice'
-);
+select is((select count(*)::integer from public.vehicle_assignments),0,'planning creates no custody row');
+set local role postgres;
+insert into public.vehicle_assignments(customer_id,vehicle_id,assigned_at,pickup_odometer,assignment_status,created_by) values('40000000-0000-4000-8000-000000000001','50000000-0000-4000-8000-000000000001',now()-interval '3 hours',1010,'ACTIVE','30000000-0000-4000-8000-000000000001');
+update public.vehicles set operational_status='ASSIGNED',odometer=1010 where id='50000000-0000-4000-8000-000000000001';
+set local role authenticated;select set_config('request.jwt.claim.sub','30000000-0000-4000-8000-000000000001',true);select set_config('request.jwt.claim.role','authenticated',true);
 select throws_ok(
   $$select public.return_vehicle((select id from public.vehicle_assignments where vehicle_id = '50000000-0000-4000-8000-000000000001' and returned_at is null), 1009, now() - interval '2 hours')$$,
   'P0001', 'odometer cannot move backwards', 'return odometer cannot move backwards'
@@ -64,7 +65,10 @@ select throws_ok(
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '30000000-0000-4000-8000-000000000001', true);
 
-select public.assign_vehicle_to_customer('40000000-0000-4000-8000-000000000001', '50000000-0000-4000-8000-000000000002', 2010, now() - interval '1 hour');
+set local role postgres;
+insert into public.vehicle_assignments(customer_id,vehicle_id,assigned_at,pickup_odometer,assignment_status,created_by) values('40000000-0000-4000-8000-000000000001','50000000-0000-4000-8000-000000000002',now()-interval '1 hour',2010,'ACTIVE','30000000-0000-4000-8000-000000000001');
+update public.vehicles set operational_status='ASSIGNED',odometer=2010 where id='50000000-0000-4000-8000-000000000002';
+set local role authenticated;select set_config('request.jwt.claim.sub','30000000-0000-4000-8000-000000000001',true);select set_config('request.jwt.claim.role','authenticated',true);
 select lives_ok(
   $$select public.swap_vehicle((select id from public.vehicle_assignments where vehicle_id = '50000000-0000-4000-8000-000000000002' and returned_at is null), '50000000-0000-4000-8000-000000000003', 2020, 3010, now() - interval '30 minutes')$$,
   'active assignment can be swapped to an available vehicle'
