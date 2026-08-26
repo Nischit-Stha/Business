@@ -2,6 +2,7 @@ import 'server-only';
 
 import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { adminMfaDecision } from '@/lib/mfa-policy';
 
 export async function requireStaff() {
   const supabase = await createSupabaseServerClient();
@@ -22,17 +23,25 @@ export async function requireStaff() {
 export async function requireAdmin() {
   const context = await requireStaff();
   if (context.profile.role !== 'ADMIN') redirect('/access-denied');
+  const { data: assurance } = await context.supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  const decision = adminMfaDecision({ role: context.profile.role, currentLevel: assurance?.currentLevel ?? null, nextLevel: assurance?.nextLevel ?? null, enforcement: process.env.ADMIN_MFA_ENFORCEMENT });
+  if (decision === 'challenge') redirect('/admin/mfa?mode=challenge');
+  if (decision === 'enroll') redirect('/admin/mfa?mode=enroll');
   return context;
 }
 
-/** Sensitive actions require AAL2 when enrolled, otherwise a session issued in the last 10 minutes. */
+/** Sensitive actions always require AAL2 outside the explicitly documented rollout window. */
 export async function requireFreshAdmin() {
-  const context = await requireAdmin();
+  const context = await requireStaff();
+  if (context.profile.role !== 'ADMIN') redirect('/access-denied');
   const [{ data: assurance }, { data: sessionData }] = await Promise.all([
     context.supabase.auth.mfa.getAuthenticatorAssuranceLevel(), context.supabase.auth.getSession(),
   ]);
   const issuedAt = sessionData.session?.user.last_sign_in_at ? Date.parse(sessionData.session.user.last_sign_in_at) : 0;
-  if (assurance?.currentLevel !== 'aal2' && Date.now() - issuedAt > 10 * 60 * 1000) redirect('/login?error=Please%20sign%20in%20again%20for%20this%20sensitive%20action');
+  if (assurance?.currentLevel !== 'aal2') {
+    if (assurance?.nextLevel === 'aal2') redirect('/admin/mfa?mode=challenge');
+    if (process.env.ADMIN_MFA_ENFORCEMENT === 'required' || Date.now() - issuedAt > 10 * 60 * 1000) redirect('/admin/mfa?mode=enroll');
+  }
   return context;
 }
 

@@ -612,3 +612,74 @@ Untracked files/directories:
 - Added staff-safe customer, vehicle, movement-readiness, issue-queue, and notification-attention read models; adopted them in customer filtering, vehicle detail, and pickup/return decision screens.
 - Added focused pgTAP coverage for scheduler selection/locking/idempotency/failure isolation/authorization, notification completion, and read-model security/accuracy.
 - No production cron, provider, webhook, Starr365, toll provider, VicRoads, government system, credential, or real customer data was introduced.
+
+# Staging deployment and security hardening — 2026-08-26
+
+## 1. Implemented
+
+- Added an exact isolated staging topology, environment/secret classification, Auth origins, separation/promotion rules and external edge policies in `docs/staging-architecture.md`.
+- Added administrator TOTP enrollment/challenge UI and server enforcement. Enrolled admins are challenged to AAL2; sensitive account invitations/access changes require AAL2 or the documented short rollout fallback. `ADMIN_MFA_ENFORCEMENT=required` removes that fallback. Staff/customer behavior remains compatible.
+- Added a privacy-minimized immutable `security_events` model and an authenticated per-actor application budget for invitations, portal issues/requests and document uploads. Added authorization/rate/immutability pgTAP coverage.
+- Added CSP, nosniff, referrer, permissions, frame, opener and HTTPS-only HSTS policies. Local HTTP/Supabase connectivity is explicitly retained only in development.
+- Hardened uploads with an extension allow-list matching detected MIME/signature, active-content rejection, sanitized display names, random private paths, 10 MiB limit and safe errors. Added a scanner adapter boundary that fails closed in trial/production; local development permits structural validation only.
+- Reworked the admin readiness page to render only categorical state: environment, database configuration, providers, email, scheduler, MFA policy, backup evidence, scan capability and deployment/migration IDs.
+- Added executable database backup/restore scripts with target guards, checksums, restrictive permissions and a provider verification runbook. A local synthetic database dump and checksum were tested; restore was not run because no separate fresh local target was available.
+- Expanded Playwright accessibility assertions across priority staff, portal and Auth routes, including landmarks, headings, labels, visible keyboard focus, horizontal overflow and mobile widths. Added a manual screen-reader/contrast/touch checklist.
+- Added an independent security review checklist. This work is not represented as a penetration test or WCAG certification.
+
+## 2. Documented external infrastructure
+
+- Supabase Auth and hosting WAF rate limits, trusted edge-IP handling, 429/`Retry-After` behavior and alert thresholds.
+- Isolated staging project/domain/web deployment, secret-manager placement, exact Auth URL configuration and staging-only SMTP/provider tenancy.
+- Real quarantine/malware scanner selection, provider-authenticated verdict integration and release-from-quarantine workflow. Uploads remain fail-closed outside development until implemented.
+- Supabase managed backup/PITR retention and restore into a separate project, managed Auth portability, Storage export/restore, encryption and disaster-recovery evidence.
+- Provider-side webhook replay/rate policy, cron monitoring and independent security/accessibility manual review.
+
+## 3. Remaining blockers before remote staging
+
+- Provision and independently verify the isolated Supabase project, staging web host and final HTTPS domain; replace the example origin without wildcards.
+- Store staging-only secrets in host/provider secret managers, set release/migration IDs, keep all prohibited integrations disabled, and load only reviewed synthetic UAT data.
+- Implement a real quarantine/scanner adapter or accept that customer uploads remain unavailable (fail closed) in staging.
+- Configure and evidence Auth/WAF rate limits and security-event alert routing. Login/recovery failures cannot safely be observed by current server actions before Supabase authenticates; provider logs/hooks are required.
+- Enroll every staging administrator during `rollout`, verify recovery, then enable `required` and retest fresh sessions.
+- Execute database plus private Storage/Auth restore into a separate isolated staging project. The local database backup checksum alone is insufficient.
+- Review CSP against the chosen host in report-only/observability before enforcement if that host injects scripts; do not weaken directives without evidence.
+
+## 4. Remaining blockers before supervised real-user trial
+
+- Complete independent RLS/IDOR/Storage/signed-URL/privilege-escalation review and remediate findings.
+- Complete manual keyboard, screen-reader, contrast, zoom and touch-target review on supported browsers/devices.
+- Complete remote backup/restore evidence, incident/lockout recovery exercise, retention/privacy review and named operational ownership.
+- Integrate a production-grade malware scanner and validate quarantine, outage, rejection and safe release behavior.
+- Validate staging-only email deliverability, webhook verification/replay behavior, scheduler authentication/monitoring and repeated notification failure alerts using synthetic recipients before any supervised participant.
+- Approve a minimum-data trial dataset and consent/support process; do not migrate production data.
+
+## 5. Remaining blockers before production
+
+- Everything required for staging and trial, plus formal threat model, independent penetration test, production privacy/legal review, secrets/key rotation plan, monitoring/SIEM and incident response, capacity/load testing, dependency review, disaster-recovery objectives and successful provider-level restore exercise.
+- Separately review and approve every banking, government, RENTA, STARR365, SMS/WhatsApp or financial provider integration. None is connected by this work.
+- Provision fully separate production infrastructure/accounts/secrets and execute a reviewed go-live/rollback plan. Never promote staging data, Auth users or Storage objects.
+
+## 6. Files created/modified
+
+- Modified: `.env.example`, `apps/web/e2e/trial-workflows.spec.ts`, `apps/web/next.config.mjs`, `apps/web/src/app/admin/environment/page.tsx`, `apps/web/src/lib/account-actions.ts`, `apps/web/src/lib/auth.ts`, `apps/web/src/lib/document-actions.ts`, `apps/web/src/lib/document-validation.ts`, `apps/web/src/lib/document-validation.test.ts`, `apps/web/src/lib/env.ts`, `apps/web/src/lib/env.test.ts`, `apps/web/src/lib/portal-actions.ts`, `docs/CODEX_PROGRESS.md`.
+- Created: `apps/web/src/app/admin/mfa/page.tsx`, `apps/web/src/components/mfa-manager.tsx`, `apps/web/src/lib/abuse-control.ts`, `apps/web/src/lib/mfa-policy.ts`, `apps/web/src/lib/mfa-policy.test.ts`, `apps/web/src/lib/security-headers.test.ts`, `apps/web/src/lib/supabase/browser.ts`, `apps/web/src/lib/upload-scanner.ts`, `apps/web/src/lib/upload-scanner.test.ts`, `docs/accessibility-manual-checklist.md`, `docs/security-hardening-review.md`, `docs/staging-architecture.md`, `docs/staging-backup-restore-runbook.md`, `scripts/backup-staging.sh`, `scripts/restore-staging.sh`, `supabase/migrations/20260826010000_staging_security_hardening.sql`, `supabase/tests/security_hardening_test.sql`.
+
+## 7. Test evidence and totals
+
+- `npm run lint`: pass, zero warnings.
+- `npm run typecheck`: pass.
+- `npm test`: 11 files, 37 tests passed.
+- `npm run build`: pass, 50 routes generated/validated.
+- `npm run supabase:reset`: pass against local branch `veera-v2` with synthetic seed.
+- `npm exec supabase -- test db`: 17 files, 409 assertions passed.
+- `npm exec supabase -- db lint --local`: pass, no schema errors.
+- `npm run test:e2e --workspace=@veera/web`: 25 tests passed in approximately 1.6 minutes.
+- `npm audit`: zero vulnerabilities.
+- `git diff --check`: pass.
+- Backup: local synthetic PostgreSQL custom dump created (922,369 bytes) and SHA-256 verification passed. Restore and private Storage/provider-managed Auth recovery remain unverified and are not claimed.
+- Combined automated assertion count: 471 (37 unit + 409 database + 25 browser), excluding lint/type/build/audit checks.
+
+## 8. Git status
+
+The working tree contains the modified and untracked files listed above. Generated Playwright results were removed; `apps/web/next-env.d.ts` was restored after Next.js rewrote it during testing. No commit, push or deployment was performed.

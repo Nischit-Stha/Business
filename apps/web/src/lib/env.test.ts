@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readPrivateEnvironment, readPublicEnvironment } from './env';
+import { getReadinessState, readPrivateEnvironment, readPublicEnvironment } from './env';
 
 describe('readPublicEnvironment', () => {
   it('returns configured local values', () => {
@@ -25,6 +25,16 @@ describe('readPublicEnvironment', () => {
         NEXT_PUBLIC_SUPABASE_ANON_KEY: 'replace-with-local-anon-key',
       }),
     ).toThrow(/must contain local or staging values/);
+  });
+});
+
+describe('getReadinessState', () => {
+  it('returns only categorical readiness state and never secret values', () => {
+    const secret = 'synthetic-secret-never-render';
+    const state = getReadinessState({ VEERA_RUNTIME_MODE:'trial', NEXT_PUBLIC_SUPABASE_URL:'https://staging.example.test', SUPABASE_SERVICE_ROLE_KEY:secret, SCHEDULER_SECRET:secret, SCHEDULER_ACTOR_USER_ID:'synthetic', EMAIL_PROVIDER:'RESEND' });
+    expect(state.environment).toBe('trial');
+    expect(state.email).toBe('misconfigured');
+    expect(JSON.stringify(state)).not.toContain(secret);
   });
 });
 

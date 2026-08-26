@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { requireFreshAdmin } from '@/lib/auth';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { consumeActionBudget } from '@/lib/abuse-control';
 
 const value=(form:FormData,key:string)=>String(form.get(key)??'').trim();
 const fail=(message:string):never=>redirect(`/admin/accounts?error=${encodeURIComponent(message)}`);
@@ -12,7 +13,7 @@ const emailPattern=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 function appUrl(){const url=process.env.NEXT_PUBLIC_APP_URL;if(!url)throw new Error('NEXT_PUBLIC_APP_URL is required');return new URL(url).origin;}
 
 export async function inviteAccount(form:FormData){
-  const {supabase}=await requireFreshAdmin(); const email=value(form,'email').toLowerCase(),accountType=value(form,'accountType'),fullName=value(form,'fullName'),customerId=value(form,'customerId')||null,staffRole=value(form,'staffRole')||null;
+  const {supabase}=await requireFreshAdmin(); try{await consumeActionBudget(supabase,'INVITATION',20,3600);}catch(error){fail((error as Error).message);} const email=value(form,'email').toLowerCase(),accountType=value(form,'accountType'),fullName=value(form,'fullName'),customerId=value(form,'customerId')||null,staffRole=value(form,'staffRole')||null;
   if(!emailPattern.test(email)||!['STAFF','CUSTOMER'].includes(accountType)||!fullName||fullName.length>120)fail('Invalid invitation details');
   if((accountType==='CUSTOMER')!==Boolean(customerId))fail('Choose a customer for customer access');
   const admin=createSupabaseAdminClient();
